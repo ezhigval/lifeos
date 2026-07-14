@@ -114,6 +114,8 @@ type MessageHandler struct {
 	tzReader         interface {
 		Timezone(ctx context.Context, userID ids.UserID) (string, error)
 	}
+	deleteUser      *identityapp.DeleteUser
+	adminTelegramID int64
 }
 
 type Deps struct {
@@ -182,6 +184,8 @@ type Deps struct {
 	TZReader         interface {
 		Timezone(ctx context.Context, userID ids.UserID) (string, error)
 	}
+	DeleteUser      *identityapp.DeleteUser
+	AdminTelegramID int64
 }
 
 func NewHandler(d Deps) *MessageHandler {
@@ -211,7 +215,8 @@ func NewHandler(d Deps) *MessageHandler {
 		recordSteps: d.RecordSteps, latestSteps: d.LatestSteps,
 		recordSleep: d.RecordSleep, latestSleep: d.LatestSleep,
 		updateMorning: d.UpdateMorning, updateEvening: d.UpdateEvening, updateQuiet: d.UpdateQuiet,
-		tzReader: d.TZReader,
+		tzReader:   d.TZReader,
+		deleteUser: d.DeleteUser, adminTelegramID: d.AdminTelegramID,
 	}
 }
 
@@ -248,6 +253,53 @@ func (h *MessageHandler) HandleUpdate(ctx context.Context, update Update) error 
 			_ = h.present(ctx, user.ID, chatID, out)
 		}
 		return h.processed.Mark(ctx, update.UpdateID)
+	}
+
+	if normalizeBotCommand(text) == CmdDelete {
+		out, err := h.beginDeleteUser(ctx, user.ID, update.Message.From.ID, update.Message.From.Username, text)
+		if err != nil {
+			out = dispatchResult{text: "Ошибка: " + err.Error()}
+		}
+		if err := h.present(ctx, user.ID, chatID, out); err != nil {
+			return err
+		}
+		if err := h.client.DeleteMessage(ctx, chatID, userMsgID); err != nil {
+			h.log.Debug("delete user message failed", "chat_id", chatID, "message_id", userMsgID, "error", err)
+		}
+		return h.processed.Mark(ctx, update.UpdateID)
+	}
+
+	if sess, serr := h.sessions.Get(ctx, user.ID); serr == nil {
+		if _, ok := payloadInt64(sess.StatePayload, PayloadPendingDeleteTG); ok {
+			var (
+				out dispatchResult
+				err error
+			)
+			switch {
+			case isDeleteConfirmText(text):
+				out, err = h.confirmPendingDelete(ctx, user.ID, update.Message.From.ID, chatID, userMsgID)
+				if err == nil {
+					if fresh, eerr := h.ensureUser.Execute(ctx, identityapp.EnsureUserInput{
+						TelegramID:  update.Message.From.ID,
+						DisplayName: FormatDisplayName(update.Message.From),
+					}); eerr == nil {
+						user = fresh
+					}
+				}
+			case isCancelText(text):
+				out, err = h.cancelPendingDelete(ctx, user.ID)
+			}
+			if out.text != "" || err != nil {
+				if err != nil {
+					out = dispatchResult{text: "Ошибка: " + err.Error()}
+				}
+				if perr := h.present(ctx, user.ID, chatID, out); perr != nil {
+					return perr
+				}
+				_ = h.client.DeleteMessage(ctx, chatID, userMsgID)
+				return h.processed.Mark(ctx, update.UpdateID)
+			}
+		}
 	}
 
 	out, err := h.handleText(ctx, user.ID, text)
@@ -347,6 +399,19 @@ func (h *MessageHandler) handleCallback(ctx context.Context, update Update) erro
 		out, err = h.confirmDraftTaskSkip(ctx, user.ID)
 	case strings.HasPrefix(data, CBDraftProject):
 		out, err = h.toggleDraftProject(ctx, user.ID, strings.TrimPrefix(data, CBDraftProject))
+	case data == CBDeleteOK:
+		out, err = h.confirmPendingDelete(ctx, user.ID, update.CallbackQuery.From.ID, chatID, update.CallbackQuery.Message.MessageID)
+		if err == nil {
+			// Self-delete recreates the user with a new id.
+			if fresh, eerr := h.ensureUser.Execute(ctx, identityapp.EnsureUserInput{
+				TelegramID:  update.CallbackQuery.From.ID,
+				DisplayName: FormatDisplayName(update.CallbackQuery.From),
+			}); eerr == nil {
+				user = fresh
+			}
+		}
+	case data == CBDeleteCancel:
+		out, err = h.cancelPendingDelete(ctx, user.ID)
 	default:
 		return nil
 	}

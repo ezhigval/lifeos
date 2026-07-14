@@ -6,6 +6,7 @@ const (
 	CmdStart   = "/start"
 	CmdCancel  = "/cancel"
 	CmdClear   = "/clear"
+	CmdDelete  = "/delete"
 	TextCancel = "отмена"
 )
 

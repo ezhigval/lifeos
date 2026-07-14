@@ -9,23 +9,21 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	calendarapp "github.com/valentinezhov/lifeos/internal/calendar/app"
+	calendarinfra "github.com/valentinezhov/lifeos/internal/calendar/infra"
+	careerapp "github.com/valentinezhov/lifeos/internal/career/app"
+	careerinfra "github.com/valentinezhov/lifeos/internal/career/infra"
 	financeapp "github.com/valentinezhov/lifeos/internal/finance/app"
 	financeinfra "github.com/valentinezhov/lifeos/internal/finance/infra"
 	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
 	habitsinfra "github.com/valentinezhov/lifeos/internal/habits/infra"
-	healthinfra "github.com/valentinezhov/lifeos/internal/health/infra"
 	healthapp "github.com/valentinezhov/lifeos/internal/health/app"
-	knowledgeapp "github.com/valentinezhov/lifeos/internal/knowledge/app"
-	knowledgeinfra "github.com/valentinezhov/lifeos/internal/knowledge/infra"
-	careerapp "github.com/valentinezhov/lifeos/internal/career/app"
-	careerinfra "github.com/valentinezhov/lifeos/internal/career/infra"
-	calendarinfra "github.com/valentinezhov/lifeos/internal/calendar/infra"
-	calendarapp "github.com/valentinezhov/lifeos/internal/calendar/app"
-	projectsinfra "github.com/valentinezhov/lifeos/internal/projects/infra"
-	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
+	healthinfra "github.com/valentinezhov/lifeos/internal/health/infra"
 	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
 	identitydomain "github.com/valentinezhov/lifeos/internal/identity/domain"
 	identityinfra "github.com/valentinezhov/lifeos/internal/identity/infra"
+	knowledgeapp "github.com/valentinezhov/lifeos/internal/knowledge/app"
+	knowledgeinfra "github.com/valentinezhov/lifeos/internal/knowledge/infra"
 	notifapp "github.com/valentinezhov/lifeos/internal/notifications/app"
 	notifinfra "github.com/valentinezhov/lifeos/internal/notifications/infra"
 	planapp "github.com/valentinezhov/lifeos/internal/planning/app"
@@ -35,6 +33,8 @@ import (
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
 	"github.com/valentinezhov/lifeos/internal/platform/postgres"
 	"github.com/valentinezhov/lifeos/internal/platform/scheduler"
+	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
+	projectsinfra "github.com/valentinezhov/lifeos/internal/projects/infra"
 	"github.com/valentinezhov/lifeos/internal/query"
 	settingsapp "github.com/valentinezhov/lifeos/internal/settings/app"
 	settingsinfra "github.com/valentinezhov/lifeos/internal/settings/infra"
@@ -47,73 +47,73 @@ import (
 )
 
 type runtime struct {
-	cfg      config.Config
-	log      *slog.Logger
-	pool     *pgxpool.Pool
-	handler  *tg.MessageHandler
-	poller   *tg.Poller
-	sched    *scheduler.Scheduler
-	tgClient *tg.Client
-	notifier *notifinfra.TelegramNotifier
-	review   *query.Review
-	quiet    *settingsinfra.QuietHours
-	reminder *notifapp.ScheduleReminder
-	listReminders *notifapp.ListReminders
+	cfg            config.Config
+	log            *slog.Logger
+	pool           *pgxpool.Pool
+	handler        *tg.MessageHandler
+	poller         *tg.Poller
+	sched          *scheduler.Scheduler
+	tgClient       *tg.Client
+	notifier       *notifinfra.TelegramNotifier
+	review         *query.Review
+	quiet          *settingsinfra.QuietHours
+	reminder       *notifapp.ScheduleReminder
+	listReminders  *notifapp.ListReminders
 	cancelReminder *notifapp.CancelReminder
-	settings *settingsinfra.Repository
-	users    *identityinfra.Repository
+	settings       *settingsinfra.Repository
+	users          *identityinfra.Repository
 
-	listToday  *tasksapp.ListTasksToday
-	createTask *tasksapp.CreateTask
-	completeTask *tasksapp.CompleteTask
-	projectProg  *projectsapp.GetProjectProgress
-	priorities *query.GetTopPriorities
-	analytics  *query.GetProductivitySummary
-	recordIncome *financeapp.RecordIncome
-	recordExpense *financeapp.RecordExpense
-	listDebts  *financeapp.ListDebts
-	createDebt *financeapp.CreateDebt
-	payDebt    *financeapp.PayDebt
-	cashFlow   *financeapp.CashFlowSummary
-	listHabits *habitsapp.ListHabitsToday
-	createHabit *habitsapp.CreateHabit
-	trackHabit *habitsapp.TrackHabit
-	listCalendar *calendarapp.ListEventsToday
-	createEvent  *calendarapp.CreateEvent
-	listProjects *projectsapp.ListProjects
-	createProject *projectsapp.CreateProject
-	archiveProject *projectsapp.ArchiveProject
+	listToday        *tasksapp.ListTasksToday
+	createTask       *tasksapp.CreateTask
+	completeTask     *tasksapp.CompleteTask
+	projectProg      *projectsapp.GetProjectProgress
+	priorities       *query.GetTopPriorities
+	analytics        *query.GetProductivitySummary
+	recordIncome     *financeapp.RecordIncome
+	recordExpense    *financeapp.RecordExpense
+	listDebts        *financeapp.ListDebts
+	createDebt       *financeapp.CreateDebt
+	payDebt          *financeapp.PayDebt
+	cashFlow         *financeapp.CashFlowSummary
+	listHabits       *habitsapp.ListHabitsToday
+	createHabit      *habitsapp.CreateHabit
+	trackHabit       *habitsapp.TrackHabit
+	listCalendar     *calendarapp.ListEventsToday
+	createEvent      *calendarapp.CreateEvent
+	listProjects     *projectsapp.ListProjects
+	createProject    *projectsapp.CreateProject
+	archiveProject   *projectsapp.ArchiveProject
 	listProjectTasks *tasksapp.ListTasksByProject
-	getSettings  *settingsapp.GetSettings
-	updateMorning *settingsapp.UpdateMorningReview
-	updateEvening *settingsapp.UpdateEveningReview
-	updateQuiet  *settingsapp.UpdateQuietHours
-	createNote   *knowledgeapp.CreateNote
-	listNotes    *knowledgeapp.ListNotes
-	searchNotes  *knowledgeapp.SearchNotes
-	deleteNote   *knowledgeapp.DeleteNote
-	recordWeight *healthapp.RecordWeight
-	latestWeight *healthapp.GetLatestWeight
-	listWeights  *healthapp.ListWeights
-	recordSteps  *healthapp.RecordSteps
-	latestSteps  *healthapp.GetLatestSteps
-	listSteps    *healthapp.ListSteps
-	recordSleep  *healthapp.RecordSleep
-	latestSleep  *healthapp.GetLatestSleep
-	listSleep    *healthapp.ListSleep
-	createContact *careerapp.CreateContact
-	listContacts  *careerapp.ListContacts
-	searchContacts *careerapp.SearchContacts
-	deleteContact *careerapp.DeleteContact
-	createSkill   *careerapp.CreateSkill
-	listSkills    *careerapp.ListSkills
-	searchSkills  *careerapp.SearchSkills
-	deleteSkill   *careerapp.DeleteSkill
-	createSphere  *spheresapp.CreateSphere
-	listSpheres   *spheresapp.ListSpheres
-	updateSphere  *spheresapp.UpdateSphere
-	deleteSphere  *spheresapp.DeleteSphere
-	findSphere    *spheresapp.FindSphereByName
+	getSettings      *settingsapp.GetSettings
+	updateMorning    *settingsapp.UpdateMorningReview
+	updateEvening    *settingsapp.UpdateEveningReview
+	updateQuiet      *settingsapp.UpdateQuietHours
+	createNote       *knowledgeapp.CreateNote
+	listNotes        *knowledgeapp.ListNotes
+	searchNotes      *knowledgeapp.SearchNotes
+	deleteNote       *knowledgeapp.DeleteNote
+	recordWeight     *healthapp.RecordWeight
+	latestWeight     *healthapp.GetLatestWeight
+	listWeights      *healthapp.ListWeights
+	recordSteps      *healthapp.RecordSteps
+	latestSteps      *healthapp.GetLatestSteps
+	listSteps        *healthapp.ListSteps
+	recordSleep      *healthapp.RecordSleep
+	latestSleep      *healthapp.GetLatestSleep
+	listSleep        *healthapp.ListSleep
+	createContact    *careerapp.CreateContact
+	listContacts     *careerapp.ListContacts
+	searchContacts   *careerapp.SearchContacts
+	deleteContact    *careerapp.DeleteContact
+	createSkill      *careerapp.CreateSkill
+	listSkills       *careerapp.ListSkills
+	searchSkills     *careerapp.SearchSkills
+	deleteSkill      *careerapp.DeleteSkill
+	createSphere     *spheresapp.CreateSphere
+	listSpheres      *spheresapp.ListSpheres
+	updateSphere     *spheresapp.UpdateSphere
+	deleteSphere     *spheresapp.DeleteSphere
+	findSphere       *spheresapp.FindSphereByName
 }
 
 func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *postgres.Pool) (*runtime, error) {
@@ -200,67 +200,67 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	reschedule := planapp.NewRescheduleTasks(taskRepo, tzReader)
 
 	rt := &runtime{
-		cfg:      cfg,
-		log:      log,
-		pool:     p,
-		review:   query.NewReview(p, tzReader, newAssistant(cfg, log)),
-		quiet:    settingsinfra.NewQuietHours(p),
-		reminder: reminder,
-		listReminders: listReminders,
-		cancelReminder: cancelReminder,
-		settings: settingsRepo,
-		users:    userRepo,
-		listToday:  listToday,
-		createTask: createTask,
-		completeTask: completeTask,
-		projectProg:  projectProgress,
-		priorities: priorities,
-		analytics:  analytics,
-		recordIncome: recordIncome,
-		recordExpense: recordExpense,
-		listDebts:  listDebts,
-		createDebt: createDebt,
-		payDebt:    payDebt,
-		cashFlow:   cashFlow,
-		listHabits: listHabits,
-		createHabit: createHabit,
-		trackHabit: trackHabit,
-		listCalendar: listCalendar,
-		createEvent:  createEvent,
-		listProjects: listProjects,
-		createProject: createProject,
-		archiveProject: archiveProject,
+		cfg:              cfg,
+		log:              log,
+		pool:             p,
+		review:           query.NewReview(p, tzReader, newAssistant(cfg, log)),
+		quiet:            settingsinfra.NewQuietHours(p),
+		reminder:         reminder,
+		listReminders:    listReminders,
+		cancelReminder:   cancelReminder,
+		settings:         settingsRepo,
+		users:            userRepo,
+		listToday:        listToday,
+		createTask:       createTask,
+		completeTask:     completeTask,
+		projectProg:      projectProgress,
+		priorities:       priorities,
+		analytics:        analytics,
+		recordIncome:     recordIncome,
+		recordExpense:    recordExpense,
+		listDebts:        listDebts,
+		createDebt:       createDebt,
+		payDebt:          payDebt,
+		cashFlow:         cashFlow,
+		listHabits:       listHabits,
+		createHabit:      createHabit,
+		trackHabit:       trackHabit,
+		listCalendar:     listCalendar,
+		createEvent:      createEvent,
+		listProjects:     listProjects,
+		createProject:    createProject,
+		archiveProject:   archiveProject,
 		listProjectTasks: listProjectTasks,
-		getSettings:  getSettings,
-		updateMorning: updateMorning,
-		updateEvening: updateEvening,
-		updateQuiet:  updateQuiet,
-		createNote:   createNote,
-		listNotes:    listNotes,
-		searchNotes:  searchNotes,
-		deleteNote:   deleteNote,
-		recordWeight: recordWeight,
-		latestWeight: latestWeight,
-		listWeights:  listWeights,
-		recordSteps:  recordSteps,
-		latestSteps:  latestSteps,
-		listSteps:    listSteps,
-		recordSleep:  recordSleep,
-		latestSleep:  latestSleep,
-		listSleep:    listSleep,
-		createContact: createContact,
-		listContacts:  listContacts,
-		searchContacts: searchContacts,
-		deleteContact: deleteContact,
-		createSkill:   createSkill,
-		listSkills:    listSkills,
-		searchSkills:  searchSkills,
-		deleteSkill:   deleteSkill,
-		createSphere:  createSphere,
-		listSpheres:   listSpheres,
-		updateSphere:  updateSphere,
-		deleteSphere:  deleteSphere,
-		findSphere:    findSphere,
+		getSettings:      getSettings,
+		updateMorning:    updateMorning,
+		updateEvening:    updateEvening,
+		updateQuiet:      updateQuiet,
+		createNote:       createNote,
+		listNotes:        listNotes,
+		searchNotes:      searchNotes,
+		deleteNote:       deleteNote,
+		recordWeight:     recordWeight,
+		latestWeight:     latestWeight,
+		listWeights:      listWeights,
+		recordSteps:      recordSteps,
+		latestSteps:      latestSteps,
+		listSteps:        listSteps,
+		recordSleep:      recordSleep,
+		latestSleep:      latestSleep,
+		listSleep:        listSleep,
+		createContact:    createContact,
+		listContacts:     listContacts,
+		searchContacts:   searchContacts,
+		deleteContact:    deleteContact,
+		createSkill:      createSkill,
+		listSkills:       listSkills,
+		searchSkills:     searchSkills,
+		deleteSkill:      deleteSkill,
+		createSphere:     createSphere,
+		listSpheres:      listSpheres,
+		updateSphere:     updateSphere,
+		deleteSphere:     deleteSphere,
+		findSphere:       findSphere,
 	}
 
 	bootstrapUserReviews := func(ctx context.Context, user identitydomain.User) error {
@@ -278,69 +278,71 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		rt.tgClient = client
 		rt.notifier = notifinfra.NewTelegramNotifier(client, log)
 		rt.handler = tg.NewHandler(tg.Deps{
-			Log:             log,
-			Client:          client,
-			Resolver:        newIntentResolver(cfg, log),
-			Sessions:        sessions,
-			EnsureUser:      ensureUser,
-			Processed:       tginfra.NewProcessedUpdates(p),
-			CreateTask:      createTask,
-			CompleteTask:    completeTask,
-			CompleteByTitle: completeByTitle,
-			ListToday:       listToday,
-			ProjectProg:     projectProgress,
-			UpdateMorning:   updateMorning,
-			UpdateEvening:   updateEvening,
-			UpdateQuiet:     updateQuiet,
-			Priorities:      priorities,
-			Analytics:       analytics,
-			Reminder:        reminder,
-			ListReminders:   listReminders,
-			CancelReminder:  cancelReminder,
-			SetAvail:        setAvail,
-			Triage:          triage,
-			Reschedule:      reschedule,
-			RecordIncome:    recordIncome,
-			RecordExpense:   recordExpense,
-			CreateDebt:      createDebt,
-			PayDebt:         payDebt,
-			ListDebts:       listDebts,
-			CashFlow:        cashFlow,
-			CreateHabit:     createHabit,
-			TrackHabit:      trackHabit,
-			ListHabits:      listHabits,
-			CreateNote:      createNote,
-			ListNotes:       listNotes,
-			SearchNotes:     searchNotes,
-			DeleteNote:      deleteNote,
-			CreateContact:   createContact,
-			ListContacts:    listContacts,
-			SearchContacts:  searchContacts,
-			DeleteContact:   deleteContact,
-			CreateSkill:     createSkill,
-			ListSkills:      listSkills,
-			SearchSkills:    searchSkills,
-			DeleteSkill:     deleteSkill,
-			CreateSphere:    createSphere,
-			ListSpheres:     listSpheres,
-			UpdateSphere:    updateSphere,
-			DeleteSphere:    deleteSphere,
-			FindSphere:      findSphere,
-			RecordWeight:    recordWeight,
-			LatestWeight:    latestWeight,
-			RecordSteps:     recordSteps,
-			LatestSteps:     latestSteps,
-			RecordSleep:     recordSleep,
-			LatestSleep:     latestSleep,
-			CreateProject:   createProject,
-			FindProject:     findProject,
-			ListProjects:    listProjects,
+			Log:              log,
+			Client:           client,
+			Resolver:         newIntentResolver(cfg, log),
+			Sessions:         sessions,
+			EnsureUser:       ensureUser,
+			Processed:        tginfra.NewProcessedUpdates(p),
+			CreateTask:       createTask,
+			CompleteTask:     completeTask,
+			CompleteByTitle:  completeByTitle,
+			ListToday:        listToday,
+			ProjectProg:      projectProgress,
+			UpdateMorning:    updateMorning,
+			UpdateEvening:    updateEvening,
+			UpdateQuiet:      updateQuiet,
+			Priorities:       priorities,
+			Analytics:        analytics,
+			Reminder:         reminder,
+			ListReminders:    listReminders,
+			CancelReminder:   cancelReminder,
+			SetAvail:         setAvail,
+			Triage:           triage,
+			Reschedule:       reschedule,
+			RecordIncome:     recordIncome,
+			RecordExpense:    recordExpense,
+			CreateDebt:       createDebt,
+			PayDebt:          payDebt,
+			ListDebts:        listDebts,
+			CashFlow:         cashFlow,
+			CreateHabit:      createHabit,
+			TrackHabit:       trackHabit,
+			ListHabits:       listHabits,
+			CreateNote:       createNote,
+			ListNotes:        listNotes,
+			SearchNotes:      searchNotes,
+			DeleteNote:       deleteNote,
+			CreateContact:    createContact,
+			ListContacts:     listContacts,
+			SearchContacts:   searchContacts,
+			DeleteContact:    deleteContact,
+			CreateSkill:      createSkill,
+			ListSkills:       listSkills,
+			SearchSkills:     searchSkills,
+			DeleteSkill:      deleteSkill,
+			CreateSphere:     createSphere,
+			ListSpheres:      listSpheres,
+			UpdateSphere:     updateSphere,
+			DeleteSphere:     deleteSphere,
+			FindSphere:       findSphere,
+			RecordWeight:     recordWeight,
+			LatestWeight:     latestWeight,
+			RecordSteps:      recordSteps,
+			LatestSteps:      latestSteps,
+			RecordSleep:      recordSleep,
+			LatestSleep:      latestSleep,
+			CreateProject:    createProject,
+			FindProject:      findProject,
+			ListProjects:     listProjects,
 			ListProjectTasks: listProjectTasks,
-			ArchiveProject:  archiveProject,
-			CreateEvent:     createEvent,
-			ListCalendar:    listCalendar,
-			Review:          rt.review,
-			TZReader:        tzReader,
+			ArchiveProject:   archiveProject,
+			CreateEvent:      createEvent,
+			ListCalendar:     listCalendar,
+			Review:           rt.review,
+			TZReader:         tzReader,
+			DeleteUser:       identityapp.NewDeleteUser(userRepo),
+			AdminTelegramID:  cfg.SeedTelegramID,
 		})
 		rt.poller = tg.NewPoller(client, rt.handler, log)
 	}

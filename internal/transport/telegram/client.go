@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -201,6 +202,51 @@ func (c *Client) DeleteMessage(ctx context.Context, chatID, messageID int64) err
 		"chat_id":    chatID,
 		"message_id": messageID,
 	})
+}
+
+type chatResponse struct {
+	OK     bool `json:"ok"`
+	Result struct {
+		ID       int64  `json:"id"`
+		Username string `json:"username"`
+		Type     string `json:"type"`
+	} `json:"result"`
+	Description string `json:"description"`
+}
+
+// ResolveUsername resolves a public Telegram @username to a numeric id via getChat.
+func (c *Client) ResolveUsername(ctx context.Context, username string) (int64, error) {
+	username = strings.TrimSpace(strings.TrimPrefix(username, "@"))
+	if username == "" {
+		return 0, fmt.Errorf("empty username")
+	}
+	payload := map[string]any{"chat_id": "@" + username}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return 0, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/getChat", bytes.NewReader(data))
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var out chatResponse
+	if err := json.Unmarshal(body, &out); err != nil {
+		return 0, err
+	}
+	if !out.OK || out.Result.ID == 0 {
+		if out.Description != "" {
+			return 0, fmt.Errorf("telegram getChat: %s", out.Description)
+		}
+		return 0, fmt.Errorf("telegram getChat failed for @%s", username)
+	}
+	return out.Result.ID, nil
 }
 
 func (c *Client) SendMessageWithKeyboard(ctx context.Context, chatID int64, text string, keyboard [][]InlineButton) error {

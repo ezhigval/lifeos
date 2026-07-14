@@ -150,3 +150,29 @@ func (r *Repository) ListAll(ctx context.Context) ([]domain.User, error) {
 	}
 	return out, nil
 }
+
+// Delete removes the user and all cascaded domain data.
+// Projects are deleted first to avoid project_spheres.sphere_id ON DELETE RESTRICT
+// when life_spheres are removed via users CASCADE.
+func (r *Repository) Delete(ctx context.Context, userID ids.UserID) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin delete user: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `DELETE FROM projects WHERE user_id = $1`, userID.UUID()); err != nil {
+		return fmt.Errorf("delete user projects: %w", err)
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM users WHERE id = $1`, userID.UUID())
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrNotFound
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit delete user: %w", err)
+	}
+	return nil
+}
