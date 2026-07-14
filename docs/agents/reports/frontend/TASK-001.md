@@ -60,3 +60,4 @@ cd web/miniapp && npm run lint    # oxlint — OK (3 pre-existing only-export-co
 ## Commits
 
 - `627f64fbcef77419c7901af0edb653260b00e743` — `fix(miniapp): close P1 post-merge UX bugs`
+- `da3e6901be2c7cd853e4d4c792ab667ac4796d71` — `docs(frontend): correct TASK-001 commit SHA in report`
