@@ -28,16 +28,17 @@ npm run dev
 
 Vite проксирует `/api` → `:8080`.
 
-## MVP scope (фронт готов)
+## MVP scope (фронт)
 
 | Экран | Статус |
 |-------|--------|
-| Home: задачи + finance capture | ✅ |
-| Сферы → проекты → задачи (+ приоритет) | ✅ |
-| Привычки (today + track + create) | ✅ |
-| Календарь (today + create) | ✅ |
-| Ещё / Settings stubs | ✅ |
-| TG BackButton / Sheet / errors | ✅ |
+| Home: задачи + finance | ✅ |
+| Сферы → проекты → задачи / task detail | ✅ |
+| Привычки / Календарь / Напоминания | ✅ |
+| Аналитика / Заметки / Здоровье / Карьера / Долги | ✅ |
+| Настройки: обзоры, quiet hours, CRUD сфер | ✅ |
+
+Lead prompt: [FRONTEND_LEAD_PROMPT.md](FRONTEND_LEAD_PROMPT.md)
 
 ## Нужно с бэкенда для продакшена Telegram
 

@@ -63,6 +63,89 @@ export type CalendarEvent = {
   starts_at: string
 }
 
+export type TimeOfDay = { hour: number; minute: number }
+
+export type UserSettings = {
+  morning_review_at: TimeOfDay
+  evening_review_at: TimeOfDay
+  weekly_review_at: TimeOfDay
+  monthly_review_at: TimeOfDay
+  quiet_hours_start: TimeOfDay | null
+  quiet_hours_end: TimeOfDay | null
+  language: string
+}
+
+export type AnalyticsSummary = {
+  period_label: string
+  tasks_created: number
+  tasks_completed: number
+  completion_rate: number
+  open_tasks: number
+  habit_consistency: number
+  habit_completions: number
+  habit_count: number
+  projects: { Title?: string; title?: string; Percent?: string; percent?: string }[]
+}
+
+export type Note = {
+  id: string
+  body: string
+  tags: string[]
+  created_at: string
+}
+
+export type Debt = {
+  id: string
+  creditor: string
+  amount_cents: number
+  paid_cents: number
+  remaining_cents: number
+  currency: string
+  due_date?: string
+}
+
+export type Reminder = {
+  id: string
+  message: string
+  fire_at: string
+  status: string
+}
+
+export type Contact = {
+  id: string
+  name: string
+  company: string
+  role: string
+  notes: string
+  created_at: string
+}
+
+export type Skill = {
+  id: string
+  name: string
+  level: string
+  created_at: string
+}
+
+export type WeightLog = {
+  id: string
+  weight_kg: number
+  logged_at: string
+}
+
+export type StepLog = {
+  id: string
+  steps: number
+  logged_at: string
+}
+
+export type SleepLog = {
+  id: string
+  duration_minutes: number
+  duration_hours: number
+  logged_at: string
+}
+
 export type TokenResponse = {
   access_token: string
   expires_in: number

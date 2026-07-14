@@ -7,7 +7,12 @@ import { SettingsPage } from '@/pages/SettingsPage'
 import { HabitsPage } from '@/pages/HabitsPage'
 import { CalendarPage } from '@/pages/CalendarPage'
 import { TaskDetailPage } from '@/pages/TaskDetailPage'
-import { ComingSoonPage } from '@/pages/ComingSoonPage'
+import { AnalyticsPage } from '@/pages/AnalyticsPage'
+import { NotesPage } from '@/pages/NotesPage'
+import { HealthPage } from '@/pages/HealthPage'
+import { CareerPage } from '@/pages/CareerPage'
+import { DebtsPage } from '@/pages/DebtsPage'
+import { RemindersPage } from '@/pages/RemindersPage'
 
 export default function App() {
   return (
@@ -22,46 +27,12 @@ export default function App() {
         <Route path="more/settings" element={<SettingsPage />} />
         <Route path="more/habits" element={<HabitsPage />} />
         <Route path="more/calendar" element={<CalendarPage />} />
-        <Route
-          path="more/analytics"
-          element={
-            <ComingSoonPage
-              title="Аналитика"
-              description="Обзоры и статистика"
-              hint="MA-C1 — после MVP"
-            />
-          }
-        />
-        <Route
-          path="more/health"
-          element={
-            <ComingSoonPage
-              title="Здоровье"
-              description="Вес, шаги, сон"
-              hint="MA-C3"
-            />
-          }
-        />
-        <Route
-          path="more/career"
-          element={
-            <ComingSoonPage
-              title="Карьера"
-              description="Контакты и навыки"
-              hint="MA-C4"
-            />
-          }
-        />
-        <Route
-          path="more/notes"
-          element={
-            <ComingSoonPage
-              title="Заметки"
-              description="Inbox заметок"
-              hint="MA-C2"
-            />
-          }
-        />
+        <Route path="more/analytics" element={<AnalyticsPage />} />
+        <Route path="more/notes" element={<NotesPage />} />
+        <Route path="more/health" element={<HealthPage />} />
+        <Route path="more/career" element={<CareerPage />} />
+        <Route path="more/debts" element={<DebtsPage />} />
+        <Route path="more/reminders" element={<RemindersPage />} />
       </Route>
     </Routes>
   )
