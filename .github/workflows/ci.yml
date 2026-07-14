@@ -46,6 +46,9 @@ jobs:
       - name: Format check
         run: test -z "$(gofmt -l .)"
 
+      - name: OpenAPI route parity
+        run: make openapi-check
+
       - name: Vet
         run: go vet ./...
 

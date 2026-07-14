@@ -1,4 +1,4 @@
-.PHONY: dev dev-air build test lint migrate-up migrate-down migrate-status docker-up docker-down tidy backup restore observability-up miniapp-dev miniapp-build tunnel stack-up verify-webapp-auth
+.PHONY: dev dev-air build test lint openapi-check migrate-up migrate-down migrate-status docker-up docker-down tidy backup restore observability-up miniapp-dev miniapp-build tunnel stack-up verify-webapp-auth
 
 BINARY := lifeos
 MAIN := ./cmd/lifeos
@@ -25,6 +25,9 @@ test-integration:
 
 lint:
 	golangci-lint run ./...
+
+openapi-check:
+	GOTOOLCHAIN=local go test ./internal/transport/http/api -run TestOpenAPIParity -count=1
 
 backup:
 	./scripts/backup.sh
@@ -57,7 +60,7 @@ docker-down:
 tidy:
 	go mod tidy
 
-ci: tidy lint test build
+ci: tidy lint openapi-check test build
 
 miniapp-dev:
 	cd web/miniapp && npm run dev
