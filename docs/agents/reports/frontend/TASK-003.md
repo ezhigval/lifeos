@@ -63,4 +63,4 @@ cd web/miniapp && npm run lint    # OK (3 pre-existing only-export-components wa
 
 ## Commits
 
-(see git SHA after push)
+- `69e6424fix(miniapp): Stage 2.1 daily cycle Habits/Calendar/Settings` (`69e6424ba…` full: see `git rev-parse 69e6424`)
