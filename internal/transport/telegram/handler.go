@@ -457,7 +457,10 @@ func (h *MessageHandler) present(ctx context.Context, userID ids.UserID, chatID 
 		for i, id := range out.deferTasks {
 			strs[i] = id.String()
 		}
-		_ = h.sessions.SetState(ctx, userID, tginfra.StateIdle, map[string]any{"defer_tasks": strs})
+		// Preserve reply_kb_* / view_project_id so triage does not force Mini App keyboard reinstall.
+		payload := h.basePayload(ctx, userID)
+		payload["defer_tasks"] = strs
+		_ = h.sessions.SetState(ctx, userID, tginfra.StateIdle, payload)
 	}
 	return h.screen.Show(ctx, userID, chatID, out.text, out.inline, MainReplyKeyboard(h.miniAppURL))
 }
@@ -790,24 +793,13 @@ func (h *MessageHandler) cancelTaskByID(ctx context.Context, userID ids.UserID, 
 		UserID: userID, TaskID: taskID, Source: events.SourceTelegram,
 	})
 	if err != nil {
-		return dispatchResult{}, err
-	}
-	if view, ok := h.viewProjectID(ctx, userID); ok {
-		project, err := h.findProjectByID(ctx, userID, view)
-		if err != nil {
-			return dispatchResult{text: FormatTaskCancelled(dto)}, nil
+		msg := formatTaskLifecycleCallbackError(err, true)
+		if msg == "" {
+			return dispatchResult{}, err
 		}
-		tasks, err := h.projectTasksView(ctx, userID, view, project.Name)
-		if err != nil {
-			return dispatchResult{text: FormatTaskCancelled(dto)}, nil
-		}
-		return dispatchResult{text: FormatTaskCancelled(dto) + "\n\n" + tasks.text, inline: tasks.inline}, nil
+		return h.prependTaskListRefresh(ctx, userID, msg)
 	}
-	today, err := h.tasksTodayView(ctx, userID)
-	if err != nil {
-		return dispatchResult{text: FormatTaskCancelled(dto)}, nil
-	}
-	return dispatchResult{text: FormatTaskCancelled(dto) + "\n\n" + today.text, inline: today.inline}, nil
+	return h.prependTaskListRefresh(ctx, userID, FormatTaskCancelled(dto))
 }
 
 func (h *MessageHandler) completeTaskByID(ctx context.Context, userID ids.UserID, rawID string) (dispatchResult, error) {
@@ -819,24 +811,48 @@ func (h *MessageHandler) completeTaskByID(ctx context.Context, userID ids.UserID
 		UserID: userID, TaskID: taskID, Source: events.SourceTelegram,
 	})
 	if err != nil {
-		return dispatchResult{}, err
+		msg := formatTaskLifecycleCallbackError(err, false)
+		if msg == "" {
+			return dispatchResult{}, err
+		}
+		return h.prependTaskListRefresh(ctx, userID, msg)
 	}
+	return h.prependTaskListRefresh(ctx, userID, FormatTaskCompleted(dto))
+}
+
+// formatTaskLifecycleCallbackError maps stale ✕/✓ taps to RU copy; empty means rethrow.
+func formatTaskLifecycleCallbackError(err error, cancel bool) string {
+	switch {
+	case errors.Is(err, tasksapp.ErrTaskNotFound):
+		return "Задача не найдена."
+	case cancel && errors.Is(err, taskdomain.ErrAlreadyCancelled):
+		return "Задача уже отменена."
+	case cancel && errors.Is(err, taskdomain.ErrCannotCancelDone):
+		return "Выполненную задачу нельзя отменить."
+	case !cancel && errors.Is(err, taskdomain.ErrCannotComplete):
+		return "Отменённую задачу нельзя выполнить."
+	default:
+		return ""
+	}
+}
+
+func (h *MessageHandler) prependTaskListRefresh(ctx context.Context, userID ids.UserID, head string) (dispatchResult, error) {
 	if view, ok := h.viewProjectID(ctx, userID); ok {
 		project, err := h.findProjectByID(ctx, userID, view)
 		if err != nil {
-			return dispatchResult{text: FormatTaskCompleted(dto)}, nil
+			return dispatchResult{text: head}, nil
 		}
 		tasks, err := h.projectTasksView(ctx, userID, view, project.Name)
 		if err != nil {
-			return dispatchResult{text: FormatTaskCompleted(dto)}, nil
+			return dispatchResult{text: head}, nil
 		}
-		return dispatchResult{text: FormatTaskCompleted(dto) + "\n\n" + tasks.text, inline: tasks.inline}, nil
+		return dispatchResult{text: head + "\n\n" + tasks.text, inline: tasks.inline}, nil
 	}
 	today, err := h.tasksTodayView(ctx, userID)
 	if err != nil {
-		return dispatchResult{text: FormatTaskCompleted(dto)}, nil
+		return dispatchResult{text: head}, nil
 	}
-	return dispatchResult{text: FormatTaskCompleted(dto) + "\n\n" + today.text, inline: today.inline}, nil
+	return dispatchResult{text: head + "\n\n" + today.text, inline: today.inline}, nil
 }
 
 func (h *MessageHandler) applyTriageDefer(ctx context.Context, userID ids.UserID) (dispatchResult, error) {

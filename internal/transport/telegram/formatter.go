@@ -22,11 +22,8 @@ import (
 
 func FormatTaskCreated(dto taskapp.TaskDTO) string {
 	out := fmt.Sprintf("✅ Задача создана: <b>%s</b>", html.EscapeString(dto.Title))
-	if dto.DurationMinutes != nil {
-		out += fmt.Sprintf(" · %dм", *dto.DurationMinutes)
-	}
-	if len(dto.Tags) > 0 {
-		out += " · " + html.EscapeString(formatTaskTags(dto.Tags))
+	if extra := formatTaskMeta(dto.DurationMinutes, dto.Tags); extra != "" {
+		out += " · " + html.EscapeString(extra)
 	}
 	return out
 }
@@ -38,12 +35,9 @@ func FormatTasksToday(items []taskapp.TaskDTO) string {
 	var b strings.Builder
 	b.WriteString("📅 <b>Задачи на сегодня</b>\n")
 	for _, item := range items {
-		extra := ""
-		if item.DurationMinutes != nil {
-			extra += fmt.Sprintf(" · %dм", *item.DurationMinutes)
-		}
-		if len(item.Tags) > 0 {
-			extra += " · " + formatTaskTags(item.Tags)
+		extra := formatTaskMeta(item.DurationMinutes, item.Tags)
+		if extra != "" {
+			extra = " · " + extra
 		}
 		fmt.Fprintf(&b, "• [%s] %s%s\n", item.Priority, html.EscapeString(item.Title), html.EscapeString(extra))
 	}
@@ -58,15 +52,27 @@ func formatTaskTags(tags []string) string {
 	return strings.Join(parts, " ")
 }
 
+// formatTaskMeta joins duration + hashtags for list/created lines (plain text; escape at call site).
+func formatTaskMeta(durationMinutes *int, tags []string) string {
+	var parts []string
+	if durationMinutes != nil {
+		parts = append(parts, fmt.Sprintf("%dм", *durationMinutes))
+	}
+	if len(tags) > 0 {
+		parts = append(parts, formatTaskTags(tags))
+	}
+	return strings.Join(parts, " · ")
+}
+
 func FormatTaskCancelled(dto taskapp.TaskDTO) string {
 	return fmt.Sprintf("🚫 Задача отменена: <b>%s</b>", html.EscapeString(dto.Title))
 }
 
 func FormatTaskRescheduled(dto taskapp.TaskDTO) string {
-	due := ""
-	if dto.DueDate != nil {
-		due = dto.DueDate.Format("02.01")
+	if dto.DueDate == nil {
+		return fmt.Sprintf("↪️ Задача перенесена: <b>%s</b>", html.EscapeString(dto.Title))
 	}
+	due := dto.DueDate.Format("02.01")
 	return fmt.Sprintf("↪️ Задача перенесена: <b>%s</b> → <b>%s</b>", html.EscapeString(dto.Title), html.EscapeString(due))
 }
 
@@ -77,11 +83,19 @@ func FormatTasksByTag(tag string, items []taskapp.TaskDTO) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "🏷 <b>Задачи #%s</b>\n", html.EscapeString(tag))
 	for _, item := range items {
-		due := ""
+		extra := formatTaskMeta(item.DurationMinutes, item.Tags)
 		if item.DueDate != nil {
-			due = " · " + item.DueDate.Format("02.01")
+			due := item.DueDate.Format("02.01")
+			if extra != "" {
+				extra = due + " · " + extra
+			} else {
+				extra = due
+			}
 		}
-		fmt.Fprintf(&b, "• [%s] %s%s\n", item.Priority, html.EscapeString(item.Title), due)
+		if extra != "" {
+			extra = " · " + extra
+		}
+		fmt.Fprintf(&b, "• [%s] %s%s\n", item.Priority, html.EscapeString(item.Title), html.EscapeString(extra))
 	}
 	return strings.TrimSpace(b.String())
 }
@@ -281,7 +295,11 @@ func FormatProjectTasks(projectName string, items []taskapp.TaskDTO) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "📁 <b>%s</b>\n", html.EscapeString(projectName))
 	for _, item := range items {
-		fmt.Fprintf(&b, "• [%s] %s\n", item.Priority, html.EscapeString(item.Title))
+		extra := formatTaskMeta(item.DurationMinutes, item.Tags)
+		if extra != "" {
+			extra = " · " + extra
+		}
+		fmt.Fprintf(&b, "• [%s] %s%s\n", item.Priority, html.EscapeString(item.Title), html.EscapeString(extra))
 	}
 	return strings.TrimSpace(b.String())
 }

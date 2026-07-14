@@ -1,7 +1,7 @@
 # TASK-002: Align Telegram UX with Stage 2
 
 - **Agent:** telegram
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P2
 - **Stage:** miniapp-functionality (Stage 2)
 
@@ -23,7 +23,12 @@ Keep bot UX coherent after task lifecycle + Mini App entry. Fix residual keyboar
 
 ## Acceptance
 
-- [ ] No keyboard/session P0 regressions
-- [ ] `go test ./internal/transport/telegram/...` green
-- [ ] Report: `docs/agents/reports/telegram/TASK-002.md`
-- [ ] Commit + push branch
+- [x] No keyboard/session P0 regressions
+- [x] `go test ./internal/transport/telegram/...` green
+- [x] Report: `docs/agents/reports/telegram/TASK-002.md`
+- [x] Commit + push branch
+
+## Residual (deferred P2)
+
+- Thin `handler.go` strangler (TG-08 backlog)
+- Reminder HTML / review title escape — Backend/cmd (TASK-001 asks)
