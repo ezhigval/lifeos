@@ -27,7 +27,7 @@ lint:
 	golangci-lint run ./...
 
 openapi-check:
-	GOTOOLCHAIN=local go test ./internal/transport/http/api -run TestOpenAPIParity -count=1
+	go test ./internal/transport/http/api -run TestOpenAPIParity -count=1
 
 backup:
 	./scripts/backup.sh
