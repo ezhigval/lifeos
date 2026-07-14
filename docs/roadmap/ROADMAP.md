@@ -1,90 +1,56 @@
 # Roadmap
 
-**Version:** 0.4  
-**Synced to code:** 2026-07-14  
-**See also:** [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) · [agents/CURRENT_STATE.md](../agents/CURRENT_STATE.md)
-
-> Следующий ребилд фаз и багфикс-спринт — совместно с Architect после sync документации.  
-> Этот файл отражает **факт кода на main**, не желаемое будущее без подтверждения.
+**Version:** 0.5  
+**Synced:** 2026-07-14 (owner lock)  
+**See also:** [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) · [agents/PLANNING_NOTES.md](../agents/PLANNING_NOTES.md)
 
 ---
 
-## Horizon Overview
+## Horizon
 
 ```
-2026 Q2–Q3              Now                     Next (планируем)
-──────────────          ─────────               ────────────────
-Foundation ✅           Expansion ✅            Stabilization →
-(M1–M4 done,            Domains + REST +        Bugfix (P0)
- M5 dogfood 🚧)         Mini App scaffold       Intelligence polish
-                                                Mini App depth
-                                                Multi-client later
+Now                         Next                        Later
+────────                    ────────                    ─────
+Stage 0 docs ✅             Stage 2 Mini App +          Intelligence
+Stage 1 merge+bugfix      functionality               Web/Mobile icebox
 ```
 
 ---
 
-## Phase 0: Design ✅
+## Phase 0–2 (done)
 
-- [x] Domain Model, Architecture, ADRs
-- [x] ER + Sequence diagrams
-- [x] Roadmap, Backlog, Sprint Plan (historical)
+Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST + Mini App scaffold ✅
 
 ---
 
-## Phase 1: Foundation (MVP) ✅
+## Stage 1 — Merge WIP + Bugfix (active)
 
-**Goal:** Telegram бот — capture, tasks, reminders, reviews.
+- [ ] Merge task lifecycle branch
+- [ ] Merge miniapp UX branch
+- [ ] Free-audit bugfix: Backend / Frontend / Telegram (TASK-001 OPEN)
+- [ ] Cross-zone asks closed via Architect
 
-| Milestone | Status |
-|-----------|--------|
-| M1 Skeleton | ✅ |
-| M2 Core Domain | ✅ |
-| M3 Telegram + NL | ✅ |
-| M4 Scheduler + Reviews | ✅ |
-| M5 Hardening | 🚧 OTel/backup есть; 14-day dogfooding gate открыт |
+## Stage 2 — Mini App + functionality (next primary)
 
----
+- [ ] Mini App depth: Habits, Calendar, Settings, More, Task detail
+- [ ] Backend API gaps for those screens
+- [ ] Telegram UX aligned with task lifecycle
+- [ ] No full bot↔Mini App parity required
 
-## Phase 2: Expansion ✅ (core)
+## Stage 3 — Stabilization (as needed)
 
-| Milestone | Status |
-|-----------|--------|
-| M6 Finance | ✅ |
-| M7 Habits + Calendar + Projects/Spheres | ✅ (goals → projects) |
-| M8 Analytics | ✅ query layer |
+- [ ] Thin Telegram handler (strangler)
+- [ ] OpenAPI ↔ router parity checks
+- [ ] Test / observability debt (~20% budget)
 
-Также на main: knowledge, health, career, REST `/api/v1` + JWT, Mini App auth + Home/Spheres/Finance scaffold.
+## Stage 4 — Intelligence (later)
 
----
+- [ ] LLM resolver production-ready
+- [ ] Assistant summaries polish
 
-## Phase 3: Stabilization + Intelligence — **next planning focus**
+## Icebox
 
-Приоритет этапа 1 (согласовано владельцем): **bugfix по зонам агентов**, затем roadmap rebuild.
-
-Кандидаты (не закоммичены как обязательства до совместного плана):
-
-- [ ] P0/P1 bug sweep (Backend / Telegram / Frontend — каждый в своей зоне)
-- [ ] OpenAPI ↔ router parity (ongoing)
-- [ ] Thin Telegram handler / presentation boundaries
-- [ ] LLM resolver production-ready (Ollama adapter есть)
-- [ ] Assistant summaries polish for reviews
-- [ ] Mini App: Habits / Calendar / Settings depth (ветка UX in flight)
-- [ ] Task lifecycle gaps (duration/tags/edit — см. unmerged ветки)
-
----
-
-## Phase 4: Clients + Life Domains (later)
-
-- [ ] Mini App: не полный parity с ботом; browse/structure/visual vs NL capture
-- [ ] Web / Mobile — **не сейчас** (явно отложено владельцем)
-- [ ] Production module (orders, pipeline)
-- [ ] Multi-user / family mode
-
----
-
-## Technical Debt Budget
-
-Каждый рабочий цикл: ~20% на tests, observability, docs, boundary refactoring.
+Web app · native mobile · family/multi-user · bank/calendar sync · GraphQL · STT
 
 ---
 
@@ -92,8 +58,8 @@ Foundation ✅           Expansion ✅            Stabilization →
 
 | Gate | Criteria | Status |
 |------|----------|--------|
-| G0 → G1 (code) | Runnable app + CI | ✅ |
-| G1 → G2 (daily use) | M1–M4 complete | ✅ |
-| G2 → G3 (stable) | 14 days dogfooding | 🚧 |
-| G3 → G4 (expansion) | Phase 2 domains | ✅ |
-| G4 → G5 | Bugfix + agreed next roadmap | ⏳ planning |
+| G0 → G1 | Runnable + CI | ✅ |
+| G1 → G2 | M1–M4 | ✅ |
+| G2 → G3 | 14-day dogfood | 🚧 |
+| G3 → G4 | Phase 2 domains | ✅ |
+| Stage1 → Stage2 | WIP merged + P0 bugs closed | ⏳ |

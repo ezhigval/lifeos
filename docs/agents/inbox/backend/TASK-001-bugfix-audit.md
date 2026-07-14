@@ -1,19 +1,21 @@
-# TASK-001: Bugfix audit (zone only)
+# TASK-001: Bugfix free-audit (zone only)
 
 - **Agent:** backend
-- **Status:** DRAFT
+- **Status:** OPEN
 - **Priority:** P0
 - **Stage:** bugfix
+- **Owner ACK:** 2026-07-14 — no dogfood list; free audit; WIP merges in progress on orchestrator branch
 
 ## Goal
 
-Найти и починить P0/P1 баги **только** в backend-зоне после подтверждения списка владельцем / Architect.
+После merge task-lifecycle (+ зависимости): найти и починить P0/P1 баги **только** в backend-зоне.
 
 ## In scope
 
 - `internal/<ctx>/{domain,app,infra}`, `query`, `ai`, `platform`, HTTP API, migrations/sqlc
-- Регрессии auth/JWT/initData server-side, finance/tasks/projects use cases
-- Синхронизация OpenAPI при фиксе контракта
+- Новый task lifecycle (duration/tags/edit/cancel/reschedule) — correctness + tests
+- OpenAPI sync при изменении контракта
+- API gaps нужные Mini App (если блокируют — минимальный фикс или ask в отчёте)
 
 ## Out of scope
 
@@ -22,7 +24,6 @@
 
 ## Acceptance
 
-- [ ] Owner/Architect перевёл статус в `OPEN` и приложил конкретный bug list (или разрешил free audit)
-- [ ] P0 в зоне закрыты или задокументированы как BLOCKED с причиной
-- [ ] Tests for touched packages green
+- [ ] P0 в зоне закрыты или BLOCKED с причиной + cross-zone ask
+- [ ] Touched package tests green
 - [ ] Report: `docs/agents/reports/backend/TASK-001.md`

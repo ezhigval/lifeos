@@ -1,17 +1,19 @@
-# TASK-001: Bugfix audit (zone only)
+# TASK-001: Bugfix free-audit (zone only)
 
 - **Agent:** frontend
-- **Status:** DRAFT
+- **Status:** OPEN
 - **Priority:** P0
 - **Stage:** bugfix
+- **Owner ACK:** 2026-07-14 — no dogfood list; free audit; miniapp-ux merge in progress
 
 ## Goal
 
-Найти и починить P0/P1 баги **только** в Mini App после подтверждения списка владельцем / Architect.
+После merge miniapp-ux: найти и починить P0/P1 баги **только** в Mini App.
 
 ## In scope
 
-- `web/miniapp/**`: auth/session/initData, routing, Home/Spheres/Finance UX, empty/error states
+- `web/miniapp/**`: auth/session/initData, routing, Home/Spheres/Finance/More/Habits/Calendar/Settings/Task detail
+- Empty/error states, BottomNav, BackButton
 
 ## Out of scope
 
@@ -20,7 +22,6 @@
 
 ## Acceptance
 
-- [ ] Status `OPEN` + bug list or free-audit ACK
-- [ ] P0 в зоне закрыты / BLOCKED с cross-zone asks
-- [ ] `npm` lint/build (или эквивалент Makefile) для miniapp
+- [ ] P0 в зоне закрыты / BLOCKED с asks
+- [ ] miniapp lint/build ok
 - [ ] Report: `docs/agents/reports/frontend/TASK-001.md`

@@ -1,63 +1,46 @@
-# Planning Notes — next session with owner
+# Planning Notes — locked
 
-**Status:** READY FOR JOINT PLANNING  
-**Prerequisite done:** documentation synced to code (this PR)
-
----
-
-## Agreed constraints (owner)
-
-1. Три агента: **Frontend** (Mini App only), **Backend** (logic/API), **Telegram** (bot transport/UX).
-2. Стек: React+Vite · Go+PostgreSQL+Docker · modular / hexagonal boundaries.
-3. Web / native mobile — **сильно позже**; сейчас Mini App.
-4. После docs sync → **совместно** пересобрать roadmap.
-5. **Этап 1 исполнения:** bug fix. Каждый агент — только своя зона.
+**Status:** LOCKED by owner 2026-07-14  
+**Prerequisite:** docs sync PR + agent scaffold
 
 ---
 
-## Proposed Phase map (draft — подтвердить)
+## Owner answers
+
+| # | Question | Answer |
+|---|----------|--------|
+| 1 | Dogfood bug list? | **Нет** → free audit P0/P1 в каждой зоне |
+| 2 | WIP branches? | **Мержим** (`task-lifecycle`, `miniapp-ux`; TG agent prompt уже перекрыт `TELEGRAM.md`) |
+| 3 | After Stage 1? | **Mini App + функционал** (не Intelligence first) |
+
+---
+
+## Phase map (confirmed)
 
 ```
-Stage 0  ✅  Docs ↔ code sync + agent orchestration scaffold
-Stage 1  →  Bugfix sweep (P0→P1) per agent zone
-Stage 2  →  Stabilization debt (thin TG handler, OpenAPI parity CI, tests)
-Stage 3  →  Mini App depth (Habits/Calendar/Settings) + needed API gaps
-Stage 4  →  Intelligence polish (LLM, assistant)
-Stage 5+ →  Multi-client / family / production module (icebox until then)
+Stage 0  ✅  Docs ↔ code + agent orchestration
+Stage 1  →  Merge WIP → Bugfix free-audit (Backend / Frontend / Telegram)
+Stage 2  →  Mini App depth + domain functionality (primary track)
+Stage 3  →  Stabilization debt (thin handler, tests, OpenAPI CI) as needed
+Stage 4  →  Intelligence polish (later)
+Stage 5+ →  Web / mobile / family (icebox)
 ```
 
 ---
 
-## Stage 1 — Bugfix (draft assignments)
+## Stage 1 execution
 
-Конкретный список багов владелец должен подтвердить (dogfood list). Пока — шаблоны аудита:
+1. Merge `cursor/task-core-lifecycle-65c7` (tasks duration/tags/edit + TG/HTTP)
+2. Merge `cursor/miniapp-ux-ui-plan-10dc` (Settings, Habits, Calendar, More, Phase C)
+3. Open TASK-001 for all three agents (free audit)
+4. Agents fix only their zone; cross-zone → report ask
 
-### Backend (`inbox/backend/TASK-001-bugfix-audit.md`)
-
-- Регрессии API / domain / auth / finance-overview gaps
-- Несоответствия DTO ↔ Mini App expectations
-- Тесты на сломанные use cases
-
-### Telegram (`inbox/telegram/TASK-001-bugfix-audit.md`)
-
-- Reply keyboard persistence / screen edit failures
-- FSM cancel / drafts / `/clear` `/delete`
-- Notifier / dashboard regressions
-
-### Frontend (`inbox/frontend/TASK-001-bugfix-audit.md`)
-
-- Auth/session/initData edge cases
-- Grey screen / routing / empty states
-- Finance/tasks UI breakage vs live API
-
-**Правило:** нашёл баг чужой зоны → файл в `reports/` + ping Architect, не фиксить самому.
+**Правило:** нашёл баг чужой зоны → `reports/` + Architect, не фиксить самому.
 
 ---
 
-## Open questions for owner (коротко)
+## Stage 2 focus (после bugfix)
 
-1. Есть ли готовый список багов из личного dogfooding? Если да — вставляем в TASK-001 как P0.
-2. Мержить ли WIP-ветки (`miniapp-ux`, `task-lifecycle`) **после** bugfix или выборочно?
-3. Приоритет после Stage 1: Mini App depth или Intelligence?
-
-Ответы → Architect обновляет ROADMAP + выдаёт финальные inbox tasks.
+- Mini App: Habits / Calendar / Settings / More / Task detail — довести до рабочего UX
+- Backend: API gaps под эти экраны (overview, mutate tasks, spheres settings)
+- Telegram: совместимость с новым task lifecycle (форматтеры, клавиатуры, intents)
