@@ -26,12 +26,12 @@ export function AnalyticsPage() {
               <Stat label="Открыто" value={String(data.open_tasks)} />
               <Stat
                 label="Completion"
-                value={`${Math.round((data.completion_rate || 0) * 100)}%`}
+                value={`${formatPercent(data.completion_rate)}%`}
               />
               <Stat label="Привычки" value={`${data.habit_completions}/${data.habit_count}`} />
               <Stat
                 label="Консистентность"
-                value={`${Math.round((data.habit_consistency || 0) * 100)}%`}
+                value={`${formatPercent(data.habit_consistency)}%`}
               />
             </div>
 
@@ -70,4 +70,11 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="mt-1 text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">{label}</div>
     </div>
   )
+}
+
+/** API returns integers 0–100; defend against a 0–1 fraction if contract drifts. */
+function formatPercent(raw: number | undefined): string {
+  const n = Number(raw) || 0
+  const pct = n > 0 && n <= 1 ? n * 100 : n
+  return String(Math.round(pct))
 }

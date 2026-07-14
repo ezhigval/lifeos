@@ -123,10 +123,16 @@ export const api = {
   getTask: (id: string) => request<import('@/api/types').Task>(`/api/v1/tasks/${id}`),
 
   updateTask: (id: string, body: {
-    title: string
+    title?: string
     priority?: string
-    due_date?: string | null
-    description?: string | null
+    due_date?: string
+    clear_due_date?: boolean
+    description?: string
+    clear_description?: boolean
+    duration_minutes?: number
+    clear_duration?: boolean
+    tags?: string[]
+    project_ids?: string[]
   }) =>
     request<import('@/api/types').Task>(`/api/v1/tasks/${id}`, {
       method: 'PATCH',

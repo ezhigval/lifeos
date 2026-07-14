@@ -16,7 +16,11 @@ function isNestedPath(pathname: string): boolean {
 export function AppShell() {
   const { pathname } = useLocation()
   const nested = isNestedPath(pathname)
-  const fallback = pathname.startsWith('/more') ? '/more' : '/spheres'
+  const fallback = pathname.startsWith('/more')
+    ? '/more'
+    : pathname.startsWith('/tasks')
+      ? '/'
+      : '/spheres'
   useTelegramBackButton(nested, fallback)
 
   return (

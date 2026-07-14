@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { HomePage } from '@/pages/HomePage'
 import { SpheresPage } from '@/pages/SpheresPage'
@@ -33,6 +33,7 @@ export default function App() {
         <Route path="more/career" element={<CareerPage />} />
         <Route path="more/debts" element={<DebtsPage />} />
         <Route path="more/reminders" element={<RemindersPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   )

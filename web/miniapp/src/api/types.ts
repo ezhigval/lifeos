@@ -82,8 +82,10 @@ export type AnalyticsSummary = {
   period_label: string
   tasks_created: number
   tasks_completed: number
+  /** Integer percent 0–100 */
   completion_rate: number
   open_tasks: number
+  /** Integer percent 0–100 */
   habit_consistency: number
   habit_completions: number
   habit_count: number

@@ -87,7 +87,7 @@ export function HealthPage() {
             sleep.isError
               ? 'нет данных'
               : sleep.data
-                ? `${sleep.data.duration_hours.toFixed(1)} ч`
+                ? `${sleep.data.duration_hours?.toFixed?.(1) ?? sleep.data.duration_hours} ч`
                 : '…'
           }
           meta={sleep.data ? formatShortDateTime(sleep.data.logged_at) : undefined}

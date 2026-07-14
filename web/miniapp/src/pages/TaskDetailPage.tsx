@@ -56,13 +56,16 @@ export function TaskDetailPage() {
   }
 
   const save = useMutation({
-    mutationFn: () =>
-      api.updateTask(taskId!, {
+    mutationFn: () => {
+      const desc = description.trim()
+      // EditTask API: null fields are no-ops; clearing needs clear_* flags.
+      return api.updateTask(taskId!, {
         title: title.trim(),
         priority,
-        due_date: dueDate || null,
-        description: description.trim() || null,
-      }),
+        ...(dueDate ? { due_date: dueDate } : { clear_due_date: true }),
+        ...(desc ? { description: desc } : { clear_description: true }),
+      })
+    },
     onSuccess: () => {
       hapticSuccess()
       setDirty(false)
