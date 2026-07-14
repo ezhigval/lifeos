@@ -11,8 +11,8 @@
 ```
 Now                         Next                        Later
 ────────                    ────────                    ─────
-Stage 0 docs ✅             Stage 2 Mini App +          Intelligence
-Stage 1 merge+bugfix      functionality               Web/Mobile icebox
+Stages 0–3 ✅               Real dogfood 14d            Web/Mobile icebox
+Mini App + auth + LLM opt   OpenAPI CI / observ.
 ```
 
 ---
@@ -39,22 +39,17 @@ Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST +
 - [x] **Stage 2.2 TASK-004:** Notes / Health / Career / Reminders / Debts / Analytics
 - [ ] No full bot↔Mini App parity required
 
-## Stage 3 — Stabilization + Intelligence (active)
+## Stage 3 — Stabilization + Intelligence ✅
 
 - [x] **3.0 TASK-005:** Dogfood free-audit (Frontend / Backend / Telegram)
-- [x] **3.1 TASK-006:** Thin Telegram handler (strangler)
-- [x] **3.2 TASK-007:** Intelligence polish (LLM composite + assistant) — DONE
+- [x] **3.1 TASK-006:** Thin Telegram handler (strangler) — handler.go ~−51%
+- [x] **3.2 TASK-007:** Intelligence polish (LLM composite + assistant HTML-safe)
 
-## Stage 3 — Stabilization (as needed)
+## Remaining debt (ongoing)
 
-- [ ] Thin Telegram handler (strangler)
-- [ ] OpenAPI ↔ router parity checks
-- [ ] Test / observability debt (~20% budget)
-
-## Stage 4 — Intelligence (later)
-
-- [ ] LLM resolver production-ready
-- [ ] Assistant summaries polish
+- [ ] OpenAPI ↔ router parity CI
+- [ ] Test / observability budget (~20%)
+- [ ] 14-day dogfood gate (G2→G3)
 
 ## Icebox
 
@@ -71,4 +66,6 @@ Mini App UX plan (detail): [docs/miniapp/UX_UI_PLAN.md](../miniapp/UX_UI_PLAN.md
 | G1 → G2 | M1–M4 | ✅ |
 | G2 → G3 | 14-day dogfood | 🚧 |
 | G3 → G4 | Phase 2 domains | ✅ |
-| Stage1 → Stage2 | WIP merged + P0 bugs closed | ⏳ |
+| Stage1 → Stage2 | WIP merged + P0 bugs closed | ✅ |
+| Stage2 → Stage3 | Mini App depth + contracts | ✅ |
+| Stage3 complete | Dogfood audit + thin handler + LLM optional | ✅ |
