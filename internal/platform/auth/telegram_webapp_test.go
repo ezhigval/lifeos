@@ -165,3 +165,25 @@ func TestValidateWebAppInitDataAcceptsURLEncodedUser(t *testing.T) {
 	}
 }
 
+
+func TestValidateWebAppInitDataIncludesSignatureInCheckString(t *testing.T) {
+	t.Parallel()
+	const token = "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+	now := time.Unix(1_700_000_000, 0).UTC()
+	// Signature is present on modern Telegram clients; hash HMAC covers it.
+	initData := SignWebAppInitData(map[string]string{
+		"auth_date": strconv.FormatInt(now.Unix(), 10),
+		"user":      `{"id":99,"first_name":"Sig"}`,
+		"signature": "third-party-ed25519-placeholder",
+	}, token)
+	if !strings.Contains(initData, "signature=") {
+		t.Fatal("expected signature in initData")
+	}
+	got, err := ValidateWebAppInitData(initData, token, time.Hour, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.User.ID != 99 {
+		t.Fatalf("id=%d", got.User.ID)
+	}
+}

@@ -61,34 +61,45 @@ function storeInitData(raw: string) {
 }
 
 /**
- * Capture initData ASAP. Telegram puts tgWebAppData into location.hash;
- * HashRouter (or any hash rewrite) can wipe it on later navigations / reloads.
- * We freeze the value once (memory + sessionStorage) so auth survives reload.
+ * Capture initData ASAP. Prefer live Telegram.WebApp.initData always —
+ * a stale freeze/sessionStorage copy (from an early hash parse) can fail HMAC.
  */
 export function freezeInitData(): string {
   if (typeof window === 'undefined') return ''
+
+  let live = ''
+  try {
+    live = getWebApp()?.initData || ''
+  } catch {
+    live = ''
+  }
+  if (live) {
+    window.__LIFEOS_INIT_DATA__ = live
+    storeInitData(live)
+    return live
+  }
+
   if (typeof window.__LIFEOS_INIT_DATA__ === 'string' && window.__LIFEOS_INIT_DATA__) {
     return window.__LIFEOS_INIT_DATA__
   }
 
   let raw = ''
-  try {
-    raw = getWebApp()?.initData || ''
-  } catch {
-    raw = ''
-  }
-
   // Fallback: read tgWebAppData from the launch hash before routers touch it.
-  if (!raw) {
-    try {
-      const hash = window.location.hash.startsWith('#')
-        ? window.location.hash.slice(1)
-        : window.location.hash
-      const params = new URLSearchParams(hash.includes('=') ? hash : '')
-      raw = params.get('tgWebAppData') || ''
-    } catch {
-      /* ignore */
+  try {
+    const hash = window.location.hash.startsWith('#')
+      ? window.location.hash.slice(1)
+      : window.location.hash
+    const key = 'tgWebAppData='
+    const start = hash.indexOf(key)
+    if (start >= 0) {
+      let rest = hash.slice(start + key.length)
+      const next = rest.search(/&tgWebApp[A-Za-z]+=/)
+      if (next >= 0) rest = rest.slice(0, next)
+      // Outer fragment encoding only — same form as WebApp.initData.
+      raw = decodeURIComponent(rest.replace(/\+/g, '%20'))
     }
+  } catch {
+    /* ignore */
   }
 
   if (!raw) {
@@ -100,6 +111,21 @@ export function freezeInitData(): string {
     storeInitData(raw)
   }
   return raw
+}
+
+/** Drop cached launch payload so the next read can pick up live WebApp.initData. */
+export function clearFrozenInitData() {
+  if (typeof window === 'undefined') return
+  try {
+    delete window.__LIFEOS_INIT_DATA__
+  } catch {
+    /* ignore */
+  }
+  try {
+    sessionStorage.removeItem(INIT_DATA_STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
 }
 
 export function initTelegram() {

@@ -11,7 +11,7 @@ import {
   authWithInitData,
   authWithDevCredentials,
 } from '@/api/client'
-import { getInitData, initTelegram, isTelegramEnv, telegramIdFromInitData, tgUser } from '@/lib/telegram'
+import { getInitData, initTelegram, isTelegramEnv, telegramIdFromInitData, tgUser, clearFrozenInitData } from '@/lib/telegram'
 import {
   buildSession,
   clearSession,
@@ -77,17 +77,40 @@ function tryRestoreSession(): boolean {
 }
 
 async function loginWithInitData(initData: string): Promise<StoredSession> {
-  const result = await withTimeout(
-    authWithInitData(initData),
-    AUTH_TIMEOUT_MS,
-    'auth/telegram-webapp',
-  )
-  // Prefer server-echoed telegram_id (parsed from HMAC-verified initData.user.id).
-  const telegramId =
-    result.telegramId ?? telegramIdFromInitData(initData) ?? tgUser()?.id
-  const session = buildSession(result.accessToken, result.expiresIn, telegramId)
-  applySession(session)
-  return session
+  try {
+    const result = await withTimeout(
+      authWithInitData(initData),
+      AUTH_TIMEOUT_MS,
+      'auth/telegram-webapp',
+    )
+    // Prefer server-echoed telegram_id (parsed from HMAC-verified initData.user.id).
+    const telegramId =
+      result.telegramId ?? telegramIdFromInitData(initData) ?? tgUser()?.id
+    const session = buildSession(result.accessToken, result.expiresIn, telegramId)
+    applySession(session)
+    return session
+  } catch (err) {
+    // Stale hash/sessionStorage initData → clear and retry once with live WebApp.initData.
+    const msg = err instanceof Error ? err.message : ''
+    if (msg.includes('invalid init_data hash') || msg.includes('init_data')) {
+      clearFrozenInitData()
+      initTelegram()
+      const fresh = getInitData()
+      if (fresh && fresh !== initData) {
+        const result = await withTimeout(
+          authWithInitData(fresh),
+          AUTH_TIMEOUT_MS,
+          'auth/telegram-webapp-retry',
+        )
+        const telegramId =
+          result.telegramId ?? telegramIdFromInitData(fresh) ?? tgUser()?.id
+        const session = buildSession(result.accessToken, result.expiresIn, telegramId)
+        applySession(session)
+        return session
+      }
+    }
+    throw err
+  }
 }
 
 async function loginWithDev(): Promise<StoredSession | null> {

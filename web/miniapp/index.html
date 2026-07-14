@@ -33,19 +33,24 @@
     <script>
       (function () {
         var KEY = 'lifeos.tg.initData.v1'
-        function readHash() {
+        function readWebApp() {
           try {
-            var h = location.hash || ''
-            if (h.charAt(0) === '#') h = h.slice(1)
-            if (!h || h.indexOf('=') < 0) return ''
-            return new URLSearchParams(h).get('tgWebAppData') || ''
+            return (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) || ''
           } catch (e) {
             return ''
           }
         }
-        function readWebApp() {
+        function readHash() {
           try {
-            return (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) || ''
+            var h = location.hash || ''
+            if (h.charAt(0) === '#') h = h.slice(1)
+            var key = 'tgWebAppData='
+            var i = h.indexOf(key)
+            if (i < 0) return ''
+            var rest = h.slice(i + key.length)
+            var next = rest.search(/&tgWebApp[A-Za-z]+=/)
+            if (next >= 0) rest = rest.slice(0, next)
+            return decodeURIComponent(rest.replace(/\+/g, '%20'))
           } catch (e) {
             return ''
           }
@@ -57,6 +62,7 @@
             return ''
           }
         }
+        // Prefer live WebApp.initData; never let a stale storage copy win.
         var raw = readWebApp() || readHash() || readStored()
         if (raw) {
           window.__LIFEOS_INIT_DATA__ = raw

@@ -45,6 +45,7 @@ func (rt *Router) authTelegramWebApp(w http.ResponseWriter, r *http.Request) {
 				"init_data_len", len(req.InitData),
 				"has_hash", strings.Contains(req.InitData, "hash="),
 				"has_user", strings.Contains(req.InitData, "user="),
+				"has_signature", strings.Contains(req.InitData, "signature="),
 			)
 		}
 		writeError(w, http.StatusUnauthorized, publicWebAppAuthError(err))

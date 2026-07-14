@@ -69,7 +69,10 @@ func ValidateWebAppInitData(initData, botToken string, maxAge time.Duration, now
 	pairs := make([]string, 0, len(values))
 	fields := make(map[string]string, len(values))
 	for key, vals := range values {
-		if key == "hash" || key == "signature" {
+		// Only `hash` is excluded from data-check-string. Recent Telegram clients
+		// also send Ed25519 `signature` for third-party checks — that field MUST
+		// remain in the HMAC data-check-string or hash validation fails.
+		if key == "hash" {
 			continue
 		}
 		if len(vals) == 0 {
@@ -149,7 +152,7 @@ func SignWebAppInitData(fields map[string]string, botToken string) string {
 	pairs := make([]string, 0, len(fields))
 	q := url.Values{}
 	for k, v := range fields {
-		if k == "hash" || k == "signature" {
+		if k == "hash" {
 			continue
 		}
 		pairs = append(pairs, k+"="+v)
