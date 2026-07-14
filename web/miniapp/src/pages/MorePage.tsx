@@ -31,6 +31,12 @@ const sections = [
         icon: <Calendar size={20} />,
       },
       {
+        to: '/more/reminders',
+        title: 'Напоминания',
+        subtitle: 'Отложенные пуши',
+        icon: <AlarmClock size={20} />,
+      },
+      {
         to: '/more/settings',
         title: 'Настройки',
         subtitle: 'Обзоры, quiet hours, сферы',
@@ -39,37 +45,8 @@ const sections = [
     ],
   },
   {
-    title: 'Обзор',
+    title: 'Запись',
     items: [
-      {
-        to: '/more/reminders',
-        title: 'Напоминания',
-        subtitle: 'Отложенные пуши',
-        icon: <AlarmClock size={20} />,
-      },
-      {
-        to: '/more/analytics',
-        title: 'Аналитика',
-        subtitle: 'Сводка периода',
-        icon: <BarChart3 size={20} />,
-      },
-    ],
-  },
-  {
-    title: 'Домены',
-    items: [
-      {
-        to: '/more/health',
-        title: 'Здоровье',
-        subtitle: 'Вес, шаги, сон',
-        icon: <HeartPulse size={20} />,
-      },
-      {
-        to: '/more/career',
-        title: 'Карьера',
-        subtitle: 'Контакты и навыки',
-        icon: <Briefcase size={20} />,
-      },
       {
         to: '/more/notes',
         title: 'Заметки',
@@ -77,10 +54,33 @@ const sections = [
         icon: <FileText size={20} />,
       },
       {
+        to: '/more/health',
+        title: 'Здоровье',
+        subtitle: 'Вес, шаги, сон',
+        icon: <HeartPulse size={20} />,
+      },
+      {
         to: '/more/debts',
         title: 'Долги',
         subtitle: 'Кредиторы и платежи',
         icon: <Wallet size={20} />,
+      },
+    ],
+  },
+  {
+    title: 'Обзор',
+    items: [
+      {
+        to: '/more/career',
+        title: 'Карьера',
+        subtitle: 'Контакты и навыки',
+        icon: <Briefcase size={20} />,
+      },
+      {
+        to: '/more/analytics',
+        title: 'Аналитика',
+        subtitle: 'Сводка периода',
+        icon: <BarChart3 size={20} />,
       },
     ],
   },
@@ -96,8 +96,8 @@ export function MorePage() {
         title="Ещё"
         subtitle={
           user?.username
-            ? `@${user.username} · привычки, календарь, настройки`
-            : 'Привычки · календарь · настройки'
+            ? `@${user.username} · день · запись · обзор`
+            : 'День · запись · обзор'
         }
       />
       <div className="space-y-6 px-4 pb-4">

@@ -1,7 +1,7 @@
 # TASK-004: Stage 2.2 — Mini App More domains polish
 
 - **Agent:** frontend
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P1
 - **Stage:** miniapp-depth (Stage 2.2)
 
@@ -25,7 +25,7 @@
 
 ## Acceptance
 
-- [ ] Listed screens usable without dead ends
-- [ ] `npm run build` (+ lint) green
-- [ ] Report: `docs/agents/reports/frontend/TASK-004.md`
-- [ ] Commit + push `cursor/docs-sync-orchestration-fe85`
+- [x] Listed screens usable without dead ends
+- [x] `npm run build` (+ lint) green
+- [x] Report: `docs/agents/reports/frontend/TASK-004.md`
+- [x] Commit + push `cursor/docs-sync-orchestration-fe85`
