@@ -436,7 +436,6 @@ func (h *MessageHandler) handleCallback(ctx context.Context, update Update) erro
 }
 
 func (h *MessageHandler) present(ctx context.Context, userID ids.UserID, chatID int64, out dispatchResult) error {
-	h.ensureReplyKeyboard(ctx, userID, chatID)
 	if len(out.deferTasks) > 0 {
 		strs := make([]string, len(out.deferTasks))
 		for i, id := range out.deferTasks {
@@ -444,7 +443,7 @@ func (h *MessageHandler) present(ctx context.Context, userID ids.UserID, chatID 
 		}
 		_ = h.sessions.SetState(ctx, userID, tginfra.StateIdle, map[string]any{"defer_tasks": strs})
 	}
-	return h.screen.Show(ctx, userID, chatID, out.text, out.inline)
+	return h.screen.Show(ctx, userID, chatID, out.text, out.inline, MainReplyKeyboard(h.miniAppURL))
 }
 
 func (h *MessageHandler) runAction(ctx context.Context, userID ids.UserID, action string) (dispatchResult, error) {
@@ -531,33 +530,9 @@ func (h *MessageHandler) settingsView(ctx context.Context, userID ids.UserID) (d
 const (
 	replyKBSetKey     = "reply_kb_set"
 	replyKBVersionKey = "reply_kb_ver"
-	// Bump when MainReplyKeyboard layout changes or keyboard attach strategy changes,
-	// so existing sessions reinstall the reply keyboard.
-	replyKBVersion = 3
+	// Bump when MainReplyKeyboard layout or attach strategy changes.
+	replyKBVersion = 4
 )
-
-func (h *MessageHandler) ensureReplyKeyboard(ctx context.Context, userID ids.UserID, chatID int64) {
-	sess, err := h.sessions.Get(ctx, userID)
-	if err != nil {
-		return
-	}
-	if sess.StatePayload == nil {
-		sess.StatePayload = map[string]any{}
-	}
-	if replyKeyboardInstalled(sess.StatePayload) {
-		return
-	}
-	if err := h.client.SetReplyKeyboard(ctx, chatID, MainReplyKeyboard(h.miniAppURL)); err != nil {
-		h.log.Warn("set reply keyboard failed", "user_id", userID.String(), "error", err)
-		return
-	}
-	sess.StatePayload[replyKBSetKey] = true
-	sess.StatePayload[replyKBVersionKey] = float64(replyKBVersion)
-	sess.ChatID = chatID
-	if err := h.sessions.Save(ctx, sess); err != nil {
-		h.log.Warn("save reply keyboard flag failed", "user_id", userID.String(), "error", err)
-	}
-}
 
 func replyKeyboardInstalled(payload map[string]any) bool {
 	if payload == nil || payload[replyKBSetKey] != true {
@@ -577,6 +552,8 @@ func (h *MessageHandler) resetReplyKeyboardFlag(ctx context.Context, userID ids.
 	}
 	delete(sess.StatePayload, replyKBSetKey)
 	delete(sess.StatePayload, replyKBVersionKey)
+	// Clear dashboard so /start resends a message that re-attaches the reply keyboard.
+	sess.DashboardMessageID = 0
 	return h.sessions.Save(ctx, sess)
 }
 

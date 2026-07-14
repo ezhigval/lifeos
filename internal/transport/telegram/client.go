@@ -114,30 +114,55 @@ type messageResponse struct {
 }
 
 func (c *Client) SendMessage(ctx context.Context, chatID int64, text string) error {
-	_, err := c.SendScreen(ctx, chatID, text, nil)
+	_, err := c.SendScreen(ctx, chatID, text, nil, nil)
 	return err
 }
 
-// SendScreen posts the main dashboard message with inline actions.
-func (c *Client) SendScreen(ctx context.Context, chatID int64, text string, inline [][]InlineButton) (int64, error) {
-	payload := sendMessageRequest{
-		ChatID:    chatID,
-		Text:      text,
-		ParseMode: "HTML",
+// SendScreen posts the main dashboard message.
+// When replyKB is set, it is attached on send (chat-level persistent keyboard).
+// Inline actions are applied in a follow-up edit — Telegram allows only one
+// reply_markup type per send, and deleting a dedicated "⌨️" carrier used to
+// wipe the reply keyboard for the whole chat.
+func (c *Client) SendScreen(ctx context.Context, chatID int64, text string, inline [][]InlineButton, replyKB [][]ReplyButton) (int64, error) {
+	if inline == nil {
+		inline = [][]InlineButton{}
 	}
-	payload.ReplyMarkup = map[string]any{"inline_keyboard": inline}
-	return c.postMessage(ctx, payload)
+	if len(replyKB) > 0 {
+		id, err := c.postMessage(ctx, sendMessageRequest{
+			ChatID:      chatID,
+			Text:        text,
+			ParseMode:   "HTML",
+			ReplyMarkup: replyKeyboardMarkup(replyKB),
+		})
+		if err != nil {
+			return 0, err
+		}
+		if err := c.EditScreen(ctx, chatID, id, text, inline); err != nil {
+			// Persistent reply keyboard is already installed; inline is best-effort.
+			return id, nil
+		}
+		return id, nil
+	}
+	return c.postMessage(ctx, sendMessageRequest{
+		ChatID:      chatID,
+		Text:        text,
+		ParseMode:   "HTML",
+		ReplyMarkup: map[string]any{"inline_keyboard": inline},
+	})
 }
 
 // EditScreen updates the existing dashboard message instead of sending a new one.
 func (c *Client) EditScreen(ctx context.Context, chatID, messageID int64, text string, inline [][]InlineButton) error {
-	payload := map[string]any{
-		"chat_id":    chatID,
-		"message_id": messageID,
-		"text":       text,
-		"parse_mode": "HTML",
+	if inline == nil {
+		inline = [][]InlineButton{}
 	}
-	payload["reply_markup"] = map[string]any{"inline_keyboard": inline}
+	payload := map[string]any{
+		"chat_id":      chatID,
+		"message_id":   messageID,
+		"text":         text,
+		"parse_mode":   "HTML",
+		"reply_markup": map[string]any{"inline_keyboard": inline},
+	}
 	return withRetry(ctx, func() error {
 		data, err := json.Marshal(payload)
 		if err != nil {
@@ -172,15 +197,9 @@ func (c *Client) EditScreen(ctx context.Context, chatID, messageID int64, text s
 }
 
 func (c *Client) SetReplyKeyboard(ctx context.Context, chatID int64, keyboard [][]ReplyButton) error {
-	payload := sendMessageRequest{
-		ChatID:      chatID,
-		Text:        "⌨️",
-		ParseMode:   "HTML",
-		ReplyMarkup: replyKeyboardMarkup(keyboard),
-	}
-	// Keep the carrier message: deleting it often removes the reply keyboard
-	// from the chat while our session still thinks it was installed.
-	_, err := c.postMessage(ctx, payload)
+	// Prefer attaching the reply keyboard to the dashboard via SendScreen.
+	// This helper remains for rare force-reinstall without a screen body.
+	_, err := c.SendScreen(ctx, chatID, "Клавиатура обновлена.", nil, keyboard)
 	return err
 }
 
@@ -281,7 +300,7 @@ func (c *Client) ResolveUsername(ctx context.Context, username string) (int64, e
 }
 
 func (c *Client) SendMessageWithKeyboard(ctx context.Context, chatID int64, text string, keyboard [][]InlineButton) error {
-	_, err := c.SendScreen(ctx, chatID, text, keyboard)
+	_, err := c.SendScreen(ctx, chatID, text, keyboard, nil)
 	return err
 }
 

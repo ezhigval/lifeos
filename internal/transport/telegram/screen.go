@@ -18,7 +18,14 @@ func NewScreen(client *Client, sessions *tginfra.Sessions) *Screen {
 	return &Screen{client: client, sessions: sessions}
 }
 
-func (s *Screen) Show(ctx context.Context, userID ids.UserID, chatID int64, body string, extraInline [][]InlineButton) error {
+func (s *Screen) Show(
+	ctx context.Context,
+	userID ids.UserID,
+	chatID int64,
+	body string,
+	extraInline [][]InlineButton,
+	replyKB [][]ReplyButton,
+) error {
 	sess, err := s.sessions.Get(ctx, userID)
 	if err != nil {
 		return err
@@ -27,23 +34,36 @@ func (s *Screen) Show(ctx context.Context, userID ids.UserID, chatID int64, body
 
 	text := FormatDashboard(body)
 	inline := extraInline
-
 	if inline == nil {
 		inline = [][]InlineButton{}
 	}
 
-	if sess.DashboardMessageID > 0 {
+	// When reply keyboard must be (re)installed, force a new dashboard message:
+	// editMessage* cannot attach ReplyKeyboardMarkup.
+	forceNew := len(replyKB) > 0 && !replyKeyboardInstalled(sess.StatePayload)
+
+	if sess.DashboardMessageID > 0 && !forceNew {
 		if err := s.client.EditScreen(ctx, chatID, sess.DashboardMessageID, text, inline); err == nil {
 			return s.sessions.Save(ctx, sess)
 		}
 		sess.DashboardMessageID = 0
 	}
 
-	id, err := s.client.SendScreen(ctx, chatID, text, inline)
+	// Attach persistent reply keyboard on every NEW dashboard send — no separate
+	// "⌨️" carrier. If the user deletes this message, the next action resends and
+	// restores the keyboard.
+	id, err := s.client.SendScreen(ctx, chatID, text, inline, replyKB)
 	if err != nil {
 		return err
 	}
 	sess.DashboardMessageID = id
+	if len(replyKB) > 0 {
+		if sess.StatePayload == nil {
+			sess.StatePayload = map[string]any{}
+		}
+		sess.StatePayload[replyKBSetKey] = true
+		sess.StatePayload[replyKBVersionKey] = float64(replyKBVersion)
+	}
 	return s.sessions.Save(ctx, sess)
 }
 
