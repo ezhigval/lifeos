@@ -1,7 +1,7 @@
 # TASK-003: Stage 2.1 — Telegram Mini App entry sanity
 
 - **Agent:** telegram
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P2
 - **Stage:** miniapp-depth (Stage 2.1)
 
@@ -23,7 +23,7 @@
 
 ## Acceptance
 
-- [ ] Tests green (`ReplyKeyboard`, start/clear if touched)
-- [ ] Report: `docs/agents/reports/telegram/TASK-003.md`
-- [ ] Commit only if code/docs change; else report «verified OK»
-- [ ] Push branch if committed
+- [x] Tests green (`ReplyKeyboard`, start/clear if touched)
+- [x] Report: `docs/agents/reports/telegram/TASK-003.md`
+- [x] Commit only if code/docs change; else report «verified OK»
+- [x] Push branch if committed
