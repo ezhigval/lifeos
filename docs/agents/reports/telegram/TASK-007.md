@@ -46,4 +46,4 @@ go vet ./internal/transport/telegram/...    # OK
 
 ## Commits
 
-- `26b55f6b508cd3e9298e097661cf6d8c671a730a` — `fix(telegram): sanitize assistant/review HTML for parse_mode`
+- `c796e397649d113eb924545694577a67ed6c736e` — `fix(telegram): sanitize assistant/review HTML for parse_mode`
