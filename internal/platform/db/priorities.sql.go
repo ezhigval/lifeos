@@ -13,7 +13,7 @@ import (
 
 const listOverdueAndTodayTasks = `-- name: ListOverdueAndTodayTasks :many
 SELECT id, user_id, title, description, status, priority, due_date,
-       completed_at, deleted_at, created_at, updated_at
+       completed_at, deleted_at, created_at, updated_at, duration_minutes, tags
 FROM tasks
 WHERE user_id = $1
   AND deleted_at IS NULL
@@ -51,6 +51,8 @@ func (q *Queries) ListOverdueAndTodayTasks(ctx context.Context, arg ListOverdueA
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DurationMinutes,
+			&i.Tags,
 		); err != nil {
 			return nil, err
 		}
@@ -64,7 +66,7 @@ func (q *Queries) ListOverdueAndTodayTasks(ctx context.Context, arg ListOverdueA
 
 const listTasksForDay = `-- name: ListTasksForDay :many
 SELECT id, user_id, title, description, status, priority, due_date,
-       completed_at, deleted_at, created_at, updated_at
+       completed_at, deleted_at, created_at, updated_at, duration_minutes, tags
 FROM tasks
 WHERE user_id = $1
   AND deleted_at IS NULL
@@ -101,6 +103,8 @@ func (q *Queries) ListTasksForDay(ctx context.Context, arg ListTasksForDayParams
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DurationMinutes,
+			&i.Tags,
 		); err != nil {
 			return nil, err
 		}

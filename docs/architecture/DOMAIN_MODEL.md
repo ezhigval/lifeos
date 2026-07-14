@@ -51,20 +51,35 @@ Priority      enum: low | medium | high | urgent
 
 **Aggregate:** `Task`
 
-| Field | Type |
-|-------|------|
-| ID | TaskID |
-| UserID | UserID |
-| Title | string |
-| Description | optional string |
-| Status | todo \| in_progress \| done \| cancelled |
-| Priority | Priority |
-| DueDate | optional date |
-| ProjectIDs | []ProjectID (M:N через `task_projects`) |
-| CompletedAt | optional time |
-| DeletedAt | optional time |
+| Field | Type | Notes |
+|-------|------|-------|
+| ID | TaskID | |
+| UserID | UserID | |
+| Title | string | название |
+| Description | optional string | |
+| Status | todo \| in_progress \| done \| cancelled | |
+| Priority | Priority | |
+| DueDate | optional date | **дата реализации** |
+| DurationMinutes | optional int | **длительность** (оценка, минуты > 0) |
+| Tags | []string | **хештеги** без `#` (для фильтрации) |
+| ProjectIDs | []ProjectID | принадлежность к проектам (M:N `task_projects`) |
+| CompletedAt | optional time | |
+| DeletedAt | optional time | soft-delete |
+| CreatedAt | time.Time | **дата создания** (авто) |
+| UpdatedAt | time.Time | |
 
-**Invariants:** title не пустой; done → completed_at; cancelled нельзя complete.
+**Invariants:** title не пустой; done → completed_at; cancelled нельзя complete; duration > 0 если задана; done/cancelled нельзя edit/reschedule.
+
+**Жизненный цикл:**
+
+| Действие | Поведение |
+|----------|-----------|
+| Add | создать задачу (title, due_date, duration, tags, projects) |
+| Complete | status → done |
+| Cancel | status → cancelled |
+| Edit | изменение полей открытой задачи |
+| Reschedule | смена due_date |
+| Auto-reschedule | вечерний обзор: открытые с due_date ≤ сегодня → завтра + уведомление в Telegram |
 
 ---
 
@@ -117,7 +132,7 @@ Priority      enum: low | medium | high | urgent
 |----------|-------------|
 | `reminder` | One-shot reminder |
 | `morning_review` | Daily morning review |
-| `evening_review` | Daily evening review |
+| `evening_review` | Daily evening review (+ auto-reschedule incomplete tasks → tomorrow + notify) |
 
 Reminder = `ScheduledJob` с `job_type=reminder`.
 

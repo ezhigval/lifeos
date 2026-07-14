@@ -4,7 +4,10 @@ export type Task = {
   status: string
   priority: string
   due_date?: string
+  duration_minutes?: number
+  tags?: string[]
   project_ids?: string[]
+  created_at?: string
 }
 
 export type PriorityItem = {

@@ -60,7 +60,7 @@ func (q *Queries) ListProjectIDsByTask(ctx context.Context, taskID pgtype.UUID) 
 }
 
 const listTasksByProjectJoin = `-- name: ListTasksByProjectJoin :many
-SELECT t.id, t.user_id, t.title, t.description, t.status, t.priority, t.due_date, t.completed_at, t.deleted_at, t.created_at, t.updated_at
+SELECT t.id, t.user_id, t.title, t.description, t.status, t.priority, t.due_date, t.completed_at, t.deleted_at, t.created_at, t.updated_at, t.duration_minutes, t.tags
 FROM tasks t
 JOIN task_projects tp ON tp.task_id = t.id
 WHERE t.user_id = $1
@@ -96,6 +96,8 @@ func (q *Queries) ListTasksByProjectJoin(ctx context.Context, arg ListTasksByPro
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DurationMinutes,
+			&i.Tags,
 		); err != nil {
 			return nil, err
 		}

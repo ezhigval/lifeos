@@ -74,21 +74,27 @@ func (uc *TriageOverloadedDay) ApplyDefer(ctx context.Context, userID ids.UserID
 		return 0, err
 	}
 	tomorrow := today.Add(24 * time.Hour)
-	count := 0
+	tasks, err := uc.store.ListByDueDate(ctx, userID, today)
+	if err != nil {
+		return 0, err
+	}
+	wanted := make(map[ids.TaskID]struct{}, len(taskIDs))
 	for _, id := range taskIDs {
-		tasks, err := uc.store.ListByDueDate(ctx, userID, today)
-		if err != nil {
+		wanted[id] = struct{}{}
+	}
+	count := 0
+	now := uc.now()
+	for _, t := range tasks {
+		if _, ok := wanted[t.ID]; !ok {
+			continue
+		}
+		if err := t.Reschedule(tomorrow, now); err != nil {
 			return count, err
 		}
-		for _, t := range tasks {
-			if t.ID == id {
-				t.DueDate = &tomorrow
-				if err := uc.store.Update(ctx, t); err != nil {
-					return count, err
-				}
-				count++
-			}
+		if err := uc.store.Update(ctx, t); err != nil {
+			return count, err
 		}
+		count++
 	}
 	return count, nil
 }
@@ -123,11 +129,14 @@ func (uc *RescheduleTasks) Execute(ctx context.Context, userID ids.UserID) (int,
 		return 0, err
 	}
 	count := 0
+	now := uc.now()
 	for _, t := range tasks {
 		if t.Status == taskdomain.StatusDone || t.Status == taskdomain.StatusCancelled {
 			continue
 		}
-		t.DueDate = &tomorrow
+		if err := t.Reschedule(tomorrow, now); err != nil {
+			return count, err
+		}
 		if err := uc.store.Update(ctx, t); err != nil {
 			return count, err
 		}

@@ -7,16 +7,16 @@ import (
 	"time"
 
 	calendarapp "github.com/valentinezhov/lifeos/internal/calendar/app"
+	careerapp "github.com/valentinezhov/lifeos/internal/career/app"
 	financeapp "github.com/valentinezhov/lifeos/internal/finance/app"
 	financedomain "github.com/valentinezhov/lifeos/internal/finance/domain"
 	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
 	healthapp "github.com/valentinezhov/lifeos/internal/health/app"
 	knowledgeapp "github.com/valentinezhov/lifeos/internal/knowledge/app"
-	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
-	careerapp "github.com/valentinezhov/lifeos/internal/career/app"
 	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
 	"github.com/valentinezhov/lifeos/internal/query"
 	settingsdomain "github.com/valentinezhov/lifeos/internal/settings/domain"
+	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
 	taskapp "github.com/valentinezhov/lifeos/internal/tasks/app"
 )
 
@@ -31,7 +31,50 @@ func FormatTasksToday(items []taskapp.TaskDTO) string {
 	var b strings.Builder
 	b.WriteString("📅 <b>Задачи на сегодня</b>\n")
 	for _, item := range items {
-		fmt.Fprintf(&b, "• [%s] %s\n", item.Priority, html.EscapeString(item.Title))
+		extra := ""
+		if item.DurationMinutes != nil {
+			extra += fmt.Sprintf(" · %dм", *item.DurationMinutes)
+		}
+		if len(item.Tags) > 0 {
+			extra += " · " + formatTaskTags(item.Tags)
+		}
+		fmt.Fprintf(&b, "• [%s] %s%s\n", item.Priority, html.EscapeString(item.Title), html.EscapeString(extra))
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func formatTaskTags(tags []string) string {
+	parts := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		parts = append(parts, "#"+tag)
+	}
+	return strings.Join(parts, " ")
+}
+
+func FormatTaskCancelled(dto taskapp.TaskDTO) string {
+	return fmt.Sprintf("🚫 Задача отменена: <b>%s</b>", html.EscapeString(dto.Title))
+}
+
+func FormatTaskRescheduled(dto taskapp.TaskDTO) string {
+	due := ""
+	if dto.DueDate != nil {
+		due = dto.DueDate.Format("02.01")
+	}
+	return fmt.Sprintf("↪️ Задача перенесена: <b>%s</b> → <b>%s</b>", html.EscapeString(dto.Title), html.EscapeString(due))
+}
+
+func FormatTasksByTag(tag string, items []taskapp.TaskDTO) string {
+	if len(items) == 0 {
+		return fmt.Sprintf("Открытых задач с тегом <b>#%s</b> нет.", html.EscapeString(tag))
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "🏷 <b>Задачи #%s</b>\n", html.EscapeString(tag))
+	for _, item := range items {
+		due := ""
+		if item.DueDate != nil {
+			due = " · " + item.DueDate.Format("02.01")
+		}
+		fmt.Fprintf(&b, "• [%s] %s%s\n", item.Priority, html.EscapeString(item.Title), due)
 	}
 	return strings.TrimSpace(b.String())
 }

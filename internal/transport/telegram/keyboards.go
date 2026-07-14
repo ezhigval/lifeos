@@ -24,6 +24,7 @@ const (
 	CBActionPrefix = "action:"
 	CBTriageDefer  = "triage:defer"
 	CBTaskDone     = "task:done:"
+	CBTaskCancel   = "task:cancel:"
 	CBHabitTrack   = "habit:track:"
 	CBProjectView  = "project:view:"
 )

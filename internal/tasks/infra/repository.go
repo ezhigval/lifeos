@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/valentinezhov/lifeos/internal/platform/db"
@@ -29,19 +28,21 @@ func (r *Repository) Save(ctx context.Context, task domain.Task) error {
 	if err := task.Validate(); err != nil {
 		return err
 	}
-	dueDate := pgtype.Date{}
-	if task.DueDate != nil {
-		dueDate = pgconv.Date(*task.DueDate)
+	tags := task.Tags
+	if tags == nil {
+		tags = []string{}
 	}
 	_, err := r.queries(ctx).InsertTask(ctx, db.InsertTaskParams{
-		ID:          pgconv.TaskID(task.ID),
-		UserID:      pgconv.UserID(task.UserID),
-		Title:       task.Title,
-		Description: pgconv.Text(task.Description),
-		Status:      string(task.Status),
-		Priority:    string(task.Priority),
-		DueDate:     dueDate,
-		CreatedAt:   pgconv.TimestamptzValue(task.CreatedAt),
+		ID:              pgconv.TaskID(task.ID),
+		UserID:          pgconv.UserID(task.UserID),
+		Title:           task.Title,
+		Description:     pgconv.Text(task.Description),
+		Status:          string(task.Status),
+		Priority:        string(task.Priority),
+		DueDate:         pgconv.DatePtr(task.DueDate),
+		DurationMinutes: pgconv.Int4Ptr(task.DurationMinutes),
+		Tags:            tags,
+		CreatedAt:       pgconv.TimestamptzValue(task.CreatedAt),
 	})
 	if err != nil {
 		return fmt.Errorf("insert task: %w", err)
@@ -92,6 +93,9 @@ func (r *Repository) GetByID(ctx context.Context, userID ids.UserID, taskID ids.
 		UserID: pgconv.UserID(userID),
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Task{}, domain.ErrNotFound
+		}
 		return domain.Task{}, fmt.Errorf("get task: %w", err)
 	}
 	return r.attachProjects(ctx, mapTask(row))
@@ -105,15 +109,29 @@ func (r *Repository) ListByDueDate(ctx context.Context, userID ids.UserID, dueDa
 	if err != nil {
 		return nil, fmt.Errorf("list tasks: %w", err)
 	}
-	out := make([]domain.Task, 0, len(rows))
-	for _, row := range rows {
-		task, err := r.attachProjects(ctx, mapTask(row))
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, task)
+	return r.mapTasks(ctx, rows)
+}
+
+func (r *Repository) ListOpenDueOnOrBefore(ctx context.Context, userID ids.UserID, dueDate time.Time) ([]domain.Task, error) {
+	rows, err := r.queries(ctx).ListOpenTasksDueOnOrBefore(ctx, db.ListOpenTasksDueOnOrBeforeParams{
+		UserID:  pgconv.UserID(userID),
+		DueDate: pgconv.Date(dueDate),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list open tasks due on or before: %w", err)
 	}
-	return out, nil
+	return r.mapTasks(ctx, rows)
+}
+
+func (r *Repository) ListByTag(ctx context.Context, userID ids.UserID, tag string) ([]domain.Task, error) {
+	rows, err := r.queries(ctx).ListTasksByTag(ctx, db.ListTasksByTagParams{
+		UserID: pgconv.UserID(userID),
+		Tag:    tag,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list tasks by tag: %w", err)
+	}
+	return r.mapTasks(ctx, rows)
 }
 
 func (r *Repository) ListByProject(ctx context.Context, userID ids.UserID, projectID ids.ProjectID) ([]domain.Task, error) {
@@ -124,20 +142,12 @@ func (r *Repository) ListByProject(ctx context.Context, userID ids.UserID, proje
 	if err != nil {
 		return nil, fmt.Errorf("list tasks by project: %w", err)
 	}
-	out := make([]domain.Task, 0, len(rows))
-	for _, row := range rows {
-		task, err := r.attachProjects(ctx, mapTask(row))
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, task)
-	}
-	return out, nil
+	return r.mapTasks(ctx, rows)
 }
 
 func (r *Repository) FindOpenByTitle(ctx context.Context, userID ids.UserID, title string) (domain.Task, error) {
 	row, err := r.queries(ctx).FindOpenTaskByTitle(ctx, db.FindOpenTaskByTitleParams{
-		UserID: pgconv.UserID(userID),
+		UserID:  pgconv.UserID(userID),
 		Column2: pgconv.Text(&title),
 	})
 	if err != nil {
@@ -153,11 +163,21 @@ func (r *Repository) Update(ctx context.Context, task domain.Task) error {
 	if err := task.Validate(); err != nil {
 		return err
 	}
+	tags := task.Tags
+	if tags == nil {
+		tags = []string{}
+	}
 	_, err := r.queries(ctx).UpdateTask(ctx, db.UpdateTaskParams{
-		ID:          pgconv.TaskID(task.ID),
-		UserID:      pgconv.UserID(task.UserID),
-		Status:      string(task.Status),
-		CompletedAt: pgconv.Timestamptz(task.CompletedAt),
+		ID:              pgconv.TaskID(task.ID),
+		UserID:          pgconv.UserID(task.UserID),
+		Title:           task.Title,
+		Description:     pgconv.Text(task.Description),
+		Status:          string(task.Status),
+		Priority:        string(task.Priority),
+		DueDate:         pgconv.DatePtr(task.DueDate),
+		DurationMinutes: pgconv.Int4Ptr(task.DurationMinutes),
+		Tags:            tags,
+		CompletedAt:     pgconv.Timestamptz(task.CompletedAt),
 	})
 	if err != nil {
 		return fmt.Errorf("update task: %w", err)
@@ -165,19 +185,37 @@ func (r *Repository) Update(ctx context.Context, task domain.Task) error {
 	return nil
 }
 
+func (r *Repository) mapTasks(ctx context.Context, rows []db.Task) ([]domain.Task, error) {
+	out := make([]domain.Task, 0, len(rows))
+	for _, row := range rows {
+		task, err := r.attachProjects(ctx, mapTask(row))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, task)
+	}
+	return out, nil
+}
+
 func mapTask(row db.Task) domain.Task {
+	tags := row.Tags
+	if tags == nil {
+		tags = []string{}
+	}
 	return domain.Task{
-		ID:          pgconv.FromTaskID(row.ID),
-		UserID:      pgconv.FromUserID(row.UserID),
-		Title:       row.Title,
-		Description: pgconv.FromText(row.Description),
-		Status:      domain.Status(row.Status),
-		Priority:    domain.Priority(row.Priority),
-		DueDate:     pgconv.FromDate(row.DueDate),
-		CompletedAt: pgconv.FromTimestamptz(row.CompletedAt),
-		DeletedAt:   pgconv.FromTimestamptz(row.DeletedAt),
-		CreatedAt:   row.CreatedAt.Time,
-		UpdatedAt:   row.UpdatedAt.Time,
+		ID:              pgconv.FromTaskID(row.ID),
+		UserID:          pgconv.FromUserID(row.UserID),
+		Title:           row.Title,
+		Description:     pgconv.FromText(row.Description),
+		Status:          domain.Status(row.Status),
+		Priority:        domain.Priority(row.Priority),
+		DueDate:         pgconv.FromDate(row.DueDate),
+		DurationMinutes: pgconv.FromInt4Ptr(row.DurationMinutes),
+		Tags:            tags,
+		CompletedAt:     pgconv.FromTimestamptz(row.CompletedAt),
+		DeletedAt:       pgconv.FromTimestamptz(row.DeletedAt),
+		CreatedAt:       row.CreatedAt.Time,
+		UpdatedAt:       row.UpdatedAt.Time,
 	}
 }
 

@@ -43,7 +43,12 @@
 | ID | Story | Priority | Status |
 |----|-------|----------|--------|
 | TK-01…08 | Core task use cases + tests | P0–P1 | ✅ |
-| TK-09 | Full lifecycle (duration, tags, edit/archive) | P1 | 🚧 unmerged / partial |
+| TK-09 | CancelTask + EditTask | P0 | ✅ merged (task-lifecycle) |
+| TK-10 | duration_minutes + tags (hashtags) | P0 | ✅ merged |
+| TK-11 | Reschedule single task (due_date persist) | P0 | ✅ merged |
+| TK-12 | Auto-reschedule incomplete at evening review + notify | P1 | ✅ merged |
+| TK-13 | Filter tasks by hashtag (API/Telegram) | P1 | ✅ merged |
+| TK-14 | Mini App task detail/edit UX | P1 | 🚧 via miniapp-ux merge |
 
 ## Epic: Goals → Projects (superseded)
 

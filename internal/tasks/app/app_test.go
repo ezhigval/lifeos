@@ -46,6 +46,41 @@ func (s *fakeStore) ListByDueDate(_ context.Context, userID ids.UserID, dueDate 
 	return out, nil
 }
 
+func (s *fakeStore) ListOpenDueOnOrBefore(_ context.Context, userID ids.UserID, dueDate time.Time) ([]domain.Task, error) {
+	var out []domain.Task
+	for _, task := range s.tasks {
+		if task.UserID != userID || task.DueDate == nil {
+			continue
+		}
+		if task.Status != domain.StatusTodo && task.Status != domain.StatusInProgress {
+			continue
+		}
+		if !task.DueDate.After(dueDate) {
+			out = append(out, task)
+		}
+	}
+	return out, nil
+}
+
+func (s *fakeStore) ListByTag(_ context.Context, userID ids.UserID, tag string) ([]domain.Task, error) {
+	var out []domain.Task
+	for _, task := range s.tasks {
+		if task.UserID != userID {
+			continue
+		}
+		if task.Status != domain.StatusTodo && task.Status != domain.StatusInProgress {
+			continue
+		}
+		for _, t := range task.Tags {
+			if t == tag {
+				out = append(out, task)
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
 func (s *fakeStore) SetProjects(_ context.Context, taskID ids.TaskID, projectIDs []ids.ProjectID) error {
 	task, ok := s.tasks[taskID]
 	if !ok {
@@ -203,6 +238,64 @@ func TestCreateTaskRequiresUserID(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestCancelRescheduleAndHashtags(t *testing.T) {
+	t.Parallel()
+
+	store := newFakeStore()
+	ev := &fakeEvents{}
+	create := app.NewCreateTask(store, ev, fakeTx{}, nil)
+	userID := ids.NewUserID()
+	today := time.Date(2026, 7, 14, 0, 0, 0, 0, time.UTC)
+
+	created, err := create.Execute(context.Background(), app.CreateTaskInput{
+		UserID: userID, Title: "rollover me #дом", DueDate: &today, Source: events.SourceCLI,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Title != "rollover me" || len(created.Tags) != 1 || created.Tags[0] != "дом" {
+		t.Fatalf("created = %+v", created)
+	}
+
+	other, err := create.Execute(context.Background(), app.CreateTaskInput{
+		UserID: userID, Title: "cancel me", DueDate: &today, Source: events.SourceCLI,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancelled, err := app.NewCancelTask(store, ev, fakeTx{}).Execute(context.Background(), app.CancelTaskInput{
+		UserID: userID, TaskID: other.ID, Source: events.SourceCLI,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cancelled.Status != domain.StatusCancelled {
+		t.Fatalf("status = %s", cancelled.Status)
+	}
+
+	tomorrow := today.Add(24 * time.Hour)
+	got, err := app.NewRescheduleTask(store, ev, fakeTx{}).Execute(context.Background(), app.RescheduleTaskInput{
+		UserID: userID, TaskID: created.ID, DueDate: tomorrow, Source: events.SourceCLI,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DueDate == nil || got.DueDate.Format("2006-01-02") != "2026-07-15" {
+		t.Fatalf("due = %v", got.DueDate)
+	}
+	if store.tasks[created.ID].DueDate.Format("2006-01-02") != "2026-07-15" {
+		t.Fatalf("persisted due not updated")
+	}
+
+	tagged, err := app.NewListTasksByTag(store).Execute(context.Background(), userID, "дом")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tagged) != 1 || tagged[0].ID != created.ID {
+		t.Fatalf("tagged = %+v", tagged)
 	}
 }
 

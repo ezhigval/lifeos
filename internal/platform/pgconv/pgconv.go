@@ -214,3 +214,18 @@ func FromInt8(v pgtype.Int8) int64 {
 	}
 	return v.Int64
 }
+
+func Int4Ptr(v *int) pgtype.Int4 {
+	if v == nil {
+		return pgtype.Int4{}
+	}
+	return pgtype.Int4{Int32: int32(*v), Valid: true}
+}
+
+func FromInt4Ptr(v pgtype.Int4) *int {
+	if !v.Valid {
+		return nil
+	}
+	n := int(v.Int32)
+	return &n
+}
