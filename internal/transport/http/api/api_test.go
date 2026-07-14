@@ -530,19 +530,20 @@ type fakeReminderSvc struct {
 	items []notifapp.ReminderDTO
 }
 
-func (s *fakeReminderSvc) ExecuteSchedule(_ context.Context, in notifapp.ScheduleReminderInput) error {
-	s.items = append(s.items, notifapp.ReminderDTO{
+func (s *fakeReminderSvc) ExecuteSchedule(_ context.Context, in notifapp.ScheduleReminderInput) (notifapp.ReminderDTO, error) {
+	dto := notifapp.ReminderDTO{
 		ID:      uuid.Must(uuid.NewV7()).String(),
 		Message: in.Message,
 		FireAt:  in.FireAt,
 		Status:  "pending",
-	})
-	return nil
+	}
+	s.items = append(s.items, dto)
+	return dto, nil
 }
 
 type scheduleReminderAdapter struct{ *fakeReminderSvc }
 
-func (a scheduleReminderAdapter) Execute(ctx context.Context, in notifapp.ScheduleReminderInput) error {
+func (a scheduleReminderAdapter) Execute(ctx context.Context, in notifapp.ScheduleReminderInput) (notifapp.ReminderDTO, error) {
 	return a.ExecuteSchedule(ctx, in)
 }
 

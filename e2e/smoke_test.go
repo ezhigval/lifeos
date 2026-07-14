@@ -55,7 +55,7 @@ func TestSmokeCreateTaskAndReminder(t *testing.T) {
 	}
 
 	reminder := notifapp.NewScheduleReminder(notifapp.NewJobStore(pool))
-	if err := reminder.Execute(ctx, notifapp.ScheduleReminderInput{
+	if _, err := reminder.Execute(ctx, notifapp.ScheduleReminderInput{
 		UserID: user.ID, Message: "ping", FireAt: time.Now().Add(time.Minute),
 	}); err != nil {
 		t.Fatal(err)

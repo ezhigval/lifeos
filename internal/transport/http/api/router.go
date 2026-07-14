@@ -616,7 +616,7 @@ type ProductivitySummarizer interface {
 
 // ReminderScheduler is implemented by *notifapp.ScheduleReminder.
 type ReminderScheduler interface {
-	Execute(ctx context.Context, in notifapp.ScheduleReminderInput) error
+	Execute(ctx context.Context, in notifapp.ScheduleReminderInput) (notifapp.ReminderDTO, error)
 }
 
 // ReminderLister is implemented by *notifapp.ListReminders.

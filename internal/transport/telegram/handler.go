@@ -992,7 +992,7 @@ func (h *MessageHandler) dispatchIntent(ctx context.Context, userID ids.UserID, 
 			return dispatchResult{}, err
 		}
 		fireAt := rulebased.ParseFireAt(time.Now().UTC(), tz, intent.TimeText)
-		if err := h.reminder.Execute(ctx, notifapp.ScheduleReminderInput{
+		if _, err := h.reminder.Execute(ctx, notifapp.ScheduleReminderInput{
 			UserID: userID, Message: intent.Message, FireAt: fireAt,
 		}); err != nil {
 			return dispatchResult{}, err

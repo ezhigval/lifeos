@@ -631,7 +631,11 @@ paths:
                   format: date-time
       responses:
         '201':
-          description: Scheduled (acks message + fire_at; use list for full Reminder)
+          description: Created reminder
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reminder'
         '400':
           description: Missing fields, invalid fire_at, or fire_at in the past
   /api/v1/reminders/{id}:

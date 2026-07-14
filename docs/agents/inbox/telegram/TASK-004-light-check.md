@@ -1,7 +1,7 @@
 # TASK-004: Stage 2.2 — Telegram light check
 
 - **Agent:** telegram
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P3
 - **Stage:** miniapp-depth (Stage 2.2)
 
@@ -21,6 +21,6 @@
 
 ## Acceptance
 
-- [ ] Tests green if code touched
-- [ ] Report: `docs/agents/reports/telegram/TASK-004.md`
-- [ ] Commit only if fixes
+- [x] Tests green if code touched (N/A — no code change; tests green)
+- [x] Report: `docs/agents/reports/telegram/TASK-004.md`
+- [x] Commit only if fixes (none)

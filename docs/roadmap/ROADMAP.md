@@ -36,7 +36,7 @@ Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST +
 - [x] Frontend TASK-002: wire overview + polish
 - [x] Telegram TASK-002: align UX with lifecycle / Mini App
 - [x] **Stage 2.1 TASK-003:** Habits / Calendar / Settings daily cycle
-- [ ] **Stage 2.2 TASK-004:** Notes / Health / Career / Reminders / Debts / Analytics (OPEN)
+- [x] **Stage 2.2 TASK-004:** Notes / Health / Career / Reminders / Debts / Analytics
 - [ ] No full bot↔Mini App parity required
 
 ## Stage 3 — Stabilization (as needed)

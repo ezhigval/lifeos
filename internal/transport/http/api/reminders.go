@@ -79,7 +79,7 @@ func (rt *Router) createReminder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "fire_at must be in the future")
 		return
 	}
-	err = rt.deps.ScheduleReminder.Execute(r.Context(), notifapp.ScheduleReminderInput{
+	dto, err := rt.deps.ScheduleReminder.Execute(r.Context(), notifapp.ScheduleReminderInput{
 		UserID:  userID,
 		Message: strings.TrimSpace(req.Message),
 		FireAt:  fireAt,
@@ -88,10 +88,7 @@ func (rt *Router) createReminder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"message": req.Message,
-		"fire_at": fireAt.UTC().Format(time.RFC3339),
-	})
+	writeJSON(w, http.StatusCreated, reminderToJSON(dto))
 }
 
 func (rt *Router) cancelReminder(w http.ResponseWriter, r *http.Request) {
