@@ -39,6 +39,12 @@ Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST +
 - [x] **Stage 2.2 TASK-004:** Notes / Health / Career / Reminders / Debts / Analytics
 - [ ] No full bot↔Mini App parity required
 
+## Stage 3 — Stabilization + Intelligence (active)
+
+- [ ] **3.0 TASK-005:** Dogfood free-audit (Frontend / Backend / Telegram) — OPEN
+- [ ] **3.1 TASK-006:** Thin Telegram handler (strangler)
+- [ ] **3.2 TASK-007:** Intelligence polish (LLM composite + assistant)
+
 ## Stage 3 — Stabilization (as needed)
 
 - [ ] Thin Telegram handler (strangler)
