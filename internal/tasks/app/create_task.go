@@ -29,18 +29,20 @@ type Transactor interface {
 }
 
 type TaskDTO struct {
-	ID         ids.TaskID
-	Title      string
-	Status     domain.Status
-	Priority   domain.Priority
-	DueDate    *time.Time
-	ProjectIDs []ids.ProjectID
+	ID          ids.TaskID
+	Title       string
+	Description *string
+	Status      domain.Status
+	Priority    domain.Priority
+	DueDate     *time.Time
+	ProjectIDs  []ids.ProjectID
 }
 
 func ToDTO(task domain.Task) TaskDTO {
 	idsCopy := append([]ids.ProjectID(nil), task.ProjectIDs...)
 	return TaskDTO{
-		ID: task.ID, Title: task.Title, Status: task.Status, Priority: task.Priority,
+		ID: task.ID, Title: task.Title, Description: task.Description,
+		Status: task.Status, Priority: task.Priority,
 		DueDate: task.DueDate, ProjectIDs: idsCopy,
 	}
 }

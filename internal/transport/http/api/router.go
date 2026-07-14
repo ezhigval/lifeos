@@ -35,6 +35,10 @@ type Deps struct {
 	ListToday  *tasksapp.ListTasksToday
 	CreateTask *tasksapp.CreateTask
 	Complete   *tasksapp.CompleteTask
+	GetTask    *tasksapp.GetTask
+	UpdateTask *tasksapp.UpdateTask
+	ArchiveTask *tasksapp.ArchiveTask
+	DeleteTask *tasksapp.DeleteTask
 	ProjectProg *projectsapp.GetProjectProgress
 	Review     *query.Review
 	Priorities *query.GetTopPriorities
@@ -103,7 +107,11 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Use(rt.jwtMiddleware)
 			r.Get("/tasks/today", rt.listTasksToday)
 			r.Post("/tasks", rt.createTask)
+			r.Get("/tasks/{id}", rt.getTask)
+			r.Patch("/tasks/{id}", rt.updateTask)
+			r.Delete("/tasks/{id}", rt.deleteTask)
 			r.Post("/tasks/{id}/complete", rt.completeTask)
+			r.Post("/tasks/{id}/archive", rt.archiveTask)
 			r.Get("/projects/progress", rt.projectProgress)
 			r.Get("/reviews/morning", rt.morningReview)
 			r.Get("/reviews/evening", rt.eveningReview)
@@ -234,21 +242,23 @@ func timeUntil(exp time.Time) int {
 }
 
 type taskJSON struct {
-	ID         string   `json:"id"`
-	Title      string   `json:"title"`
-	Status     string   `json:"status"`
-	Priority   string   `json:"priority"`
-	DueDate    *string  `json:"due_date,omitempty"`
-	ProjectIDs []string `json:"project_ids,omitempty"`
+	ID          string   `json:"id"`
+	Title       string   `json:"title"`
+	Description *string  `json:"description,omitempty"`
+	Status      string   `json:"status"`
+	Priority    string   `json:"priority"`
+	DueDate     *string  `json:"due_date,omitempty"`
+	ProjectIDs  []string `json:"project_ids,omitempty"`
 }
 
 func taskToJSON(dto tasksapp.TaskDTO) taskJSON {
 	out := taskJSON{
-		ID:         dto.ID.String(),
-		Title:      dto.Title,
-		Status:     string(dto.Status),
-		Priority:   string(dto.Priority),
-		ProjectIDs: projectIDsToStrings(dto.ProjectIDs),
+		ID:          dto.ID.String(),
+		Title:       dto.Title,
+		Description: dto.Description,
+		Status:      string(dto.Status),
+		Priority:    string(dto.Priority),
+		ProjectIDs:  projectIDsToStrings(dto.ProjectIDs),
 	}
 	if dto.DueDate != nil {
 		s := dto.DueDate.Format("2006-01-02")

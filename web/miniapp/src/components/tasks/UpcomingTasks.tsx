@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '@/api/client'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -10,6 +10,7 @@ import { hapticError, hapticLight, hapticSuccess } from '@/lib/telegram'
 const LIMIT = 7
 
 export function UpcomingTasks() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const {
@@ -90,15 +91,20 @@ export function UpcomingTasks() {
               detail={item.detail}
               priority={item.priority}
               done={item.done}
-              onComplete={
-                item.taskId
-                  ? () => {
-                      hapticLight()
-                      complete.mutate(item.taskId!)
-                    }
-                  : undefined
-              }
-            />
+            onComplete={
+              item.taskId
+                ? () => {
+                    hapticLight()
+                    complete.mutate(item.taskId!)
+                  }
+                : undefined
+            }
+            onEdit={
+              item.taskId
+                ? () => navigate(`/tasks/${item.taskId}`)
+                : undefined
+            }
+          />
           ))}
       </div>
     </section>

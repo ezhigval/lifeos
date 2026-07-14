@@ -8,12 +8,15 @@ import (
 )
 
 var (
-	ErrEmptyTitle        = errors.New("task title is required")
-	ErrCannotComplete    = errors.New("cancelled task cannot be completed")
-	ErrAlreadyDone       = errors.New("task is already done")
-	ErrInvalidStatus     = errors.New("invalid task status")
-	ErrInvalidPriority   = errors.New("invalid task priority")
-	ErrCompletedAtNeeded = errors.New("completed task requires completed_at")
+	ErrEmptyTitle         = errors.New("task title is required")
+	ErrCannotComplete     = errors.New("cancelled task cannot be completed")
+	ErrAlreadyDone        = errors.New("task is already done")
+	ErrInvalidStatus      = errors.New("invalid task status")
+	ErrInvalidPriority    = errors.New("invalid task priority")
+	ErrCompletedAtNeeded  = errors.New("completed task requires completed_at")
+	ErrAlreadyCancelled   = errors.New("task is already archived")
+	ErrCannotArchiveDone  = errors.New("done task cannot be archived")
+	ErrAlreadyDeleted     = errors.New("task is already deleted")
 )
 
 type Status string
@@ -100,6 +103,49 @@ func (t *Task) Complete(now time.Time) error {
 	t.Status = StatusDone
 	t.CompletedAt = &completed
 	t.UpdatedAt = completed
+	return nil
+}
+
+// ApplyEdit updates title, priority, due date and optional description.
+func (t *Task) ApplyEdit(title string, priority Priority, dueDate *time.Time, description *string, now time.Time) error {
+	if title == "" {
+		return ErrEmptyTitle
+	}
+	if !priority.Valid() {
+		return ErrInvalidPriority
+	}
+	t.Title = title
+	t.Priority = priority
+	t.DueDate = dueDate
+	t.Description = description
+	t.UpdatedAt = now.UTC()
+	return t.Validate()
+}
+
+// Archive marks the task as cancelled (soft archive, still in DB).
+func (t *Task) Archive(now time.Time) error {
+	if t.DeletedAt != nil {
+		return ErrAlreadyDeleted
+	}
+	if t.Status == StatusCancelled {
+		return ErrAlreadyCancelled
+	}
+	if t.Status == StatusDone {
+		return ErrCannotArchiveDone
+	}
+	t.Status = StatusCancelled
+	t.UpdatedAt = now.UTC()
+	return nil
+}
+
+// SoftDelete sets deleted_at (hidden from lists).
+func (t *Task) SoftDelete(now time.Time) error {
+	if t.DeletedAt != nil {
+		return ErrAlreadyDeleted
+	}
+	deleted := now.UTC()
+	t.DeletedAt = &deleted
+	t.UpdatedAt = deleted
 	return nil
 }
 

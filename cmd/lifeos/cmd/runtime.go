@@ -66,6 +66,10 @@ type runtime struct {
 	listToday  *tasksapp.ListTasksToday
 	createTask *tasksapp.CreateTask
 	completeTask *tasksapp.CompleteTask
+	getTask      *tasksapp.GetTask
+	updateTask   *tasksapp.UpdateTask
+	archiveTask  *tasksapp.ArchiveTask
+	deleteTask   *tasksapp.DeleteTask
 	projectProg  *projectsapp.GetProjectProgress
 	priorities *query.GetTopPriorities
 	analytics  *query.GetProductivitySummary
@@ -131,6 +135,10 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 
 	createTask := tasksapp.NewCreateTask(taskRepo, eventPub, transactor, projectsinfra.NewProjectReader(p))
 	completeTask := tasksapp.NewCompleteTask(taskRepo, eventPub, transactor)
+	getTask := tasksapp.NewGetTask(taskRepo)
+	updateTask := tasksapp.NewUpdateTask(taskRepo, eventPub, transactor)
+	archiveTask := tasksapp.NewArchiveTask(taskRepo, eventPub, transactor)
+	deleteTask := tasksapp.NewDeleteTask(taskRepo, eventPub, transactor)
 	completeByTitle := tasksapp.NewCompleteTaskByTitle(taskRepo, completeTask)
 	listToday := tasksapp.NewListTasksToday(taskRepo, tzReader)
 	financeRepo := financeinfra.NewRepository(p)
@@ -213,6 +221,10 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		listToday:  listToday,
 		createTask: createTask,
 		completeTask: completeTask,
+		getTask:      getTask,
+		updateTask:   updateTask,
+		archiveTask:  archiveTask,
+		deleteTask:   deleteTask,
 		projectProg:  projectProgress,
 		priorities: priorities,
 		analytics:  analytics,

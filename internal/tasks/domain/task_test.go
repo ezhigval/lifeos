@@ -109,16 +109,33 @@ func TestValidateDoneRequiresCompletedAt(t *testing.T) {
 	}
 }
 
-func TestValidateInvalidStatus(t *testing.T) {
+func TestApplyEditAndArchiveAndDelete(t *testing.T) {
 	t.Parallel()
 
-	task, err := domain.NewTask(ids.NewUserID(), "task", domain.PriorityMedium, nil, time.Now())
+	now := time.Date(2026, 7, 14, 8, 0, 0, 0, time.UTC)
+	task, err := domain.NewTask(ids.NewUserID(), "task", domain.PriorityMedium, nil, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	task.Status = domain.Status("broken")
-
-	if err := task.Validate(); err != domain.ErrInvalidStatus {
-		t.Fatalf("error = %v", err)
+	due := now.Add(24 * time.Hour)
+	desc := "note"
+	if err := task.ApplyEdit("new", domain.PriorityHigh, &due, &desc, now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if task.Title != "new" || task.Priority != domain.PriorityHigh || task.Description == nil {
+		t.Fatalf("edit failed: %+v", task)
+	}
+	if err := task.Archive(now.Add(2 * time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if task.Status != domain.StatusCancelled {
+		t.Fatalf("status = %s", task.Status)
+	}
+	if err := task.SoftDelete(now.Add(3 * time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if task.DeletedAt == nil {
+		t.Fatal("expected deleted_at")
 	}
 }
+

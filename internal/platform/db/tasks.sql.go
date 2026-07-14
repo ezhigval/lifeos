@@ -182,8 +182,13 @@ func (q *Queries) ListTasksByDueDate(ctx context.Context, arg ListTasksByDueDate
 
 const updateTask = `-- name: UpdateTask :one
 UPDATE tasks
-SET status = $3,
-    completed_at = $4,
+SET title = $3,
+    description = $4,
+    status = $5,
+    priority = $6,
+    due_date = $7,
+    completed_at = $8,
+    deleted_at = $9,
     updated_at = now()
 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
 RETURNING id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at
@@ -192,16 +197,26 @@ RETURNING id, user_id, title, description, status, priority, due_date, completed
 type UpdateTaskParams struct {
 	ID          pgtype.UUID
 	UserID      pgtype.UUID
+	Title       string
+	Description pgtype.Text
 	Status      string
+	Priority    string
+	DueDate     pgtype.Date
 	CompletedAt pgtype.Timestamptz
+	DeletedAt   pgtype.Timestamptz
 }
 
 func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, error) {
 	row := q.db.QueryRow(ctx, updateTask,
 		arg.ID,
 		arg.UserID,
+		arg.Title,
+		arg.Description,
 		arg.Status,
+		arg.Priority,
+		arg.DueDate,
 		arg.CompletedAt,
+		arg.DeletedAt,
 	)
 	var i Task
 	err := row.Scan(

@@ -209,6 +209,7 @@ function ProjectNode({
   onToggle: () => void
   onOpen: () => void
 }) {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: tasks } = useQuery({
     queryKey: ['project-tasks', project.id],
@@ -255,6 +256,11 @@ function ProjectNode({
                         hapticLight()
                         complete.mutate(t.id)
                       }
+                }
+                onEdit={
+                  t.status === 'done' || t.status === 'cancelled'
+                    ? undefined
+                    : () => navigate(`/tasks/${t.id}`)
                 }
               />
             ))}
@@ -459,6 +465,7 @@ function ProjectCard({
 
 export function ProjectDetailPage() {
   const { sphereId, projectId } = useParams<{ sphereId: string; projectId: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showDone, setShowDone] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
@@ -536,6 +543,7 @@ export function ProjectDetailPage() {
               title={t.title}
               priority={t.priority}
               onComplete={() => complete.mutate(t.id)}
+              onEdit={() => navigate(`/tasks/${t.id}`)}
             />
           ))}
           {!isLoading && active.length === 0 && (

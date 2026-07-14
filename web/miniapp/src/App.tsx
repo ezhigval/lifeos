@@ -6,6 +6,7 @@ import { MorePage } from '@/pages/MorePage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { HabitsPage } from '@/pages/HabitsPage'
 import { CalendarPage } from '@/pages/CalendarPage'
+import { TaskDetailPage } from '@/pages/TaskDetailPage'
 import { ComingSoonPage } from '@/pages/ComingSoonPage'
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<HomePage />} />
+        <Route path="tasks/:taskId" element={<TaskDetailPage />} />
         <Route path="spheres" element={<SpheresPage />} />
         <Route path="spheres/:sphereId" element={<SpheresPage />} />
         <Route path="spheres/:sphereId/projects/:projectId" element={<SpheresPage />} />

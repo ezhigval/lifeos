@@ -92,6 +92,9 @@ func (r *Repository) GetByID(ctx context.Context, userID ids.UserID, taskID ids.
 		UserID: pgconv.UserID(userID),
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Task{}, domain.ErrNotFound
+		}
 		return domain.Task{}, fmt.Errorf("get task: %w", err)
 	}
 	return r.attachProjects(ctx, mapTask(row))
@@ -153,13 +156,25 @@ func (r *Repository) Update(ctx context.Context, task domain.Task) error {
 	if err := task.Validate(); err != nil {
 		return err
 	}
+	dueDate := pgtype.Date{}
+	if task.DueDate != nil {
+		dueDate = pgconv.Date(*task.DueDate)
+	}
 	_, err := r.queries(ctx).UpdateTask(ctx, db.UpdateTaskParams{
 		ID:          pgconv.TaskID(task.ID),
 		UserID:      pgconv.UserID(task.UserID),
+		Title:       task.Title,
+		Description: pgconv.Text(task.Description),
 		Status:      string(task.Status),
+		Priority:    string(task.Priority),
+		DueDate:     dueDate,
 		CompletedAt: pgconv.Timestamptz(task.CompletedAt),
+		DeletedAt:   pgconv.Timestamptz(task.DeletedAt),
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrNotFound
+		}
 		return fmt.Errorf("update task: %w", err)
 	}
 	return nil

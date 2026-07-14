@@ -85,6 +85,25 @@ export const api = {
   completeTask: (id: string) =>
     request<{ id: string }>(`/api/v1/tasks/${id}/complete`, { method: 'POST' }),
 
+  getTask: (id: string) => request<import('@/api/types').Task>(`/api/v1/tasks/${id}`),
+
+  updateTask: (id: string, body: {
+    title: string
+    priority?: string
+    due_date?: string | null
+    description?: string | null
+  }) =>
+    request<import('@/api/types').Task>(`/api/v1/tasks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  archiveTask: (id: string) =>
+    request<import('@/api/types').Task>(`/api/v1/tasks/${id}/archive`, { method: 'POST' }),
+
+  deleteTask: (id: string) =>
+    request<void>(`/api/v1/tasks/${id}`, { method: 'DELETE' }),
+
   createTask: (body: {
     title: string
     priority?: string

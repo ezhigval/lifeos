@@ -8,7 +8,8 @@ function isNestedPath(pathname: string): boolean {
   if (ROOT_PATHS.has(pathname)) return false
   return (
     pathname.startsWith('/spheres/') ||
-    pathname.startsWith('/more/')
+    pathname.startsWith('/more/') ||
+    pathname.startsWith('/tasks/')
   )
 }
 
