@@ -28,13 +28,14 @@ Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST +
 - [x] Merge task lifecycle branch
 - [x] Merge miniapp UX branch
 - [x] Free-audit bugfix: Backend / Frontend / Telegram (TASK-001 DONE)
-- [ ] Cross-zone asks → Stage 2 DRAFT (finance overview, Mini App polish)
+- [x] Cross-zone asks → Stage 2 OPEN
 
-## Stage 2 — Mini App + functionality (next primary)
+## Stage 2 — Mini App + functionality (active)
 
+- [ ] Backend TASK-002: `GET /finance/overview?period=YYYY-MM`
+- [ ] Frontend TASK-002: wire overview + polish
+- [ ] Telegram TASK-002: align UX with lifecycle / Mini App
 - [ ] Mini App depth: Habits, Calendar, Settings, More, Task detail
-- [ ] Backend API gaps for those screens
-- [ ] Telegram UX aligned with task lifecycle
 - [ ] No full bot↔Mini App parity required
 
 ## Stage 3 — Stabilization (as needed)
