@@ -152,6 +152,27 @@ export function tgUser(): TelegramUser | undefined {
   }
 }
 
+/**
+ * Prefer the signed initData `user` JSON (same payload the server HMAC-checks).
+ * Falls back to initDataUnsafe only if signed field is missing.
+ */
+export function telegramIdFromInitData(initData = getInitData()): number | undefined {
+  if (initData) {
+    try {
+      const params = new URLSearchParams(initData)
+      const raw = params.get('user')
+      if (raw) {
+        const user = JSON.parse(raw) as { id?: number }
+        if (typeof user.id === 'number' && user.id > 0) return user.id
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  const unsafe = tgUser()?.id
+  return typeof unsafe === 'number' && unsafe > 0 ? unsafe : undefined
+}
+
 export function showTelegramBackButton(onClick: () => void) {
   const btn = getWebApp()?.BackButton
   if (!btn?.onClick || !btn.show) return () => undefined

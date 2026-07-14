@@ -50,38 +50,48 @@ func TestReplyKeyboardMarkupShape(t *testing.T) {
 
 func TestReplyKeyboardInstalled(t *testing.T) {
 	t.Parallel()
-	if replyKeyboardInstalled(nil, false) {
+	url := "https://abc.trycloudflare.com/app/"
+	if replyKeyboardInstalled(nil, false, "") {
 		t.Fatal("nil")
 	}
-	if replyKeyboardInstalled(map[string]any{replyKBSetKey: true}, false) {
+	if replyKeyboardInstalled(map[string]any{replyKBSetKey: true}, false, "") {
 		t.Fatal("missing version must reinstall")
 	}
 	if !replyKeyboardInstalled(map[string]any{
 		replyKBSetKey:     true,
 		replyKBVersionKey: float64(replyKBVersion),
 		replyKBMiniAppKey: false,
-	}, false) {
+	}, false, "") {
 		t.Fatal("expected installed without mini app")
 	}
 	if replyKeyboardInstalled(map[string]any{
 		replyKBSetKey:     true,
 		replyKBVersionKey: float64(replyKBVersion),
 		replyKBMiniAppKey: false,
-	}, true) {
+	}, true, url) {
 		t.Fatal("mini app presence mismatch must reinstall")
 	}
 	if !replyKeyboardInstalled(map[string]any{
-		replyKBSetKey:     true,
-		replyKBVersionKey: float64(replyKBVersion),
-		replyKBMiniAppKey: true,
-	}, true) {
-		t.Fatal("expected installed with mini app")
+		replyKBSetKey:        true,
+		replyKBVersionKey:    float64(replyKBVersion),
+		replyKBMiniAppKey:    true,
+		replyKBMiniAppURLKey: url,
+	}, true, url) {
+		t.Fatal("expected installed with matching mini app URL")
+	}
+	if replyKeyboardInstalled(map[string]any{
+		replyKBSetKey:        true,
+		replyKBVersionKey:    float64(replyKBVersion),
+		replyKBMiniAppKey:    true,
+		replyKBMiniAppURLKey: "https://old.trycloudflare.com/app/",
+	}, true, url) {
+		t.Fatal("rotated tunnel URL must force reinstall")
 	}
 	if replyKeyboardInstalled(map[string]any{
 		replyKBSetKey:     true,
 		replyKBVersionKey: float64(1),
 		replyKBMiniAppKey: false,
-	}, false) {
+	}, false, "") {
 		t.Fatal("old version must reinstall")
 	}
 }
@@ -93,5 +103,8 @@ func TestReplyKeyboardHasMiniApp(t *testing.T) {
 	}
 	if !replyKeyboardHasMiniApp(MainReplyKeyboard("https://example.com/app/")) {
 		t.Fatal("URL must add web_app row")
+	}
+	if got := replyKeyboardMiniAppURL(MainReplyKeyboard("https://example.com/app/")); got != "https://example.com/app/" {
+		t.Fatalf("url=%q", got)
 	}
 }

@@ -11,7 +11,7 @@ import {
   authWithInitData,
   authWithDevCredentials,
 } from '@/api/client'
-import { getInitData, initTelegram, isTelegramEnv, tgUser } from '@/lib/telegram'
+import { getInitData, initTelegram, isTelegramEnv, telegramIdFromInitData, tgUser } from '@/lib/telegram'
 import {
   buildSession,
   clearSession,
@@ -67,7 +67,7 @@ function tryRestoreSession(): boolean {
     if (session) clearSession()
     return false
   }
-  const tgId = tgUser()?.id
+  const tgId = telegramIdFromInitData() ?? tgUser()?.id
   if (!sessionMatchesTelegram(session, tgId)) {
     clearSession()
     return false
@@ -82,7 +82,9 @@ async function loginWithInitData(initData: string): Promise<StoredSession> {
     AUTH_TIMEOUT_MS,
     'auth/telegram-webapp',
   )
-  const telegramId = tgUser()?.id
+  // Prefer server-echoed telegram_id (parsed from HMAC-verified initData.user.id).
+  const telegramId =
+    result.telegramId ?? telegramIdFromInitData(initData) ?? tgUser()?.id
   const session = buildSession(result.accessToken, result.expiresIn, telegramId)
   applySession(session)
   return session

@@ -479,6 +479,7 @@ func TestAuthTelegramWebAppIssuesToken(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
 	const botToken = "123456:TESTTOKEN"
+	const telegramID int64 = 900001
 	now := time.Now().UTC()
 	initData := auth.SignWebAppInitData(map[string]string{
 		"auth_date": strconv.FormatInt(now.Unix(), 10),
@@ -494,12 +495,23 @@ func TestAuthTelegramWebAppIssuesToken(t *testing.T) {
 	var out struct {
 		AccessToken string `json:"access_token"`
 		TokenType   string `json:"token_type"`
+		TelegramID  int64  `json:"telegram_id"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
 		t.Fatal(err)
 	}
 	if out.AccessToken == "" || out.TokenType != "Bearer" {
 		t.Fatalf("token response=%+v", out)
+	}
+	if out.TelegramID != telegramID {
+		t.Fatalf("telegram_id=%d want %d (must come from signed initData.user.id)", out.TelegramID, telegramID)
+	}
+
+	// Protected route must accept the issued JWT (LifeOS user_id derived from that telegram id).
+	authHdr := map[string]string{"Authorization": "Bearer " + out.AccessToken}
+	today := doJSON(t, env.router, http.MethodGet, "/api/v1/tasks/today", authHdr, nil)
+	if today.Code != http.StatusOK {
+		t.Fatalf("tasks/today status=%d body=%s", today.Code, today.Body.String())
 	}
 }
 

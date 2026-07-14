@@ -2,6 +2,7 @@ package auth
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -71,3 +72,96 @@ func TestValidateWebAppInitDataRejectsWrongToken(t *testing.T) {
 		t.Fatal("expected hash mismatch")
 	}
 }
+
+func TestValidateWebAppInitDataParsesTelegramUserID(t *testing.T) {
+	t.Parallel()
+	const token = "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+	now := time.Unix(1_700_000_000, 0).UTC()
+
+	cases := []struct {
+		name    string
+		user    string
+		wantID  int64
+		wantErr string
+	}{
+		{
+			name:   "realistic telegram id",
+			user:   `{"id":279058397,"first_name":"Val","username":"val","language_code":"ru","is_premium":true,"photo_url":"https://x"}`,
+			wantID: 279058397,
+		},
+		{
+			name:   "id as json number only required",
+			user:   `{"id":7}`,
+			wantID: 7,
+		},
+		{
+			name:    "missing user field",
+			user:    "",
+			wantErr: "missing user",
+		},
+		{
+			name:    "zero id",
+			user:    `{"id":0,"first_name":"X"}`,
+			wantErr: "invalid user id",
+		},
+		{
+			name:    "negative id",
+			user:    `{"id":-1,"first_name":"X"}`,
+			wantErr: "invalid user id",
+		},
+		{
+			name:    "broken json",
+			user:    `{id:1}`,
+			wantErr: "invalid user json",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fields := map[string]string{
+				"auth_date": strconv.FormatInt(now.Unix(), 10),
+			}
+			if tc.user != "" {
+				fields["user"] = tc.user
+			}
+			initData := SignWebAppInitData(fields, token)
+			got, err := ValidateWebAppInitData(initData, token, time.Hour, now)
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("err=%v want contains %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.User.ID != tc.wantID {
+				t.Fatalf("id=%d want %d", got.User.ID, tc.wantID)
+			}
+		})
+	}
+}
+
+func TestValidateWebAppInitDataAcceptsURLEncodedUser(t *testing.T) {
+	t.Parallel()
+	// SignWebAppInitData uses url.Values.Encode which percent-encodes the user JSON —
+	// same shape Telegram sends over the wire.
+	const token = "123456:TEST"
+	now := time.Unix(1_700_000_000, 0).UTC()
+	initData := SignWebAppInitData(map[string]string{
+		"auth_date": strconv.FormatInt(now.Unix(), 10),
+		"user":      `{"id":900001,"first_name":"Test User"}`,
+	}, token)
+	if !strings.Contains(initData, "user=") {
+		t.Fatalf("expected encoded initData, got %q", initData)
+	}
+	got, err := ValidateWebAppInitData(initData, token, time.Hour, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.User.ID != 900001 || got.User.FirstName != "Test User" {
+		t.Fatalf("user=%+v", got.User)
+	}
+}
+

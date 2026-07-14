@@ -44,6 +44,34 @@ Lead prompt: [FRONTEND_LEAD_PROMPT.md](FRONTEND_LEAD_PROMPT.md)
 
 См. [BACKEND_PROMPT.md](BACKEND_PROMPT.md):
 
-1. `POST /api/v1/auth/telegram-webapp`
-2. `GET /api/v1/finance/overview?period=`
+1. `POST /api/v1/auth/telegram-webapp` ✅
+2. `GET /api/v1/finance/overview?period=` ✅
 3. HTTPS раздача `/app/` + proxy `/api`
+
+## Tunnel / Cloudflare Error 1033
+
+**1033** = public `*.trycloudflare.com` hostname exists, but **origin `:8080` is down** or the Mini App button still points at an **old** tunnel URL.
+
+```bash
+# 1) App must answer locally
+curl -sS http://127.0.0.1:8080/health
+
+# 2) Full stack + fresh tunnel URL + recreate app
+make stack-up
+
+# 3) In Telegram: /start  (forces new reply keyboard with current LIFEOS_MINIAPP_URL)
+
+# 4) Verify initData → telegram_id → JWT
+make verify-webapp-auth
+```
+
+Do **not** open an old Mini App link from chat history after `cloudflared` restarted — the hostname dies → 1033.
+
+## Auth path (initData → telegram user id)
+
+1. Client freezes `Telegram.WebApp.initData` (or `#tgWebAppData`) before Router
+2. `POST /api/v1/auth/telegram-webapp` with `{ "init_data": "..." }`
+3. Server HMAC-validates (`secret = HMAC_SHA256(bot_token, key=WebAppData)`)
+4. Parses signed `user` JSON → `id` (telegram_id)
+5. `EnsureUserByTelegram(telegram_id)` → LifeOS UUID
+6. JWT `sub` = LifeOS user_id; response also echoes `telegram_id` for session bind

@@ -8,6 +8,8 @@ export type { Period } from '@/lib/periods'
 export type AuthResult = {
   accessToken: string
   expiresIn: number
+  /** Signed Telegram user id from server (initData.user.id) */
+  telegramId?: number
 }
 
 let accessToken: string | null = null
@@ -72,7 +74,11 @@ async function request<T>(
 
 export async function authWithInitData(initData: string): Promise<AuthResult> {
   try {
-    const data = await request<{ access_token: string; expires_in?: number }>(
+    const data = await request<{
+      access_token: string
+      expires_in?: number
+      telegram_id?: number
+    }>(
       '/api/v1/auth/telegram-webapp',
       {
         method: 'POST',
@@ -83,6 +89,10 @@ export async function authWithInitData(initData: string): Promise<AuthResult> {
     return {
       accessToken: data.access_token,
       expiresIn: data.expires_in ?? 0,
+      telegramId:
+        typeof data.telegram_id === 'number' && data.telegram_id > 0
+          ? data.telegram_id
+          : undefined,
     }
   } catch (e) {
     if (e instanceof ApiClientError && e.status === 404) {
@@ -96,7 +106,11 @@ export async function authWithDevCredentials(
   apiKey: string,
   telegramId: number,
 ): Promise<AuthResult> {
-  const data = await request<{ access_token: string; expires_in?: number }>(
+  const data = await request<{
+    access_token: string
+    expires_in?: number
+    telegram_id?: number
+  }>(
     '/api/v1/auth/token',
     {
       method: 'POST',
@@ -108,6 +122,10 @@ export async function authWithDevCredentials(
   return {
     accessToken: data.access_token,
     expiresIn: data.expires_in ?? 0,
+    telegramId:
+      typeof data.telegram_id === 'number' && data.telegram_id > 0
+        ? data.telegram_id
+        : telegramId,
   }
 }
 

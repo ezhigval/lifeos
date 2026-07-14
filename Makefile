@@ -1,4 +1,4 @@
-.PHONY: dev dev-air build test lint migrate-up migrate-down migrate-status docker-up docker-down tidy backup restore observability-up miniapp-dev miniapp-build tunnel stack-up
+.PHONY: dev dev-air build test lint migrate-up migrate-down migrate-status docker-up docker-down tidy backup restore observability-up miniapp-dev miniapp-build tunnel stack-up verify-webapp-auth
 
 BINARY := lifeos
 MAIN := ./cmd/lifeos
@@ -68,9 +68,13 @@ miniapp-build:
 tunnel:
 	./scripts/https-tunnel.sh 8080
 
+verify-webapp-auth:
+	./scripts/verify-webapp-auth.sh
+
 # Build Mini App, raise HTTPS tunnel, rebuild and restart full stack.
 stack-up: miniapp-build
 	$(COMPOSE) up -d --build
 	./scripts/https-tunnel.sh 8080
 	$(COMPOSE) up -d --build app
-	@echo "Open Telegram → reply keyboard «📱 Mini App» (or menu button)"
+	@echo "Open Telegram → /start → reply keyboard «📱 Mini App» (or menu button)"
+	@echo "Then: make verify-webapp-auth"

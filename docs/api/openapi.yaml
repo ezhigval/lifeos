@@ -1180,6 +1180,10 @@ components:
         token_type:
           type: string
           example: Bearer
+        telegram_id:
+          type: integer
+          format: int64
+          description: Telegram user id from signed initData.user.id (webapp) or looked-up user (API key)
     Sphere:
       type: object
       required: [id, name, sort_order, created_at]

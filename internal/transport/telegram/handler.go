@@ -547,25 +547,30 @@ func (h *MessageHandler) settingsView(ctx context.Context, userID ids.UserID) (d
 }
 
 const (
-	replyKBSetKey     = "reply_kb_set"
-	replyKBVersionKey = "reply_kb_ver"
-	replyKBMiniAppKey = "reply_kb_miniapp"
-	// Bump when MainReplyKeyboard layout or attach strategy changes.
-	replyKBVersion = 5
+	replyKBSetKey        = "reply_kb_set"
+	replyKBVersionKey    = "reply_kb_ver"
+	replyKBMiniAppKey    = "reply_kb_miniapp"
+	replyKBMiniAppURLKey = "reply_kb_miniapp_url"
+	// Bump when MainReplyKeyboard layout or URL-tracking strategy changes.
+	replyKBVersion = 6
 )
 
 func replyKeyboardHasMiniApp(rows [][]ReplyButton) bool {
+	return replyKeyboardMiniAppURL(rows) != ""
+}
+
+func replyKeyboardMiniAppURL(rows [][]ReplyButton) string {
 	for _, row := range rows {
 		for _, btn := range row {
-			if btn.WebApp != "" {
-				return true
+			if u := strings.TrimSpace(btn.WebApp); u != "" {
+				return u
 			}
 		}
 	}
-	return false
+	return ""
 }
 
-func replyKeyboardInstalled(payload map[string]any, wantMiniApp bool) bool {
+func replyKeyboardInstalled(payload map[string]any, wantMiniApp bool, wantURL string) bool {
 	if payload == nil || payload[replyKBSetKey] != true {
 		return false
 	}
@@ -574,7 +579,16 @@ func replyKeyboardInstalled(payload map[string]any, wantMiniApp bool) bool {
 		return false
 	}
 	hadMiniApp, _ := payload[replyKBMiniAppKey].(bool)
-	return hadMiniApp == wantMiniApp
+	if hadMiniApp != wantMiniApp {
+		return false
+	}
+	if wantMiniApp {
+		hadURL, _ := payload[replyKBMiniAppURLKey].(string)
+		if strings.TrimSpace(hadURL) != strings.TrimSpace(wantURL) {
+			return false // tunnel URL rotated → force keyboard reinstall
+		}
+	}
+	return true
 }
 
 func (h *MessageHandler) resetReplyKeyboardFlag(ctx context.Context, userID ids.UserID) error {
@@ -588,6 +602,7 @@ func (h *MessageHandler) resetReplyKeyboardFlag(ctx context.Context, userID ids.
 	delete(sess.StatePayload, replyKBSetKey)
 	delete(sess.StatePayload, replyKBVersionKey)
 	delete(sess.StatePayload, replyKBMiniAppKey)
+	delete(sess.StatePayload, replyKBMiniAppURLKey)
 	// Clear dashboard so /start resends a message that re-attaches the reply keyboard.
 	sess.DashboardMessageID = 0
 	return h.sessions.Save(ctx, sess)

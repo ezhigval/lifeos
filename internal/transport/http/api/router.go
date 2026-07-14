@@ -209,6 +209,8 @@ type tokenResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int64  `json:"expires_in"`
 	TokenType   string `json:"token_type"`
+	// TelegramID is the signed initData / known user telegram id (useful for Mini App session bind).
+	TelegramID int64 `json:"telegram_id,omitempty"`
 }
 
 func (rt *Router) issueToken(w http.ResponseWriter, r *http.Request) {
@@ -244,6 +246,7 @@ func (rt *Router) issueToken(w http.ResponseWriter, r *http.Request) {
 		AccessToken: token,
 		ExpiresIn:   int64(timeUntil(exp)),
 		TokenType:   "Bearer",
+		TelegramID:  user.TelegramID,
 	})
 }
 
