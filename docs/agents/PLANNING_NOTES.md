@@ -30,17 +30,14 @@ Stage 5+ →  Web / mobile / family (icebox)
 
 ## Stage 1 execution
 
-1. Merge `cursor/task-core-lifecycle-65c7` (tasks duration/tags/edit + TG/HTTP)
-2. Merge `cursor/miniapp-ux-ui-plan-10dc` (Settings, Habits, Calendar, More, Phase C)
-3. Open TASK-001 for all three agents (free audit)
-4. Agents fix only their zone; cross-zone → report ask
+1. ✅ Merge `cursor/task-core-lifecycle-65c7`
+2. ✅ Merge `cursor/miniapp-ux-ui-plan-10dc`
+3. ✅ TASK-001 bugfix DONE (all agents)
+4. ✅ Cross-zone asks → Stage 2
 
-**Правило:** нашёл баг чужой зоны → `reports/` + Architect, не фиксить самому.
+## Stage 2 execution
 
----
-
-## Stage 2 focus (после bugfix)
-
-- Mini App: Habits / Calendar / Settings / More / Task detail — довести до рабочего UX
-- Backend: API gaps под эти экраны (overview, mutate tasks, spheres settings)
-- Telegram: совместимость с новым task lifecycle (форматтеры, клавиатуры, intents)
+1. ✅ Backend: `GET /api/v1/finance/overview?period=YYYY-MM`
+2. ✅ Frontend: wire overview + polish
+3. ✅ Telegram: UX align (keyboard/formatters)
+4. Ongoing: Mini App depth / more API gaps as they surface

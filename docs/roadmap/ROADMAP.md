@@ -32,10 +32,10 @@ Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST +
 
 ## Stage 2 — Mini App + functionality (active)
 
-- [ ] Backend TASK-002: `GET /finance/overview?period=YYYY-MM`
-- [ ] Frontend TASK-002: wire overview + polish
-- [ ] Telegram TASK-002: align UX with lifecycle / Mini App
-- [ ] Mini App depth: Habits, Calendar, Settings, More, Task detail
+- [x] Backend TASK-002: `GET /finance/overview?period=YYYY-MM`
+- [x] Frontend TASK-002: wire overview + polish
+- [x] Telegram TASK-002: align UX with lifecycle / Mini App
+- [ ] Mini App depth: Habits, Calendar, Settings, More, Task detail (ongoing polish)
 - [ ] No full bot↔Mini App parity required
 
 ## Stage 3 — Stabilization (as needed)
