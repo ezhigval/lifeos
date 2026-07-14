@@ -2,7 +2,7 @@
 
 - **Agent:** backend
 - **Status:** DONE
-- **Branch / commits:** `cursor/docs-sync-orchestration-fe85` @ `a4c4c64` (`a4c4c648e1bc6dd3041f29a22f4e20ecf6839b35`)
+- **Branch / commits:** `cursor/docs-sync-orchestration-fe85` @ `400d245` (`400d245c16acdcdcd6c05a6bbc82ce5b9ccb48a9`)
 
 ## Summary
 
