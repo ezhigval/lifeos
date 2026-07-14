@@ -90,6 +90,38 @@ func (s *fakeTaskStore) ListByDueDate(_ context.Context, userID ids.UserID, dueD
 	return out, nil
 }
 
+func (s *fakeTaskStore) ListOpenDueOnOrBefore(_ context.Context, userID ids.UserID, dueDate time.Time) ([]taskdomain.Task, error) {
+	var out []taskdomain.Task
+	for _, task := range s.tasks {
+		if task.UserID != userID || task.DueDate == nil {
+			continue
+		}
+		if task.Status != taskdomain.StatusTodo && task.Status != taskdomain.StatusInProgress {
+			continue
+		}
+		if !task.DueDate.After(dueDate) {
+			out = append(out, task)
+		}
+	}
+	return out, nil
+}
+
+func (s *fakeTaskStore) ListByTag(_ context.Context, userID ids.UserID, tag string) ([]taskdomain.Task, error) {
+	var out []taskdomain.Task
+	for _, task := range s.tasks {
+		if task.UserID != userID {
+			continue
+		}
+		for _, t := range task.Tags {
+			if t == tag {
+				out = append(out, task)
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
 func (s *fakeTaskStore) SetProjects(_ context.Context, taskID ids.TaskID, projectIDs []ids.ProjectID) error {
 	task, ok := s.tasks[taskID]
 	if !ok {

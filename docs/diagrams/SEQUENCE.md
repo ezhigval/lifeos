@@ -141,6 +141,24 @@ sequenceDiagram
     H->>TG: "Перенесено N задач"
 ```
 
+## 5b. Evening auto-reschedule
+
+```mermaid
+sequenceDiagram
+    participant SCH as Scheduler
+    participant RT as Runtime
+    participant AR as AutoRescheduleIncomplete
+    participant DB as PostgreSQL
+    participant TG as TelegramNotifier
+
+    SCH->>RT: evening_review job
+    RT->>RT: Evening review text
+    RT->>AR: Execute(user)
+    AR->>DB: SELECT open tasks due_date <= today
+    AR->>DB: UPDATE due_date = tomorrow
+    RT->>TG: review text + list of moved tasks
+```
+
 ## 6. Application Bootstrap
 
 ```mermaid

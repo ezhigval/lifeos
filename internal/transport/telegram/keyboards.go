@@ -11,11 +11,11 @@ const (
 	MenuSettings   = "⚙️ Настройки"
 
 	// Ситуативные действия (только inline).
-	MenuAddTask           = "➕ Задача"
-	MenuPriorities        = "🔥 Важное"
-	MenuTriage            = "📦 Завал"
-	MenuAddProject        = "➕ Проект"
-	MenuProjectProgress   = "🎯 Прогресс"
+	MenuAddTask         = "➕ Задача"
+	MenuPriorities      = "🔥 Важное"
+	MenuTriage          = "📦 Завал"
+	MenuAddProject      = "➕ Проект"
+	MenuProjectProgress = "🎯 Прогресс"
 )
 
 // Callback data prefixes.
@@ -23,23 +23,24 @@ const (
 	CBActionPrefix = "action:"
 	CBTriageDefer  = "triage:defer"
 	CBTaskDone     = "task:done:"
+	CBTaskCancel   = "task:cancel:"
 	CBHabitTrack   = "habit:track:"
 	CBProjectView  = "project:view:"
 )
 
 const (
-	ActionHome       = "home"
-	ActionTasksToday = "tasks_today"
-	ActionPriorities = "priorities"
-	ActionAddTask    = "add_task"
+	ActionHome            = "home"
+	ActionTasksToday      = "tasks_today"
+	ActionPriorities      = "priorities"
+	ActionAddTask         = "add_task"
 	ActionProjectProgress = "project_progress"
 	ActionAddProject      = "add_project"
-	ActionTriage     = "triage"
-	ActionHabits     = "habits"
-	ActionProjects   = "projects"
-	ActionCalendar   = "calendar"
-	ActionAnalytics  = "analytics"
-	ActionSettings   = "settings"
+	ActionTriage          = "triage"
+	ActionHabits          = "habits"
+	ActionProjects        = "projects"
+	ActionCalendar        = "calendar"
+	ActionAnalytics       = "analytics"
+	ActionSettings        = "settings"
 )
 
 // MainReplyKeyboard — постоянная reply-клавиатура: разделы и настройки.

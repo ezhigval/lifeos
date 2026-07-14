@@ -53,10 +53,15 @@
 | TK-02 | CreateTask use case | P0 | M2 |
 | TK-03 | ListTasksToday use case | P0 | M2 |
 | TK-04 | CompleteTask use case | P1 | M2 |
-| TK-05 | RescheduleTasks use case | P1 | M3 |
+| TK-05 | RescheduleTasks (bulk today→tomorrow) | P1 | M3 |
 | TK-06 | TriageOverloadedDay use case | P1 | M4 |
 | TK-07 | Task domain unit tests | P0 | M2 |
 | TK-08 | Task repo integration tests | P1 | M2 |
+| TK-09 | CancelTask + EditTask use cases | P0 | M2+ |
+| TK-10 | duration_minutes + tags (hashtags) | P0 | M2+ |
+| TK-11 | Reschedule single task (due_date persist) | P0 | M2+ |
+| TK-12 | Auto-reschedule incomplete at evening review + notify | P1 | M4+ |
+| TK-13 | Filter tasks by hashtag (API/Telegram) | P1 | M2+ |
 
 ## Epic: Goals
 

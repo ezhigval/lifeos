@@ -26,7 +26,8 @@
 ## M2: Core Domain ✅
 
 - [x] Users + settings
-- [x] Tasks CRUD
+- [x] Tasks lifecycle: create / list / complete / cancel / edit / reschedule
+- [x] Task fields: title, created_at, due_date, duration, projects, hashtags
 - [x] Domain events
 - [x] Integration tests (testcontainers)
 
@@ -46,6 +47,7 @@
 - [x] Unified scheduled_jobs
 - [x] Reminders, morning/evening reviews
 - [x] Day availability + triage
+- [x] Auto-reschedule incomplete tasks on evening review (+ notify)
 
 ---
 

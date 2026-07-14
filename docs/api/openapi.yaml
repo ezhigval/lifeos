@@ -72,6 +72,19 @@ paths:
         '200':
           description: Task list
   /api/v1/tasks:
+    get:
+      summary: List open tasks by hashtag
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: tag
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Task list filtered by tag
     post:
       summary: Create task
       security:
@@ -91,6 +104,13 @@ paths:
                 due_date:
                   type: string
                   format: date
+                duration_minutes:
+                  type: integer
+                  minimum: 1
+                tags:
+                  type: array
+                  items:
+                    type: string
                 project_ids:
                   type: array
                   items:
@@ -99,6 +119,51 @@ paths:
       responses:
         '201':
           description: Created
+  /api/v1/tasks/{id}:
+    patch:
+      summary: Edit task
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                priority:
+                  type: string
+                due_date:
+                  type: string
+                  format: date
+                clear_due_date:
+                  type: boolean
+                duration_minutes:
+                  type: integer
+                  minimum: 1
+                clear_duration:
+                  type: boolean
+                tags:
+                  type: array
+                  items:
+                    type: string
+                project_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: Updated
   /api/v1/tasks/{id}/complete:
     post:
       summary: Complete task
@@ -114,6 +179,47 @@ paths:
       responses:
         '200':
           description: Completed
+  /api/v1/tasks/{id}/cancel:
+    post:
+      summary: Cancel task
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Cancelled
+  /api/v1/tasks/{id}/reschedule:
+    post:
+      summary: Reschedule task to a new due date
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [due_date]
+              properties:
+                due_date:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Rescheduled
   /api/v1/projects/progress:
     get:
       summary: Project progress

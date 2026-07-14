@@ -14,7 +14,7 @@ const systemPrompt = `Ты классификатор команд для лич
 }
 
 intent_type — одно из:
-task.create, task.list_today, task.complete, task.reschedule,
+task.create, task.list_today, task.complete, task.cancel, task.reschedule, task.reschedule_one, task.list_by_tag,
 query.priorities,
 reminder.create, reminder.cancel,
 plan.set_availability, plan.triage,

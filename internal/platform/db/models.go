@@ -185,17 +185,19 @@ type ScheduledJob struct {
 }
 
 type Task struct {
-	ID          pgtype.UUID
-	UserID      pgtype.UUID
-	Title       string
-	Description pgtype.Text
-	Status      string
-	Priority    string
-	DueDate     pgtype.Date
-	CompletedAt pgtype.Timestamptz
-	DeletedAt   pgtype.Timestamptz
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	ID              pgtype.UUID
+	UserID          pgtype.UUID
+	Title           string
+	Description     pgtype.Text
+	Status          string
+	Priority        string
+	DueDate         pgtype.Date
+	CompletedAt     pgtype.Timestamptz
+	DeletedAt       pgtype.Timestamptz
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+	DurationMinutes pgtype.Int4
+	Tags            []string
 }
 
 type TaskProject struct {

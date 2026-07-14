@@ -31,6 +31,28 @@ func (q *Queries) GetTelegramSession(ctx context.Context, userID pgtype.UUID) (T
 	return i, err
 }
 
+const resetTelegramSession = `-- name: ResetTelegramSession :exec
+INSERT INTO telegram_sessions (user_id, chat_id, dashboard_message_id, state, state_payload, updated_at)
+VALUES ($1, $2, NULL, 'idle', '{}', now())
+ON CONFLICT (user_id) DO UPDATE
+SET chat_id = EXCLUDED.chat_id,
+    dashboard_message_id = NULL,
+    state = 'idle',
+    state_payload = '{}',
+    updated_at = now()
+`
+
+type ResetTelegramSessionParams struct {
+	UserID pgtype.UUID
+	ChatID int64
+}
+
+// Clears only conversation UI state. Domain user data is untouched.
+func (q *Queries) ResetTelegramSession(ctx context.Context, arg ResetTelegramSessionParams) error {
+	_, err := q.db.Exec(ctx, resetTelegramSession, arg.UserID, arg.ChatID)
+	return err
+}
+
 const setTelegramDashboard = `-- name: SetTelegramDashboard :exec
 UPDATE telegram_sessions
 SET chat_id = $2,
@@ -96,26 +118,5 @@ func (q *Queries) UpsertTelegramSession(ctx context.Context, arg UpsertTelegramS
 		arg.State,
 		arg.StatePayload,
 	)
-	return err
-}
-
-const resetTelegramSession = `-- name: ResetTelegramSession :exec
-INSERT INTO telegram_sessions (user_id, chat_id, dashboard_message_id, state, state_payload, updated_at)
-VALUES ($1, $2, NULL, 'idle', '{}', now())
-ON CONFLICT (user_id) DO UPDATE
-SET chat_id = EXCLUDED.chat_id,
-    dashboard_message_id = NULL,
-    state = 'idle',
-    state_payload = '{}',
-    updated_at = now()
-`
-
-type ResetTelegramSessionParams struct {
-	UserID pgtype.UUID
-	ChatID int64
-}
-
-func (q *Queries) ResetTelegramSession(ctx context.Context, arg ResetTelegramSessionParams) error {
-	_, err := q.db.Exec(ctx, resetTelegramSession, arg.UserID, arg.ChatID)
 	return err
 }

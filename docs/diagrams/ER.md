@@ -40,8 +40,11 @@ erDiagram
         varchar status
         varchar priority
         date due_date
+        int duration_minutes
+        text[] tags
         timestamptz completed_at
         timestamptz deleted_at
+        timestamptz created_at
     }
 
     projects {

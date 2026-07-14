@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -67,6 +69,11 @@ type runtime struct {
 	listToday        *tasksapp.ListTasksToday
 	createTask       *tasksapp.CreateTask
 	completeTask     *tasksapp.CompleteTask
+	cancelTask       *tasksapp.CancelTask
+	editTask         *tasksapp.EditTask
+	rescheduleTask   *tasksapp.RescheduleTask
+	listTasksByTag   *tasksapp.ListTasksByTag
+	autoReschedule   *tasksapp.AutoRescheduleIncomplete
 	projectProg      *projectsapp.GetProjectProgress
 	priorities       *query.GetTopPriorities
 	analytics        *query.GetProductivitySummary
@@ -132,8 +139,15 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 
 	createTask := tasksapp.NewCreateTask(taskRepo, eventPub, transactor, projectsinfra.NewProjectReader(p))
 	completeTask := tasksapp.NewCompleteTask(taskRepo, eventPub, transactor)
+	cancelTask := tasksapp.NewCancelTask(taskRepo, eventPub, transactor)
+	editTask := tasksapp.NewEditTask(taskRepo, eventPub, transactor, projectsinfra.NewProjectReader(p))
+	rescheduleTask := tasksapp.NewRescheduleTask(taskRepo, eventPub, transactor)
 	completeByTitle := tasksapp.NewCompleteTaskByTitle(taskRepo, completeTask)
+	cancelByTitle := tasksapp.NewCancelTaskByTitle(taskRepo, cancelTask)
+	rescheduleByTitle := tasksapp.NewRescheduleTaskByTitle(taskRepo, rescheduleTask)
 	listToday := tasksapp.NewListTasksToday(taskRepo, tzReader)
+	listTasksByTag := tasksapp.NewListTasksByTag(taskRepo)
+	autoReschedule := tasksapp.NewAutoRescheduleIncomplete(taskRepo, eventPub, transactor, tzReader)
 	financeRepo := financeinfra.NewRepository(p)
 	recordIncome := financeapp.NewRecordIncome(financeRepo, financeRepo, eventPub, transactor, tzReader)
 	recordExpense := financeapp.NewRecordExpense(financeRepo, financeRepo, eventPub, transactor, tzReader)
@@ -214,6 +228,11 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		listToday:        listToday,
 		createTask:       createTask,
 		completeTask:     completeTask,
+		cancelTask:       cancelTask,
+		editTask:         editTask,
+		rescheduleTask:   rescheduleTask,
+		listTasksByTag:   listTasksByTag,
+		autoReschedule:   autoReschedule,
 		projectProg:      projectProgress,
 		priorities:       priorities,
 		analytics:        analytics,
@@ -280,71 +299,75 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		rt.tgClient = client
 		rt.notifier = notifinfra.NewTelegramNotifier(client, log)
 		rt.handler = tg.NewHandler(tg.Deps{
-			Log:              log,
-			Client:           client,
-			Resolver:         newIntentResolver(cfg, log),
-			Sessions:         sessions,
-			EnsureUser:       ensureUser,
-			Processed:        tginfra.NewProcessedUpdates(p),
-			CreateTask:       createTask,
-			CompleteTask:     completeTask,
-			CompleteByTitle:  completeByTitle,
-			ListToday:        listToday,
-			ProjectProg:      projectProgress,
-			UpdateMorning:    updateMorning,
-			UpdateEvening:    updateEvening,
-			UpdateQuiet:      updateQuiet,
-			Priorities:       priorities,
-			Analytics:        analytics,
-			Reminder:         reminder,
-			ListReminders:    listReminders,
-			CancelReminder:   cancelReminder,
-			SetAvail:         setAvail,
-			Triage:           triage,
-			Reschedule:       reschedule,
-			RecordIncome:     recordIncome,
-			RecordExpense:    recordExpense,
-			CreateDebt:       createDebt,
-			PayDebt:          payDebt,
-			ListDebts:        listDebts,
-			CashFlow:         cashFlow,
-			CreateHabit:      createHabit,
-			TrackHabit:       trackHabit,
-			ListHabits:       listHabits,
-			CreateNote:       createNote,
-			ListNotes:        listNotes,
-			SearchNotes:      searchNotes,
-			DeleteNote:       deleteNote,
-			CreateContact:    createContact,
-			ListContacts:     listContacts,
-			SearchContacts:   searchContacts,
-			DeleteContact:    deleteContact,
-			CreateSkill:      createSkill,
-			ListSkills:       listSkills,
-			SearchSkills:     searchSkills,
-			DeleteSkill:      deleteSkill,
-			CreateSphere:     createSphere,
-			ListSpheres:      listSpheres,
-			UpdateSphere:     updateSphere,
-			DeleteSphere:     deleteSphere,
-			FindSphere:       findSphere,
-			RecordWeight:     recordWeight,
-			LatestWeight:     latestWeight,
-			RecordSteps:      recordSteps,
-			LatestSteps:      latestSteps,
-			RecordSleep:      recordSleep,
-			LatestSleep:      latestSleep,
-			CreateProject:    createProject,
-			FindProject:      findProject,
-			ListProjects:     listProjects,
-			ListProjectTasks: listProjectTasks,
-			ArchiveProject:   archiveProject,
-			CreateEvent:      createEvent,
-			ListCalendar:     listCalendar,
-			Review:           rt.review,
-			TZReader:         tzReader,
-			DeleteUser:       identityapp.NewDeleteUser(userRepo),
-			AdminTelegramID:  cfg.SeedTelegramID,
+			Log:               log,
+			Client:            client,
+			Resolver:          newIntentResolver(cfg, log),
+			Sessions:          sessions,
+			EnsureUser:        ensureUser,
+			Processed:         tginfra.NewProcessedUpdates(p),
+			CreateTask:        createTask,
+			CompleteTask:      completeTask,
+			CompleteByTitle:   completeByTitle,
+			CancelTask:        cancelTask,
+			CancelByTitle:     cancelByTitle,
+			RescheduleByTitle: rescheduleByTitle,
+			ListByTag:         listTasksByTag,
+			ListToday:         listToday,
+			ProjectProg:       projectProgress,
+			UpdateMorning:     updateMorning,
+			UpdateEvening:     updateEvening,
+			UpdateQuiet:       updateQuiet,
+			Priorities:        priorities,
+			Analytics:         analytics,
+			Reminder:          reminder,
+			ListReminders:     listReminders,
+			CancelReminder:    cancelReminder,
+			SetAvail:          setAvail,
+			Triage:            triage,
+			Reschedule:        reschedule,
+			RecordIncome:      recordIncome,
+			RecordExpense:     recordExpense,
+			CreateDebt:        createDebt,
+			PayDebt:           payDebt,
+			ListDebts:         listDebts,
+			CashFlow:          cashFlow,
+			CreateHabit:       createHabit,
+			TrackHabit:        trackHabit,
+			ListHabits:        listHabits,
+			CreateNote:        createNote,
+			ListNotes:         listNotes,
+			SearchNotes:       searchNotes,
+			DeleteNote:        deleteNote,
+			CreateContact:     createContact,
+			ListContacts:      listContacts,
+			SearchContacts:    searchContacts,
+			DeleteContact:     deleteContact,
+			CreateSkill:       createSkill,
+			ListSkills:        listSkills,
+			SearchSkills:      searchSkills,
+			DeleteSkill:       deleteSkill,
+			CreateSphere:      createSphere,
+			ListSpheres:       listSpheres,
+			UpdateSphere:      updateSphere,
+			DeleteSphere:      deleteSphere,
+			FindSphere:        findSphere,
+			RecordWeight:      recordWeight,
+			LatestWeight:      latestWeight,
+			RecordSteps:       recordSteps,
+			LatestSteps:       latestSteps,
+			RecordSleep:       recordSleep,
+			LatestSleep:       latestSleep,
+			CreateProject:     createProject,
+			FindProject:       findProject,
+			ListProjects:      listProjects,
+			ListProjectTasks:  listProjectTasks,
+			ArchiveProject:    archiveProject,
+			CreateEvent:       createEvent,
+			ListCalendar:      listCalendar,
+			Review:            rt.review,
+			TZReader:          tzReader,
+			DeleteUser:        identityapp.NewDeleteUser(userRepo),
+			AdminTelegramID:   cfg.SeedTelegramID,
 		})
 		rt.poller = tg.NewPoller(client, rt.handler, log)
 	}
@@ -399,6 +422,14 @@ func (rt *runtime) periodicReviewHandler(jobType string) scheduler.JobHandler {
 			text, err = rt.review.Morning(ctx, userID)
 		case "evening_review":
 			text, err = rt.review.Evening(ctx, userID)
+			if err == nil && rt.autoReschedule != nil {
+				moved, moveErr := rt.autoReschedule.Execute(ctx, userID, events.SourceScheduler)
+				if moveErr != nil {
+					rt.log.Error("auto reschedule failed", "error", moveErr, "user_id", userID.String())
+				} else if len(moved.Moved) > 0 {
+					text = text + "\n\n" + formatAutoRescheduleNotice(moved.Moved)
+				}
+			}
 		case "weekly_review":
 			text, err = rt.review.Weekly(ctx, userID)
 		case "monthly_review":
@@ -496,4 +527,13 @@ func (rt *runtime) bootstrapReviewsForUser(ctx context.Context, user identitydom
 		return err
 	}
 	return rt.reminder.EnsureReview(ctx, user.ID, "monthly_review", monthly)
+}
+
+func formatAutoRescheduleNotice(moved []tasksapp.TaskDTO) string {
+	var b strings.Builder
+	b.WriteString("↪️ <b>Невыполненные задачи перенесены на завтра</b>\n")
+	for _, t := range moved {
+		fmt.Fprintf(&b, "• %s\n", html.EscapeString(t.Title))
+	}
+	return strings.TrimSpace(b.String())
 }

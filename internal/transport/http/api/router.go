@@ -38,6 +38,10 @@ type Deps struct {
 	ListToday        *tasksapp.ListTasksToday
 	CreateTask       *tasksapp.CreateTask
 	Complete         *tasksapp.CompleteTask
+	CancelTask       *tasksapp.CancelTask
+	EditTask         *tasksapp.EditTask
+	RescheduleTask   *tasksapp.RescheduleTask
+	ListByTag        *tasksapp.ListTasksByTag
 	ProjectProg      *projectsapp.GetProjectProgress
 	Review           *query.Review
 	Priorities       *query.GetTopPriorities
@@ -106,8 +110,12 @@ func (rt *Router) Mount(r chi.Router) {
 		r.Group(func(r chi.Router) {
 			r.Use(rt.jwtMiddleware)
 			r.Get("/tasks/today", rt.listTasksToday)
+			r.Get("/tasks", rt.listTasks)
 			r.Post("/tasks", rt.createTask)
+			r.Patch("/tasks/{id}", rt.editTask)
 			r.Post("/tasks/{id}/complete", rt.completeTask)
+			r.Post("/tasks/{id}/cancel", rt.cancelTask)
+			r.Post("/tasks/{id}/reschedule", rt.rescheduleTask)
 			r.Get("/projects/progress", rt.projectProgress)
 			r.Get("/reviews/morning", rt.morningReview)
 			r.Get("/reviews/evening", rt.eveningReview)
@@ -238,21 +246,27 @@ func timeUntil(exp time.Time) int {
 }
 
 type taskJSON struct {
-	ID         string   `json:"id"`
-	Title      string   `json:"title"`
-	Status     string   `json:"status"`
-	Priority   string   `json:"priority"`
-	DueDate    *string  `json:"due_date,omitempty"`
-	ProjectIDs []string `json:"project_ids,omitempty"`
+	ID              string   `json:"id"`
+	Title           string   `json:"title"`
+	Status          string   `json:"status"`
+	Priority        string   `json:"priority"`
+	DueDate         *string  `json:"due_date,omitempty"`
+	DurationMinutes *int     `json:"duration_minutes,omitempty"`
+	Tags            []string `json:"tags,omitempty"`
+	ProjectIDs      []string `json:"project_ids,omitempty"`
+	CreatedAt       string   `json:"created_at"`
 }
 
 func taskToJSON(dto tasksapp.TaskDTO) taskJSON {
 	out := taskJSON{
-		ID:         dto.ID.String(),
-		Title:      dto.Title,
-		Status:     string(dto.Status),
-		Priority:   string(dto.Priority),
-		ProjectIDs: projectIDsToStrings(dto.ProjectIDs),
+		ID:              dto.ID.String(),
+		Title:           dto.Title,
+		Status:          string(dto.Status),
+		Priority:        string(dto.Priority),
+		DurationMinutes: dto.DurationMinutes,
+		Tags:            dto.Tags,
+		ProjectIDs:      projectIDsToStrings(dto.ProjectIDs),
+		CreatedAt:       dto.CreatedAt.UTC().Format(time.RFC3339),
 	}
 	if dto.DueDate != nil {
 		s := dto.DueDate.Format("2006-01-02")
@@ -291,10 +305,12 @@ func (rt *Router) listTasksToday(w http.ResponseWriter, r *http.Request) {
 }
 
 type createTaskRequest struct {
-	Title      string   `json:"title"`
-	Priority   string   `json:"priority"`
-	DueDate    *string  `json:"due_date"`
-	ProjectIDs []string `json:"project_ids"`
+	Title           string   `json:"title"`
+	Priority        string   `json:"priority"`
+	DueDate         *string  `json:"due_date"`
+	DurationMinutes *int     `json:"duration_minutes"`
+	Tags            []string `json:"tags"`
+	ProjectIDs      []string `json:"project_ids"`
 }
 
 func (rt *Router) createTask(w http.ResponseWriter, r *http.Request) {
@@ -323,18 +339,125 @@ func (rt *Router) createTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dto, err := rt.deps.CreateTask.Execute(r.Context(), tasksapp.CreateTaskInput{
-		UserID:     userID,
-		Title:      strings.TrimSpace(req.Title),
-		Priority:   taskdomain.Priority(req.Priority),
-		DueDate:    due,
-		ProjectIDs: projectIDs,
-		Source:     events.SourceHTTP,
+		UserID:          userID,
+		Title:           strings.TrimSpace(req.Title),
+		Priority:        taskdomain.Priority(req.Priority),
+		DueDate:         due,
+		DurationMinutes: req.DurationMinutes,
+		Tags:            req.Tags,
+		ProjectIDs:      projectIDs,
+		Source:          events.SourceHTTP,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusCreated, taskToJSON(dto))
+}
+
+func (rt *Router) listTasks(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	tag := strings.TrimSpace(r.URL.Query().Get("tag"))
+	if tag == "" {
+		writeError(w, http.StatusBadRequest, "tag query param is required")
+		return
+	}
+	if rt.deps.ListByTag == nil {
+		writeError(w, http.StatusNotImplemented, "list by tag is not configured")
+		return
+	}
+	items, err := rt.deps.ListByTag.Execute(r.Context(), userID, tag)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	out := make([]taskJSON, 0, len(items))
+	for _, item := range items {
+		out = append(out, taskToJSON(item))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"tasks": out})
+}
+
+type editTaskRequest struct {
+	Title            *string   `json:"title"`
+	Description      *string   `json:"description"`
+	ClearDescription bool      `json:"clear_description"`
+	Priority         *string   `json:"priority"`
+	DueDate          *string   `json:"due_date"`
+	ClearDueDate     bool      `json:"clear_due_date"`
+	DurationMinutes  *int      `json:"duration_minutes"`
+	ClearDuration    bool      `json:"clear_duration"`
+	Tags             *[]string `json:"tags"`
+	ProjectIDs       *[]string `json:"project_ids"`
+}
+
+func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.EditTask == nil {
+		writeError(w, http.StatusNotImplemented, "edit task is not configured")
+		return
+	}
+	taskID, err := ids.ParseTaskID(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid task id")
+		return
+	}
+	var req editTaskRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	var due *time.Time
+	if req.DueDate != nil && *req.DueDate != "" {
+		t, err := time.Parse("2006-01-02", *req.DueDate)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid due_date")
+			return
+		}
+		due = &t
+	}
+	var priority *taskdomain.Priority
+	if req.Priority != nil {
+		p := taskdomain.Priority(*req.Priority)
+		priority = &p
+	}
+	var projectIDs *[]ids.ProjectID
+	if req.ProjectIDs != nil {
+		parsed, err := parseProjectIDs(*req.ProjectIDs)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid project_ids")
+			return
+		}
+		projectIDs = &parsed
+	}
+	dto, err := rt.deps.EditTask.Execute(r.Context(), tasksapp.EditTaskInput{
+		UserID:           userID,
+		TaskID:           taskID,
+		Title:            req.Title,
+		Description:      req.Description,
+		ClearDescription: req.ClearDescription,
+		Priority:         priority,
+		DueDate:          due,
+		ClearDueDate:     req.ClearDueDate,
+		DurationMinutes:  req.DurationMinutes,
+		ClearDuration:    req.ClearDuration,
+		Tags:             req.Tags,
+		ProjectIDs:       projectIDs,
+		Source:           events.SourceHTTP,
+	})
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, taskToJSON(dto))
 }
 
 func (rt *Router) completeTask(w http.ResponseWriter, r *http.Request) {
@@ -350,6 +473,70 @@ func (rt *Router) completeTask(w http.ResponseWriter, r *http.Request) {
 	}
 	dto, err := rt.deps.Complete.Execute(r.Context(), tasksapp.CompleteTaskInput{
 		UserID: userID, TaskID: taskID, Source: events.SourceHTTP,
+	})
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, taskToJSON(dto))
+}
+
+func (rt *Router) cancelTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.CancelTask == nil {
+		writeError(w, http.StatusNotImplemented, "cancel task is not configured")
+		return
+	}
+	taskID, err := ids.ParseTaskID(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid task id")
+		return
+	}
+	dto, err := rt.deps.CancelTask.Execute(r.Context(), tasksapp.CancelTaskInput{
+		UserID: userID, TaskID: taskID, Source: events.SourceHTTP,
+	})
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, taskToJSON(dto))
+}
+
+type rescheduleTaskRequest struct {
+	DueDate string `json:"due_date"`
+}
+
+func (rt *Router) rescheduleTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.RescheduleTask == nil {
+		writeError(w, http.StatusNotImplemented, "reschedule task is not configured")
+		return
+	}
+	taskID, err := ids.ParseTaskID(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid task id")
+		return
+	}
+	var req rescheduleTaskRequest
+	if err := decodeJSON(r, &req); err != nil || strings.TrimSpace(req.DueDate) == "" {
+		writeError(w, http.StatusBadRequest, "due_date is required")
+		return
+	}
+	due, err := time.Parse("2006-01-02", req.DueDate)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid due_date")
+		return
+	}
+	dto, err := rt.deps.RescheduleTask.Execute(r.Context(), tasksapp.RescheduleTaskInput{
+		UserID: userID, TaskID: taskID, DueDate: due, Source: events.SourceHTTP,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())

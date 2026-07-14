@@ -1,6 +1,6 @@
 -- name: ListOverdueAndTodayTasks :many
 SELECT id, user_id, title, description, status, priority, due_date,
-       completed_at, deleted_at, created_at, updated_at
+       completed_at, deleted_at, created_at, updated_at, duration_minutes, tags
 FROM tasks
 WHERE user_id = $1
   AND deleted_at IS NULL
@@ -13,7 +13,7 @@ ORDER BY
 
 -- name: ListTasksForDay :many
 SELECT id, user_id, title, description, status, priority, due_date,
-       completed_at, deleted_at, created_at, updated_at
+       completed_at, deleted_at, created_at, updated_at, duration_minutes, tags
 FROM tasks
 WHERE user_id = $1
   AND deleted_at IS NULL

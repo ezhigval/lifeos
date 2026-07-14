@@ -3,9 +3,9 @@ package telegram
 import (
 	"fmt"
 
+	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
 	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
 	taskapp "github.com/valentinezhov/lifeos/internal/tasks/app"
-	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
 	taskdomain "github.com/valentinezhov/lifeos/internal/tasks/domain"
 )
 
@@ -40,13 +40,13 @@ func taskDoneButtons(items []taskapp.TaskDTO) [][]InlineButton {
 	}
 	var rows [][]InlineButton
 	for _, item := range items {
-		if item.Status == taskdomain.StatusDone {
+		if item.Status == taskdomain.StatusDone || item.Status == taskdomain.StatusCancelled {
 			continue
 		}
-		rows = append(rows, []InlineButton{{
-			Text:         "✓ " + truncate(item.Title, 28),
-			CallbackData: CBTaskDone + item.ID.String(),
-		}})
+		rows = append(rows, []InlineButton{
+			{Text: "✓ " + truncate(item.Title, 22), CallbackData: CBTaskDone + item.ID.String()},
+			{Text: "✕", CallbackData: CBTaskCancel + item.ID.String()},
+		})
 	}
 	return rows
 }

@@ -8,7 +8,10 @@ const (
 	IntentTaskCreate          IntentType = "task.create"
 	IntentTaskListToday       IntentType = "task.list_today"
 	IntentTaskComplete        IntentType = "task.complete"
-	IntentProjectProgress      IntentType = "project.progress"
+	IntentTaskCancel          IntentType = "task.cancel"
+	IntentTaskRescheduleOne   IntentType = "task.reschedule_one"
+	IntentTaskListByTag       IntentType = "task.list_by_tag"
+	IntentProjectProgress     IntentType = "project.progress"
 	IntentQueryPriorities     IntentType = "query.priorities"
 	IntentReminderCreate      IntentType = "reminder.create"
 	IntentReminderCancel      IntentType = "reminder.cancel"
@@ -67,12 +70,12 @@ type ResolveInput struct {
 }
 
 type ResolvedIntent struct {
-	Type       IntentType
-	Title      string
-	Message    string
-	Target     string
-	Unit       string
-	TimeText   string
+	Type        IntentType
+	Title       string
+	Message     string
+	Target      string
+	Unit        string
+	TimeText    string
 	Hour        int
 	Minute      int
 	AmountCents int64
