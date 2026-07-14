@@ -3,25 +3,59 @@ package telegram
 import (
 	"fmt"
 	"html"
+	"regexp"
 	"strings"
 	"time"
 
 	calendarapp "github.com/valentinezhov/lifeos/internal/calendar/app"
+	careerapp "github.com/valentinezhov/lifeos/internal/career/app"
 	financeapp "github.com/valentinezhov/lifeos/internal/finance/app"
 	financedomain "github.com/valentinezhov/lifeos/internal/finance/domain"
 	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
 	healthapp "github.com/valentinezhov/lifeos/internal/health/app"
 	knowledgeapp "github.com/valentinezhov/lifeos/internal/knowledge/app"
-	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
-	careerapp "github.com/valentinezhov/lifeos/internal/career/app"
 	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
 	"github.com/valentinezhov/lifeos/internal/query"
 	settingsdomain "github.com/valentinezhov/lifeos/internal/settings/domain"
+	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
 	taskapp "github.com/valentinezhov/lifeos/internal/tasks/app"
 )
 
+// Room under Telegram's 4096 cap after FormatDashboard wraps the body.
+const maxAssistantHTMLRunes = 3500
+
+// Allowlisted Telegram HTML tags restored after full escape (LLM/review/triage text).
+var reTelegramAllowedTag = regexp.MustCompile(`(?i)&lt;(/?)(b|strong|i|em)&gt;`)
+
+// FormatAssistantHTML escapes free-form assistant/review text for parse_mode=HTML,
+// restores a small allowlist of emphasis tags, and truncates to a safe length.
+// Do not use on bodies already passed through html.EscapeString (double-escape).
+func FormatAssistantHTML(text string) string {
+	text = sanitizeTelegramHTML(strings.TrimSpace(text))
+	r := []rune(text)
+	if len(r) <= maxAssistantHTMLRunes {
+		return text
+	}
+	return string(r[:maxAssistantHTMLRunes-1]) + "…"
+}
+
+func sanitizeTelegramHTML(s string) string {
+	escaped := html.EscapeString(s)
+	return reTelegramAllowedTag.ReplaceAllStringFunc(escaped, func(match string) string {
+		parts := reTelegramAllowedTag.FindStringSubmatch(match)
+		if len(parts) != 3 {
+			return match
+		}
+		return "<" + parts[1] + strings.ToLower(parts[2]) + ">"
+	})
+}
+
 func FormatTaskCreated(dto taskapp.TaskDTO) string {
-	return fmt.Sprintf("✅ Задача создана: <b>%s</b>", html.EscapeString(dto.Title))
+	out := fmt.Sprintf("✅ Задача создана: <b>%s</b>", html.EscapeString(dto.Title))
+	if extra := formatTaskMeta(dto.DurationMinutes, dto.Tags); extra != "" {
+		out += " · " + html.EscapeString(extra)
+	}
+	return out
 }
 
 func FormatTasksToday(items []taskapp.TaskDTO) string {
@@ -31,7 +65,67 @@ func FormatTasksToday(items []taskapp.TaskDTO) string {
 	var b strings.Builder
 	b.WriteString("📅 <b>Задачи на сегодня</b>\n")
 	for _, item := range items {
-		fmt.Fprintf(&b, "• [%s] %s\n", item.Priority, html.EscapeString(item.Title))
+		extra := formatTaskMeta(item.DurationMinutes, item.Tags)
+		if extra != "" {
+			extra = " · " + extra
+		}
+		fmt.Fprintf(&b, "• [%s] %s%s\n", item.Priority, html.EscapeString(item.Title), html.EscapeString(extra))
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func formatTaskTags(tags []string) string {
+	parts := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		parts = append(parts, "#"+tag)
+	}
+	return strings.Join(parts, " ")
+}
+
+// formatTaskMeta joins duration + hashtags for list/created lines (plain text; escape at call site).
+func formatTaskMeta(durationMinutes *int, tags []string) string {
+	var parts []string
+	if durationMinutes != nil {
+		parts = append(parts, fmt.Sprintf("%dм", *durationMinutes))
+	}
+	if len(tags) > 0 {
+		parts = append(parts, formatTaskTags(tags))
+	}
+	return strings.Join(parts, " · ")
+}
+
+func FormatTaskCancelled(dto taskapp.TaskDTO) string {
+	return fmt.Sprintf("🚫 Задача отменена: <b>%s</b>", html.EscapeString(dto.Title))
+}
+
+func FormatTaskRescheduled(dto taskapp.TaskDTO) string {
+	if dto.DueDate == nil {
+		return fmt.Sprintf("↪️ Задача перенесена: <b>%s</b>", html.EscapeString(dto.Title))
+	}
+	due := dto.DueDate.Format("02.01")
+	return fmt.Sprintf("↪️ Задача перенесена: <b>%s</b> → <b>%s</b>", html.EscapeString(dto.Title), html.EscapeString(due))
+}
+
+func FormatTasksByTag(tag string, items []taskapp.TaskDTO) string {
+	if len(items) == 0 {
+		return fmt.Sprintf("Открытых задач с тегом <b>#%s</b> нет.", html.EscapeString(tag))
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "🏷 <b>Задачи #%s</b>\n", html.EscapeString(tag))
+	for _, item := range items {
+		extra := formatTaskMeta(item.DurationMinutes, item.Tags)
+		if item.DueDate != nil {
+			due := item.DueDate.Format("02.01")
+			if extra != "" {
+				extra = due + " · " + extra
+			} else {
+				extra = due
+			}
+		}
+		if extra != "" {
+			extra = " · " + extra
+		}
+		fmt.Fprintf(&b, "• [%s] %s%s\n", item.Priority, html.EscapeString(item.Title), html.EscapeString(extra))
 	}
 	return strings.TrimSpace(b.String())
 }
@@ -62,8 +156,11 @@ func FormatPriorities(items []query.PriorityItem) string {
 	return strings.TrimSpace(b.String())
 }
 
-func FormatReminderScheduled(at string) string {
-	return fmt.Sprintf("⏰ Напомню: <b>%s</b>", html.EscapeString(at))
+func FormatReminderScheduled(message, at string) string {
+	if strings.TrimSpace(message) == "" {
+		return fmt.Sprintf("⏰ Напомню: <b>%s</b>", html.EscapeString(at))
+	}
+	return fmt.Sprintf("⏰ Напомню: <b>%s</b> (<b>%s</b>)", html.EscapeString(message), html.EscapeString(at))
 }
 
 func FormatReminderCancelled(message, at string) string {
@@ -85,7 +182,7 @@ func FormatAvailability(until string) string {
 }
 
 func FormatTriage(proposal string) string {
-	return proposal
+	return FormatAssistantHTML(proposal)
 }
 
 func FormatTaskCompleted(dto taskapp.TaskDTO) string {
@@ -231,7 +328,11 @@ func FormatProjectTasks(projectName string, items []taskapp.TaskDTO) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "📁 <b>%s</b>\n", html.EscapeString(projectName))
 	for _, item := range items {
-		fmt.Fprintf(&b, "• [%s] %s\n", item.Priority, html.EscapeString(item.Title))
+		extra := formatTaskMeta(item.DurationMinutes, item.Tags)
+		if extra != "" {
+			extra = " · " + extra
+		}
+		fmt.Fprintf(&b, "• [%s] %s%s\n", item.Priority, html.EscapeString(item.Title), html.EscapeString(extra))
 	}
 	return strings.TrimSpace(b.String())
 }

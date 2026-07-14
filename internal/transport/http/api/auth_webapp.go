@@ -45,6 +45,7 @@ func (rt *Router) authTelegramWebApp(w http.ResponseWriter, r *http.Request) {
 				"init_data_len", len(req.InitData),
 				"has_hash", strings.Contains(req.InitData, "hash="),
 				"has_user", strings.Contains(req.InitData, "user="),
+				"has_signature", strings.Contains(req.InitData, "signature="),
 			)
 		}
 		writeError(w, http.StatusUnauthorized, publicWebAppAuthError(err))
@@ -72,6 +73,7 @@ func (rt *Router) authTelegramWebApp(w http.ResponseWriter, r *http.Request) {
 		AccessToken: token,
 		ExpiresIn:   int64(timeUntil(exp)),
 		TokenType:   "Bearer",
+		TelegramID:  parsed.User.ID,
 	})
 }
 
@@ -81,7 +83,9 @@ func publicWebAppAuthError(err error) string {
 	case strings.Contains(msg, "expired"):
 		return "init_data expired — закрой Mini App и открой снова"
 	case strings.Contains(msg, "invalid init_data hash"):
-		return "invalid init_data hash — открой Mini App кнопкой бота @urban_assist_bot"
+		return "invalid init_data hash — открой Mini App кнопкой бота (тот же бот, чей TELEGRAM_BOT_TOKEN на сервере)"
+	case strings.Contains(msg, "invalid user id"), strings.Contains(msg, "invalid user json"):
+		return "init_data user invalid — закрой Mini App и открой снова из Telegram"
 	case strings.Contains(msg, "missing hash"), strings.Contains(msg, "missing user"), strings.Contains(msg, "missing auth_date"):
 		return "init_data incomplete — закрой Mini App и открой снова из Telegram"
 	default:

@@ -26,8 +26,11 @@ var patterns = []struct {
 	{regexp.MustCompile(`(?i)^добавь\s+задачу\s+(.+?)\s+для\s+проекта\s+(.+)$`), ai.IntentTaskCreate, "project"},
 	{regexp.MustCompile(`(?i)^добавь\s+задачу\s+(.+)$`), ai.IntentTaskCreate, ""},
 	{regexp.MustCompile(`(?i)^задачи\s+на\s+сегодня`), ai.IntentTaskListToday, ""},
+	{regexp.MustCompile(`(?i)^задачи\s+(?:с\s+тегом|по\s+тегу)\s+#?([\p{L}\p{N}_-]+)$`), ai.IntentTaskListByTag, ""},
 	{regexp.MustCompile(`(?i)^выполни\s+задачу\s+(.+)$`), ai.IntentTaskComplete, ""},
 	{regexp.MustCompile(`(?i)^готово[:\s]+(.+)$`), ai.IntentTaskComplete, ""},
+	{regexp.MustCompile(`(?i)^отмени\s+задачу\s+(.+)$`), ai.IntentTaskCancel, ""},
+	{regexp.MustCompile(`(?i)^перенеси\s+задачу\s+(.+?)\s+на\s+завтра$`), ai.IntentTaskRescheduleOne, "tomorrow"},
 	{regexp.MustCompile(`(?i)^(сколько\s+осталось\s+до\s+проекта|прогресс\s+проекта)(?:\s+(.+))?$`), ai.IntentProjectProgress, ""},
 	{regexp.MustCompile(`(?i)^(что\s+сейчас\s+важн|что\s+сейчас\s+самое\s+важн)`), ai.IntentQueryPriorities, ""},
 	{regexp.MustCompile(`(?i)^отмени\s+напоминание(?:\s+(.+))?$`), ai.IntentReminderCancel, ""},
@@ -107,7 +110,7 @@ func (r *Resolver) Resolve(_ context.Context, input ai.ResolveInput) (ai.Resolve
 		if m := p.re.FindStringSubmatch(text); m != nil {
 			intent := ai.ResolvedIntent{Type: p.intent, Confidence: 0.9, Unit: p.linkType}
 			switch p.intent {
-			case ai.IntentTaskCreate, ai.IntentTaskComplete, ai.IntentHabitCreate, ai.IntentHabitTrack, ai.IntentProjectCreate, ai.IntentProjectTasks, ai.IntentProjectArchive, ai.IntentProjectProgress, ai.IntentNoteCreate, ai.IntentNoteSearch, ai.IntentCareerContactCreate, ai.IntentCareerContactSearch, ai.IntentCareerSkillCreate, ai.IntentCareerSkillSearch, ai.IntentSphereCreate:
+			case ai.IntentTaskCreate, ai.IntentTaskComplete, ai.IntentTaskCancel, ai.IntentTaskRescheduleOne, ai.IntentTaskListByTag, ai.IntentHabitCreate, ai.IntentHabitTrack, ai.IntentProjectCreate, ai.IntentProjectTasks, ai.IntentProjectArchive, ai.IntentProjectProgress, ai.IntentNoteCreate, ai.IntentNoteSearch, ai.IntentCareerContactCreate, ai.IntentCareerContactSearch, ai.IntentCareerSkillCreate, ai.IntentCareerSkillSearch, ai.IntentSphereCreate:
 				intent.Title = strings.TrimSpace(m[1])
 				if p.intent == ai.IntentTaskCreate && len(m) > 2 && m[2] != "" {
 					intent.Target = strings.TrimSpace(m[2])

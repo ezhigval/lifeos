@@ -5,13 +5,17 @@ import { formatMoneyPlain } from '@/lib/money'
 type Props = {
   categories: FinanceCategory[]
   currency: string
+  /** When set, empty copy distinguishes zero spend vs missing breakdown. */
+  expenseCents?: number
 }
 
-export function FinanceLegend({ categories, currency }: Props) {
+export function FinanceLegend({ categories, currency, expenseCents = 0 }: Props) {
   if (categories.length === 0) {
     return (
       <p className="text-center text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">
-        Категории появятся после подключения finance/overview API
+        {expenseCents > 0
+          ? 'Разбивка по категориям пока недоступна'
+          : 'Нет расходов за период'}
       </p>
     )
   }

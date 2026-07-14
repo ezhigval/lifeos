@@ -33,8 +33,13 @@ func TestMainReplyKeyboardSections(t *testing.T) {
 		t.Fatalf("rows=%d want 5 with mini app", len(kbApp))
 	}
 	last := kbApp[4][0]
-	if last.Text != telegram.MenuMiniApp || last.WebApp != "https://example.com/app/" {
+	// Reply row must be plain text — web_app on reply KB yields empty initData on many clients.
+	if last.Text != telegram.MenuMiniApp || last.WebApp != "" {
 		t.Fatalf("mini app button=%+v", last)
+	}
+	open := telegram.InlineOpenMiniApp("https://example.com/app/")
+	if len(open) != 1 || open[0][0].WebApp != "https://example.com/app/" {
+		t.Fatalf("inline open=%+v", open)
 	}
 }
 

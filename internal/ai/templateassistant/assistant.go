@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/valentinezhov/lifeos/internal/ai"
+	"github.com/valentinezhov/lifeos/internal/ai/reviewsafe"
 )
 
 type Assistant struct{}
@@ -22,13 +23,13 @@ func (a *Assistant) Summarize(_ context.Context, req ai.SummaryRequest) (string,
 	} else {
 		b.WriteString("Задачи:\n")
 		for i, t := range req.Tasks {
-			fmt.Fprintf(&b, "%d. %s\n", i+1, t)
+			fmt.Fprintf(&b, "%d. %s\n", i+1, reviewsafe.EscapePlain(t))
 		}
 	}
 	if len(req.Projects) > 0 {
 		b.WriteString("Проекты:\n")
 		for _, p := range req.Projects {
-			fmt.Fprintf(&b, "• %s\n", p)
+			fmt.Fprintf(&b, "• %s\n", reviewsafe.EscapePlain(p))
 		}
 	}
 	return strings.TrimSpace(b.String()), nil

@@ -187,7 +187,7 @@ func (h *MessageHandler) confirmPendingDelete(ctx context.Context, actor ids.Use
 		if err != nil {
 			return dispatchResult{}, err
 		}
-		out.text = "🗑 Аккаунт удалён. Начат с нуля.\n\n" + out.text
+		out.text = "🗑 Аккаунт удалён. Данные сброшены — можно начинать с нуля.\n\n" + out.text
 		return out, nil
 	}
 

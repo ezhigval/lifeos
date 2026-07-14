@@ -29,6 +29,10 @@ func (rt *Router) getSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if rt.deps.GetSettings == nil {
+		writeError(w, http.StatusNotImplemented, "settings is not configured")
+		return
+	}
 	s, err := rt.deps.GetSettings.Execute(r.Context(), userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

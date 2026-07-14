@@ -1,4 +1,4 @@
-.PHONY: dev dev-air build test lint migrate-up migrate-down migrate-status docker-up docker-down tidy backup restore observability-up miniapp-dev miniapp-build tunnel stack-up
+.PHONY: dev dev-air build test lint openapi-check coverage-check migrate-up migrate-down migrate-status docker-up docker-down tidy backup restore observability-up miniapp-dev miniapp-build tunnel stack-up verify-webapp-auth
 
 BINARY := lifeos
 MAIN := ./cmd/lifeos
@@ -20,11 +20,17 @@ test:
 	GOTOOLCHAIN=local go test ./... -count=1 -coverprofile=coverage.out
 	@GOTOOLCHAIN=local go tool cover -func=coverage.out | tail -1
 
+coverage-check:
+	./scripts/check-coverage.sh coverage.out
+
 test-integration:
 	GOTOOLCHAIN=local go test ./internal/transport/http/api/... ./e2e/... -count=1 -tags=integration
 
 lint:
 	golangci-lint run ./...
+
+openapi-check:
+	go test ./internal/transport/http/api -run TestOpenAPIParity -count=1
 
 backup:
 	./scripts/backup.sh
@@ -57,7 +63,7 @@ docker-down:
 tidy:
 	go mod tidy
 
-ci: tidy lint test build
+ci: tidy lint openapi-check test coverage-check build
 
 miniapp-dev:
 	cd web/miniapp && npm run dev
@@ -68,9 +74,13 @@ miniapp-build:
 tunnel:
 	./scripts/https-tunnel.sh 8080
 
+verify-webapp-auth:
+	./scripts/verify-webapp-auth.sh
+
 # Build Mini App, raise HTTPS tunnel, rebuild and restart full stack.
 stack-up: miniapp-build
 	$(COMPOSE) up -d --build
 	./scripts/https-tunnel.sh 8080
 	$(COMPOSE) up -d --build app
-	@echo "Open Telegram → reply keyboard «📱 Mini App» (or menu button)"
+	@echo "Open Telegram → /start → reply keyboard «📱 Mini App» (or menu button)"
+	@echo "Then: make verify-webapp-auth"

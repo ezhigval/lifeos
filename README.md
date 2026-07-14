@@ -51,7 +51,12 @@ make docker-up       # пересоздать app с новым LIFEOS_MINIAPP_U
 | ER / Sequence | [docs/diagrams/](docs/diagrams/) |
 | ADR (001–009) | [docs/adr/](docs/adr/) |
 | Roadmap | [docs/roadmap/ROADMAP.md](docs/roadmap/ROADMAP.md) |
+| Mini App UX/UI | [docs/miniapp/UX_UI_PLAN.md](docs/miniapp/UX_UI_PLAN.md) |
+| Mini App local | [docs/miniapp/LOCAL_DEV.md](docs/miniapp/LOCAL_DEV.md) |
+| Mini App Frontend lead | [docs/miniapp/FRONTEND_LEAD_PROMPT.md](docs/miniapp/FRONTEND_LEAD_PROMPT.md) |
+| Mini App Backend | [docs/miniapp/BACKEND_PROMPT.md](docs/miniapp/BACKEND_PROMPT.md) |
 | OpenAPI | [docs/api/openapi.yaml](docs/api/openapi.yaml) |
+| Агенты (Architect / Backend / Frontend / Telegram) | [docs/agents/](docs/agents/) |
 
 ## Деплой
 
@@ -60,7 +65,10 @@ Local Mac, Docker Compose: **app + postgres** (default).
 ```bash
 docker compose -f deployments/docker-compose.yml up
 docker compose -f deployments/docker-compose.yml --profile observability up   # + prometheus, grafana, jaeger
+# or: make observability-up
 ```
+
+`GET /metrics` exposes Prometheus metrics on the app (scraped by `deployments/prometheus/prometheus.yml` → `app:8080`). OTel tracing is off by default (`LIFEOS_OTEL_ENABLED=false`).
 
 Telegram: **long polling** по умолчанию; webhook — опционально.
 
@@ -78,8 +86,10 @@ Telegram: **long polling** по умолчанию; webhook — опционал
 |--------|----------|
 | `make dev` | Запуск сервера |
 | `make test` | Unit-тесты + coverage |
+| `make coverage-check` | Gate: critical domain/app packages vs minima |
 | `make test-integration` | HTTP API + e2e |
 | `make lint` | golangci-lint |
 | `make migrate-up` | Goose migrations |
 | `make docker-up` | Compose build + start |
-| `make ci` | tidy + lint + test + build |
+| `make observability-up` | Prometheus + Grafana + Jaeger (compose profile) |
+| `make ci` | tidy + lint + test + coverage-check + build |

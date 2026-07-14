@@ -6,6 +6,13 @@ type TelegramUser = {
   language_code?: string
 }
 
+type TelegramBackButton = {
+  show?: () => void
+  hide?: () => void
+  onClick?: (cb: () => void) => void
+  offClick?: (cb: () => void) => void
+}
+
 type TelegramWebApp = {
   initData?: string
   initDataUnsafe?: { user?: TelegramUser }
@@ -15,6 +22,8 @@ type TelegramWebApp = {
   expand?: () => void
   setHeaderColor?: (color: string) => void
   setBackgroundColor?: (color: string) => void
+  showConfirm?: (message: string, callback: (ok: boolean) => void) => void
+  BackButton?: TelegramBackButton
   HapticFeedback?: {
     impactOccurred?: (style: string) => void
     notificationOccurred?: (type: string) => void
@@ -33,41 +42,90 @@ function getWebApp(): TelegramWebApp | undefined {
   return window.Telegram?.WebApp
 }
 
+const INIT_DATA_STORAGE_KEY = 'lifeos.tg.initData.v1'
+
+function readStoredInitData(): string {
+  try {
+    return sessionStorage.getItem(INIT_DATA_STORAGE_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+function storeInitData(raw: string) {
+  try {
+    sessionStorage.setItem(INIT_DATA_STORAGE_KEY, raw)
+  } catch {
+    /* private mode / quota */
+  }
+}
+
 /**
- * Capture initData ASAP. Telegram puts tgWebAppData into location.hash;
- * HashRouter (or any hash rewrite) can wipe it on later navigations / reloads.
- * We freeze the value once so auth always sees the original signed payload.
+ * Capture initData ASAP. Prefer live Telegram.WebApp.initData always —
+ * a stale freeze/sessionStorage copy (from an early hash parse) can fail HMAC.
  */
 export function freezeInitData(): string {
   if (typeof window === 'undefined') return ''
+
+  let live = ''
+  try {
+    live = getWebApp()?.initData || ''
+  } catch {
+    live = ''
+  }
+  if (live) {
+    window.__LIFEOS_INIT_DATA__ = live
+    storeInitData(live)
+    return live
+  }
+
   if (typeof window.__LIFEOS_INIT_DATA__ === 'string' && window.__LIFEOS_INIT_DATA__) {
     return window.__LIFEOS_INIT_DATA__
   }
 
   let raw = ''
+  // Fallback: read tgWebAppData from the launch hash before routers touch it.
   try {
-    raw = getWebApp()?.initData || ''
+    const hash = window.location.hash.startsWith('#')
+      ? window.location.hash.slice(1)
+      : window.location.hash
+    const key = 'tgWebAppData='
+    const start = hash.indexOf(key)
+    if (start >= 0) {
+      let rest = hash.slice(start + key.length)
+      const next = rest.search(/&tgWebApp[A-Za-z]+=/)
+      if (next >= 0) rest = rest.slice(0, next)
+      // Outer fragment encoding only — same form as WebApp.initData.
+      raw = decodeURIComponent(rest.replace(/\+/g, '%20'))
+    }
   } catch {
-    raw = ''
+    /* ignore */
   }
 
-  // Fallback: read tgWebAppData from the launch hash before routers touch it.
   if (!raw) {
-    try {
-      const hash = window.location.hash.startsWith('#')
-        ? window.location.hash.slice(1)
-        : window.location.hash
-      const params = new URLSearchParams(hash.includes('=') ? hash : '')
-      raw = params.get('tgWebAppData') || ''
-    } catch {
-      /* ignore */
-    }
+    raw = readStoredInitData()
   }
 
   if (raw) {
     window.__LIFEOS_INIT_DATA__ = raw
+    storeInitData(raw)
   }
   return raw
+}
+
+/** Drop cached launch payload so the next read can pick up live WebApp.initData. */
+export function clearFrozenInitData() {
+  if (typeof window === 'undefined') return
+  try {
+    delete window.__LIFEOS_INIT_DATA__
+  } catch {
+    /* ignore */
+  }
+  try {
+    sessionStorage.removeItem(INIT_DATA_STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
 }
 
 export function initTelegram() {
@@ -119,10 +177,88 @@ export function hapticSuccess() {
   }
 }
 
+export function hapticError() {
+  try {
+    getWebApp()?.HapticFeedback?.notificationOccurred?.('error')
+  } catch {
+    /* ignore */
+  }
+}
+
+export function hapticWarning() {
+  try {
+    getWebApp()?.HapticFeedback?.notificationOccurred?.('warning')
+  } catch {
+    /* ignore */
+  }
+}
+
 export function tgUser(): TelegramUser | undefined {
   try {
     return getWebApp()?.initDataUnsafe?.user
   } catch {
     return undefined
   }
+}
+
+/**
+ * Prefer the signed initData `user` JSON (same payload the server HMAC-checks).
+ * Falls back to initDataUnsafe only if signed field is missing.
+ */
+export function telegramIdFromInitData(initData = getInitData()): number | undefined {
+  if (initData) {
+    try {
+      const params = new URLSearchParams(initData)
+      const raw = params.get('user')
+      if (raw) {
+        const user = JSON.parse(raw) as { id?: number }
+        if (typeof user.id === 'number' && user.id > 0) return user.id
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  const unsafe = tgUser()?.id
+  return typeof unsafe === 'number' && unsafe > 0 ? unsafe : undefined
+}
+
+export function showTelegramBackButton(onClick: () => void) {
+  const btn = getWebApp()?.BackButton
+  if (!btn?.onClick || !btn.show) return () => undefined
+  try {
+    btn.onClick(onClick)
+    btn.show()
+  } catch {
+    return () => undefined
+  }
+  return () => {
+    try {
+      btn.offClick?.(onClick)
+      btn.hide?.()
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function hideTelegramBackButton() {
+  try {
+    getWebApp()?.BackButton?.hide?.()
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function confirmAction(message: string): Promise<boolean> {
+  const wa = getWebApp()
+  if (wa && typeof wa.showConfirm === 'function') {
+    return new Promise((resolve) => {
+      try {
+        wa.showConfirm!(message, (ok) => resolve(Boolean(ok)))
+      } catch {
+        resolve(window.confirm(message))
+      }
+    })
+  }
+  return window.confirm(message)
 }

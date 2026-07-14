@@ -16,5 +16,5 @@ Output: typed `ResolvedIntent` structs per intent (не `map[string]any`).
 **−** Ограниченное понимание свободного текста  
 **−** Нужно итеративно расширять правила
 
-## Future
-`LLMResolver` implements same interface, выбирается в composition root.
+## Future / Stage 3.2
+Optional Ollama implements the same ports. Composition root (`cmd/lifeos/cmd/resolver.go`) keeps **rule-based primary**; LLM runs only for `unknown` when `LIFEOS_LLM_ENABLED=true`. Failures/timeouts degrade silently. Reviews: LLM primary with `reviewsafe` HTML sanitization + templateassistant fallback.

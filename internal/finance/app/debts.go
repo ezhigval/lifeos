@@ -16,24 +16,34 @@ type DebtStore interface {
 }
 
 type DebtDTO struct {
-	ID              ids.DebtID
-	Creditor        string
-	AmountCents     int64
-	PaidCents       int64
-	RemainingCents  int64
-	Currency        string
-	DueDate         *time.Time
+	ID                  ids.DebtID
+	Creditor            string
+	AmountCents         int64
+	PaidCents           int64
+	RemainingCents      int64
+	Currency            string
+	DueDate             *time.Time
+	InstallmentCents    int64
+	InstallmentInterval string
+	NextPaymentDate     *time.Time
 }
 
 func ToDebtDTO(d domain.Debt) DebtDTO {
+	interval := d.InstallmentInterval
+	if interval == "" {
+		interval = "none"
+	}
 	return DebtDTO{
-		ID:             d.ID,
-		Creditor:       d.Creditor,
-		AmountCents:    d.AmountCents,
-		PaidCents:      d.PaidCents,
-		RemainingCents: d.RemainingCents(),
-		Currency:       "RUB",
-		DueDate:        d.DueDate,
+		ID:                  d.ID,
+		Creditor:            d.Creditor,
+		AmountCents:         d.AmountCents,
+		PaidCents:           d.PaidCents,
+		RemainingCents:      d.RemainingCents(),
+		Currency:            "RUB",
+		DueDate:             d.DueDate,
+		InstallmentCents:    d.InstallmentCents,
+		InstallmentInterval: interval,
+		NextPaymentDate:     d.NextPaymentDate,
 	}
 }
 
@@ -54,11 +64,14 @@ func NewCreateDebt(debts DebtStore, events EventLog, transactor Transactor) *Cre
 }
 
 type CreateDebtInput struct {
-	UserID      ids.UserID
-	Creditor    string
-	AmountCents int64
-	DueDate     *time.Time
-	Source      events.Source
+	UserID              ids.UserID
+	Creditor            string
+	AmountCents         int64
+	DueDate             *time.Time
+	InstallmentCents    int64
+	InstallmentInterval string
+	NextPaymentDate     *time.Time
+	Source              events.Source
 }
 
 func (uc *CreateDebt) Execute(ctx context.Context, in CreateDebtInput) (DebtDTO, error) {
@@ -69,6 +82,19 @@ func (uc *CreateDebt) Execute(ctx context.Context, in CreateDebtInput) (DebtDTO,
 	debt, err := domain.NewDebt(in.UserID, in.Creditor, in.AmountCents, in.DueDate, now)
 	if err != nil {
 		return DebtDTO{}, err
+	}
+	if in.InstallmentCents > 0 {
+		debt.InstallmentCents = in.InstallmentCents
+		interval := in.InstallmentInterval
+		if interval == "" {
+			interval = "monthly"
+		}
+		debt.InstallmentInterval = interval
+		if in.NextPaymentDate != nil {
+			debt.NextPaymentDate = in.NextPaymentDate
+		} else if in.DueDate != nil {
+			debt.NextPaymentDate = in.DueDate
+		}
 	}
 	err = uc.transactor.WithinTransaction(ctx, func(txCtx context.Context) error {
 		if err := uc.debts.SaveDebt(txCtx, debt); err != nil {

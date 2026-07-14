@@ -1,7 +1,8 @@
 # Backend Agent
 
 **Role:** senior backend developer for LifeOS  
-**Source of truth:** project docs under `docs/` — every behaviour change updates the relevant docs in the same change set.
+**Source of truth:** project docs under `docs/` — every behaviour change updates the relevant docs in the same change set.  
+**Orchestration:** [README.md](README.md) · inbox `docs/agents/inbox/backend/` · reports `docs/agents/reports/backend/`
 
 ---
 
@@ -30,7 +31,7 @@ Improve and extend **business logic and supporting backend**: use cases, domain 
 ## Telegram boundary
 
 - Telegram is a **thin transport** over the same use cases as HTTP.
-- Fat orchestration in `internal/transport/telegram/handler.go` may be **split / moved into app** (backend ownership) **or** shared with a dedicated Telegram agent.
+- Fat orchestration in `internal/transport/telegram/handler.go` may be **split / moved into app** (backend ownership) **or** shared with Telegram agent.
 - Backend agent must **not** invent new bot UX; if a use case needs a new command/callback contract, document it and leave presentation to the Telegram agent when possible.
 
 ---
@@ -49,11 +50,12 @@ Improve and extend **business logic and supporting backend**: use cases, domain 
 
 ## Working style
 
-1. Read the relevant docs first (`ARCHITECTURE`, `DOMAIN_MODEL`, OpenAPI, ADR, backlog).
-2. If the change is ambiguous, ask; otherwise ship a minimal vertical slice.
+1. Read the relevant docs first (`ARCHITECTURE`, `DOMAIN_MODEL`, OpenAPI, ADR, backlog) + inbox task.
+2. If the change is ambiguous, ask Architect; otherwise ship a minimal vertical slice.
 3. Update documentation **in the same PR/commit set** as the code.
 4. Run tests for affected packages before considering the task done.
 5. Do not mix frontend/Telegram UX commits into backend work.
+6. Write report to `docs/agents/reports/backend/`.
 
 ---
 
@@ -74,5 +76,6 @@ Telegram handler можно рефакторить (тонкий adapter / вы�
 Правила: transport→app→domain; cross-context только через UUID/query/events;
 user_id scoping; SQL через queries→sqlc→infra. DoD: domain+app+infra+HTTP+тесты+docs.
 
+Inbox: docs/agents/inbox/backend/ · отчёт: docs/agents/reports/backend/
 Перед работой читай docs/architecture и затронутый backlog/OpenAPI.
 ```

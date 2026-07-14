@@ -45,6 +45,40 @@ func (q *Queries) DeleteNoteByUser(ctx context.Context, arg DeleteNoteByUserPara
 	return i, err
 }
 
+const getNoteByID = `-- name: GetNoteByID :one
+SELECT id, user_id, body, tags, created_at, updated_at
+FROM notes
+WHERE id = $1 AND user_id = $2
+`
+
+type GetNoteByIDParams struct {
+	ID     pgtype.UUID
+	UserID pgtype.UUID
+}
+
+type GetNoteByIDRow struct {
+	ID        pgtype.UUID
+	UserID    pgtype.UUID
+	Body      string
+	Tags      []string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetNoteByID(ctx context.Context, arg GetNoteByIDParams) (GetNoteByIDRow, error) {
+	row := q.db.QueryRow(ctx, getNoteByID, arg.ID, arg.UserID)
+	var i GetNoteByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Body,
+		&i.Tags,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const insertNote = `-- name: InsertNote :exec
 INSERT INTO notes (id, user_id, body, tags, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -218,4 +252,46 @@ func (q *Queries) SearchNotesByUser(ctx context.Context, arg SearchNotesByUserPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateNoteBody = `-- name: UpdateNoteBody :one
+UPDATE notes
+SET body = $3, updated_at = $4
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, body, tags, created_at, updated_at
+`
+
+type UpdateNoteBodyParams struct {
+	ID        pgtype.UUID
+	UserID    pgtype.UUID
+	Body      string
+	UpdatedAt pgtype.Timestamptz
+}
+
+type UpdateNoteBodyRow struct {
+	ID        pgtype.UUID
+	UserID    pgtype.UUID
+	Body      string
+	Tags      []string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) UpdateNoteBody(ctx context.Context, arg UpdateNoteBodyParams) (UpdateNoteBodyRow, error) {
+	row := q.db.QueryRow(ctx, updateNoteBody,
+		arg.ID,
+		arg.UserID,
+		arg.Body,
+		arg.UpdatedAt,
+	)
+	var i UpdateNoteBodyRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Body,
+		&i.Tags,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

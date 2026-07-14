@@ -8,6 +8,7 @@ type GoalID uuid.UUID
 type TransactionID uuid.UUID
 type CategoryID uuid.UUID
 type DebtID uuid.UUID
+type PlannedCashflowID uuid.UUID
 type HabitID uuid.UUID
 type HabitLogID uuid.UUID
 type ProjectID uuid.UUID
@@ -154,6 +155,30 @@ func ParseDebtID(s string) (DebtID, error) {
 		return DebtID{}, err
 	}
 	return DebtID(id), nil
+}
+
+func NewPlannedCashflowID() PlannedCashflowID {
+	return PlannedCashflowID(uuid.Must(uuid.NewV7()))
+}
+
+func (id PlannedCashflowID) String() string {
+	return uuid.UUID(id).String()
+}
+
+func (id PlannedCashflowID) UUID() uuid.UUID {
+	return uuid.UUID(id)
+}
+
+func (id PlannedCashflowID) IsZero() bool {
+	return uuid.UUID(id) == uuid.Nil
+}
+
+func ParsePlannedCashflowID(s string) (PlannedCashflowID, error) {
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return PlannedCashflowID{}, err
+	}
+	return PlannedCashflowID(id), nil
 }
 
 func NewHabitID() HabitID {

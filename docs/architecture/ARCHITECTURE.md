@@ -1,7 +1,7 @@
 # LifeOS — Architecture (единый лист)
 
-**Version:** 0.3  
-**Status:** Current  
+**Version:** 0.4  
+**Status:** Current (synced to code, 2026-07-14)  
 **Detail:** [DOMAIN_MODEL.md](DOMAIN_MODEL.md)
 
 ---
@@ -141,13 +141,15 @@ Cross-reads: internal/query/ (priorities, reviews, analytics)
 ## 5. Структура репозитория
 
 ```
-tg-assist/
-├── cmd/lifeos/                    # Cobra: serve, migrate, version
+lifeos/
+├── cmd/lifeos/
 │   ├── main.go
-│   ├── serve.go                   # composition root (manual DI)
-│   └── wire/                      # wire_tasks.go, … (when serve.go grows)
+│   └── cmd/                        # Cobra: serve, migrate, version, …
+│       ├── serve.go                # composition root entry
+│       ├── runtime.go              # manual DI wiring
+│       └── api.go                  # HTTP API deps assembly
 ├── internal/
-│   ├── platform/                  # config, postgres, auth, scheduler, events, ids
+│   ├── platform/                   # config, postgres, auth, scheduler, events, ids, db(sqlc)
 │   ├── identity/   {domain, app, infra}
 │   ├── settings/   {domain, app, infra}
 │   ├── tasks/      {domain, app, infra}
@@ -162,19 +164,16 @@ tg-assist/
 │   ├── career/     {domain, app, infra}
 │   ├── notifications/ {domain, app, infra}
 │   ├── ai/         {rulebased, ollama, composite, templateassistant}
-│   ├── query/      # priorities, reviews, analytics
+│   ├── query/                      # priorities, reviews, analytics
 │   └── transport/
-│       ├── http/api/              # REST /api/v1, JWT auth
-│       └── telegram/              # polling/webhook, formatter, handler
-├── web/miniapp/                   # Telegram Mini App (React + Vite)
-├── migrations/                    # Goose SQL
-├── queries/                       # SQLC
-├── deployments/
-│   ├── docker-compose.yml         # default: app + postgres
-│   ├── docker-compose.observability.yml
-│   └── prometheus/
+│       ├── http/                   # Chi server + /api/v1 (JWT)
+│       └── telegram/               # polling/webhook, screens, keyboards, FSM
+├── web/miniapp/                    # Telegram Mini App (React 19 + Vite)
+├── migrations/                     # Goose SQL (00001–00026+)
+├── queries/                        # SQLC sources
+├── deployments/                    # Dockerfile, docker-compose, prometheus/grafana
 ├── e2e/
-├── docs/
+├── docs/                           # architecture, ADR, roadmap, agents, api
 ├── Makefile
 ├── sqlc.yaml
 └── .github/workflows/ci.yml
@@ -184,30 +183,31 @@ tg-assist/
 
 ## 6. Composition Root
 
-`cmd/lifeos/serve.go` — единственное место wiring ([ADR-008](../adr/008-manual-di.md)).
+`cmd/lifeos/cmd/runtime.go` (+ `serve.go`, `api.go`) — composition root ([ADR-008](../adr/008-manual-di.md)).
 
 ```go
-// Псевдокод
+// Псевдокод (актуально под projects/spheres)
 db := postgres.New(cfg)
-taskRepo := tasksinfra.NewRepo(db)
-goalRepo := goalsinfra.NewRepo(db)
-intentResolver := ai.NewRuleBasedResolver()
+taskRepo := tasksinfra.NewRepository(db)
+projectRepo := projectsinfra.NewRepository(db)
+sphereRepo := spheresinfra.NewRepository(db)
+intentResolver := ai.NewRuleBasedResolver() // + optional Ollama composite
 eventPub := events.NewPublisher(db)
 
 createTask := tasksapp.NewCreateTask(taskRepo, eventPub)
-handleMessage := telegram.NewHandler(intentResolver, useCases, formatter)
+handleMessage := telegram.NewHandler(intentResolver, useCases, screen)
 
 scheduler := platform.NewScheduler(db, clock)
-scheduler.Register("morning_review", queryapp.MorningReview)
+scheduler.Register("morning_review", query.MorningReview)
 scheduler.Register("reminder", notifapp.DeliverReminder)
 
-httpSrv := httptransport.New(cfg, health, metrics)
+httpSrv := httptransport.New(cfg, api.NewRouter(deps), staticMiniApp)
 tgPoller := telegram.NewPoller(cfg, handleMessage)
 
 // errgroup: http + poller + scheduler, graceful shutdown on SIGTERM
 ```
 
-Revisit Wire when >30 use cases.
+Revisit Wire/Fx only if composition root becomes unmanageable.
 
 ---
 
@@ -267,10 +267,11 @@ Append-only, не full event sourcing ([ADR-006](../adr/006-domain-event-log.md)
 | Port | Interface location | Adapter v1 | Future |
 |------|-------------------|------------|--------|
 | TaskRepository | tasks/domain or infra | SQLC/Postgres | same |
-| IntentResolver | ai/ports | RuleBased (+ optional Ollama) | API LLM |
+| IntentResolver | ai/ports | RuleBased first; optional Ollama on unknown (LIFEOS_LLM_ENABLED) | API LLM |
+| Assistant | ai/ports | Template; optional Ollama with HTML-safe `<b>` + template fallback | — |
 | Notifier | notifications/app | Telegram | Email, Push |
 | Clock | platform/clock | System | Fake (tests) |
-| ProjectReader | tasks/app | projects/infra reader | same |
+| ProjectReader / SphereReader | consumer `app` ports | projects/spheres infra | same |
 | TransactionManager | platform/postgres | pgx TX | same |
 
 ---
@@ -316,7 +317,7 @@ Webhook `/webhook/telegram` — optional (см. `LIFEOS_TELEGRAM_MODE=webhook`).
 
 | Layer | Technology |
 |-------|------------|
-| Language | Go ≥1.23 |
+| Language | Go 1.25 |
 | HTTP router | Chi |
 | DB driver | pgx/v5 |
 | Queries | SQLC |
@@ -335,12 +336,16 @@ Webhook `/webhook/telegram` — optional (см. `LIFEOS_TELEGRAM_MODE=webhook`).
 ```bash
 docker compose up                                    # app + postgres
 docker compose --profile observability up            # + prometheus + grafana
+make observability-up                                # same profile: prometheus, grafana, jaeger
 docker compose --profile cache up                    # + redis (Phase 2)
 ```
 
-### Deferred from MVP default
+**Metrics:** Chi mounts `GET /metrics` (`promhttp`); Prometheus scrape target is `app:8080` in `deployments/prometheus/prometheus.yml`. Tracing via OTel is optional (`LIFEOS_OTEL_ENABLED`).
 
-Redis, JWT, OpenTelemetry, Grafana, Webhook — [ADR-009](../adr/009-mvp-infra-scope.md)
+### Deferred from MVP default compose
+
+Redis (profile `cache`), Grafana/Jaeger (profile `observability`), Telegram webhook — optional.  
+JWT + REST + Mini App **уже в коде** (добавлены после исходного MVP scope; см. revision note в [ADR-009](../adr/009-mvp-infra-scope.md)).
 
 ---
 
@@ -355,8 +360,11 @@ LIFEOS_LOG_FORMAT=json          # json|text
 TELEGRAM_BOT_TOKEN=
 LIFEOS_TELEGRAM_MODE=polling    # polling|webhook
 LIFEOS_JWT_SECRET=
+LIFEOS_JWT_TTL_HOURS=168        # Mini App session TTL
 LIFEOS_API_KEY=
-LIFEOS_LLM_ENABLED=false        # optional Ollama resolver
+LIFEOS_MINIAPP_URL=             # public HTTPS …/app/ for web_app button
+LIFEOS_STATIC_DIR=web/miniapp/dist
+LIFEOS_LLM_ENABLED=false        # optional Ollama (rule-based first; degrade on down)
 LIFEOS_OTEL_ENABLED=false
 ```
 
@@ -474,3 +482,4 @@ Coverage gate: ≥80% on `domain` + `app` packages only.
 | [../adr/](../adr/) | Decisions |
 | [../roadmap/ROADMAP.md](../roadmap/ROADMAP.md) | Roadmap |
 | [../api/openapi.yaml](../api/openapi.yaml) | REST contract |
+| [../agents/](../agents/) | Orchestrator + backend / frontend / telegram agents |

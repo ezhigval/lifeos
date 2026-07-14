@@ -43,10 +43,18 @@ func (rt *Router) listContacts(w http.ResponseWriter, r *http.Request) {
 	var items []careerapp.ContactDTO
 	var err error
 	if query != "" {
+		if rt.deps.SearchContacts == nil {
+			writeError(w, http.StatusNotImplemented, "search contacts is not configured")
+			return
+		}
 		items, err = rt.deps.SearchContacts.Execute(r.Context(), careerapp.SearchContactsInput{
 			UserID: userID, Query: query,
 		})
 	} else {
+		if rt.deps.ListContacts == nil {
+			writeError(w, http.StatusNotImplemented, "list contacts is not configured")
+			return
+		}
 		items, err = rt.deps.ListContacts.Execute(r.Context(), userID)
 	}
 	if err != nil {
@@ -73,6 +81,10 @@ func (rt *Router) createContact(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if rt.deps.CreateContact == nil {
+		writeError(w, http.StatusNotImplemented, "create contact is not configured")
+		return
+	}
 	var req createContactRequest
 	if err := decodeJSON(r, &req); err != nil || strings.TrimSpace(req.Name) == "" {
 		writeError(w, http.StatusBadRequest, "name is required")
@@ -97,6 +109,10 @@ func (rt *Router) deleteContact(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.DeleteContact == nil {
+		writeError(w, http.StatusNotImplemented, "delete contact is not configured")
 		return
 	}
 	contactID, err := ids.ParseContactID(chi.URLParam(r, "id"))
@@ -144,10 +160,18 @@ func (rt *Router) listSkills(w http.ResponseWriter, r *http.Request) {
 	var items []careerapp.SkillDTO
 	var err error
 	if query != "" {
+		if rt.deps.SearchSkills == nil {
+			writeError(w, http.StatusNotImplemented, "search skills is not configured")
+			return
+		}
 		items, err = rt.deps.SearchSkills.Execute(r.Context(), careerapp.SearchSkillsInput{
 			UserID: userID, Query: query,
 		})
 	} else {
+		if rt.deps.ListSkills == nil {
+			writeError(w, http.StatusNotImplemented, "list skills is not configured")
+			return
+		}
 		items, err = rt.deps.ListSkills.Execute(r.Context(), userID)
 	}
 	if err != nil {
@@ -172,6 +196,10 @@ func (rt *Router) createSkill(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if rt.deps.CreateSkill == nil {
+		writeError(w, http.StatusNotImplemented, "create skill is not configured")
+		return
+	}
 	var req createSkillRequest
 	if err := decodeJSON(r, &req); err != nil || strings.TrimSpace(req.Name) == "" {
 		writeError(w, http.StatusBadRequest, "name is required")
@@ -194,6 +222,10 @@ func (rt *Router) deleteSkill(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.DeleteSkill == nil {
+		writeError(w, http.StatusNotImplemented, "delete skill is not configured")
 		return
 	}
 	skillID, err := ids.ParseSkillID(chi.URLParam(r, "id"))

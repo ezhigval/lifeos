@@ -8,6 +8,8 @@ export type { Period } from '@/lib/periods'
 export type AuthResult = {
   accessToken: string
   expiresIn: number
+  /** Signed Telegram user id from server (initData.user.id) */
+  telegramId?: number
 }
 
 let accessToken: string | null = null
@@ -72,7 +74,11 @@ async function request<T>(
 
 export async function authWithInitData(initData: string): Promise<AuthResult> {
   try {
-    const data = await request<{ access_token: string; expires_in?: number }>(
+    const data = await request<{
+      access_token: string
+      expires_in?: number
+      telegram_id?: number
+    }>(
       '/api/v1/auth/telegram-webapp',
       {
         method: 'POST',
@@ -83,6 +89,10 @@ export async function authWithInitData(initData: string): Promise<AuthResult> {
     return {
       accessToken: data.access_token,
       expiresIn: data.expires_in ?? 0,
+      telegramId:
+        typeof data.telegram_id === 'number' && data.telegram_id > 0
+          ? data.telegram_id
+          : undefined,
     }
   } catch (e) {
     if (e instanceof ApiClientError && e.status === 404) {
@@ -96,7 +106,11 @@ export async function authWithDevCredentials(
   apiKey: string,
   telegramId: number,
 ): Promise<AuthResult> {
-  const data = await request<{ access_token: string; expires_in?: number }>(
+  const data = await request<{
+    access_token: string
+    expires_in?: number
+    telegram_id?: number
+  }>(
     '/api/v1/auth/token',
     {
       method: 'POST',
@@ -108,6 +122,10 @@ export async function authWithDevCredentials(
   return {
     accessToken: data.access_token,
     expiresIn: data.expires_in ?? 0,
+    telegramId:
+      typeof data.telegram_id === 'number' && data.telegram_id > 0
+        ? data.telegram_id
+        : telegramId,
   }
 }
 
@@ -120,10 +138,53 @@ export const api = {
   completeTask: (id: string) =>
     request<{ id: string }>(`/api/v1/tasks/${id}/complete`, { method: 'POST' }),
 
+  reopenTask: (id: string) =>
+    request<import('@/api/types').Task>(`/api/v1/tasks/${id}/reopen`, { method: 'POST' }),
+
+  getTask: (id: string) => request<import('@/api/types').Task>(`/api/v1/tasks/${id}`),
+
+  tasksDueBetween: (from: string, to: string) =>
+    request<{ tasks: import('@/api/types').Task[] }>(
+      `/api/v1/tasks?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    ),
+
+  updateTask: (id: string, body: {
+    title?: string
+    priority?: string
+    kind?: 'task' | 'reminder' | 'meeting'
+    due_date?: string
+    clear_due_date?: boolean
+    address?: string
+    clear_address?: boolean
+    note_id?: string
+    clear_note_id?: boolean
+    description?: string
+    clear_description?: boolean
+    duration_minutes?: number
+    clear_duration?: boolean
+    tags?: string[]
+    project_ids?: string[]
+  }) =>
+    request<import('@/api/types').Task>(`/api/v1/tasks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  archiveTask: (id: string) =>
+    request<import('@/api/types').Task>(`/api/v1/tasks/${id}/archive`, { method: 'POST' }),
+
+  deleteTask: (id: string) =>
+    request<void>(`/api/v1/tasks/${id}`, { method: 'DELETE' }),
+
   createTask: (body: {
     title: string
     priority?: string
+    kind?: 'task' | 'reminder' | 'meeting'
     due_date?: string
+    address?: string
+    note_id?: string
+    clear_address?: boolean
+    clear_note_id?: boolean
     project_ids?: string[]
   }) =>
     request<import('@/api/types').Task>('/api/v1/tasks', {
@@ -177,10 +238,210 @@ export const api = {
       body: JSON.stringify({ amount_cents, category }),
     }),
 
+  habitsToday: () =>
+    request<{ habits: import('@/api/types').HabitDay[] }>('/api/v1/habits/today'),
+
+  createHabit: (name: string) =>
+    request<{ id: string; name: string; frequency: string }>('/api/v1/habits', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  trackHabit: (id: string) =>
+    request<{ name: string; streak: number }>(`/api/v1/habits/${id}/track`, {
+      method: 'POST',
+    }),
+
+  calendarToday: () =>
+    request<{ events: import('@/api/types').CalendarEvent[] }>('/api/v1/calendar/today'),
+
+  createCalendarEvent: (title: string, starts_at: string) =>
+    request<import('@/api/types').CalendarEvent>('/api/v1/calendar/events', {
+      method: 'POST',
+      body: JSON.stringify({ title, starts_at }),
+    }),
+
+  createSphere: (name: string) =>
+    request<import('@/api/types').Sphere>('/api/v1/settings/spheres', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  updateSphere: (id: string, name: string, sort_order: number) =>
+    request<import('@/api/types').Sphere>(`/api/v1/settings/spheres/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name, sort_order }),
+    }),
+
+  deleteSphere: (id: string) =>
+    request<import('@/api/types').Sphere>(`/api/v1/settings/spheres/${id}`, {
+      method: 'DELETE',
+    }),
+
+  settings: () => request<import('@/api/types').UserSettings>('/api/v1/settings'),
+
+  updateMorningReview: (hour: number, minute: number) =>
+    request('/api/v1/settings/morning-review', {
+      method: 'PUT',
+      body: JSON.stringify({ hour, minute }),
+    }),
+
+  updateEveningReview: (hour: number, minute: number) =>
+    request('/api/v1/settings/evening-review', {
+      method: 'PUT',
+      body: JSON.stringify({ hour, minute }),
+    }),
+
+  updateQuietHours: (start_hour: number, start_minute: number, end_hour: number, end_minute: number) =>
+    request('/api/v1/settings/quiet-hours', {
+      method: 'PUT',
+      body: JSON.stringify({ start_hour, start_minute, end_hour, end_minute }),
+    }),
+
+  analyticsSummary: () =>
+    request<import('@/api/types').AnalyticsSummary>('/api/v1/analytics/summary'),
+
+  notes: (q?: string) => {
+    const qs = q ? `?q=${encodeURIComponent(q)}` : ''
+    return request<{ notes: import('@/api/types').Note[] }>(`/api/v1/notes${qs}`)
+  },
+
+  createNote: (body: string, tags?: string[]) =>
+    request<import('@/api/types').Note>('/api/v1/notes', {
+      method: 'POST',
+      body: JSON.stringify({ body, tags: tags ?? [] }),
+    }),
+
+  getNote: (id: string) =>
+    request<import('@/api/types').Note>(`/api/v1/notes/${id}`),
+
+  updateNote: (id: string, body: { body?: string; tags?: string[] }) =>
+    request<import('@/api/types').Note>(`/api/v1/notes/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  deleteNote: (id: string) =>
+    request<import('@/api/types').Note>(`/api/v1/notes/${id}`, { method: 'DELETE' }),
+
+  debts: () => request<{ debts: import('@/api/types').Debt[] }>('/api/v1/finance/debts'),
+
+  createDebt: (
+    creditor: string,
+    amount_cents: number,
+    due_date?: string,
+    opts?: {
+      installment_cents?: number
+      installment_interval?: 'none' | 'weekly' | 'monthly'
+      next_payment_date?: string
+    },
+  ) =>
+    request<import('@/api/types').Debt>('/api/v1/finance/debts', {
+      method: 'POST',
+      body: JSON.stringify({ creditor, amount_cents, due_date, ...opts }),
+    }),
+
+  payDebt: (id: string, amount_cents: number, regular?: boolean) =>
+    request(`/api/v1/finance/debts/${id}/pay`, {
+      method: 'POST',
+      body: JSON.stringify({ amount_cents, ...(regular != null ? { regular } : {}) }),
+    }),
+
+  financePlan: () =>
+    request<import('@/api/types').FinancePlan>('/api/v1/finance/plan'),
+
+  createFinancePlan: (body: {
+    kind: 'income' | 'expense'
+    title: string
+    amount_cents: number
+    currency?: string
+    interval: string
+    next_date: string
+  }) =>
+    request<import('@/api/types').FinancePlanItem>('/api/v1/finance/plan', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  deleteFinancePlan: (id: string) =>
+    request<void>(`/api/v1/finance/plan/${id}`, { method: 'DELETE' }),
+
+  reminders: () =>
+    request<{ reminders: import('@/api/types').Reminder[] }>('/api/v1/reminders'),
+
+  createReminder: (message: string, fire_at: string) =>
+    request<import('@/api/types').Reminder>('/api/v1/reminders', {
+      method: 'POST',
+      body: JSON.stringify({ message, fire_at }),
+    }),
+
+  cancelReminder: (id: string) =>
+    request(`/api/v1/reminders/${id}`, { method: 'DELETE' }),
+
+  contacts: (q?: string) => {
+    const qs = q ? `?q=${encodeURIComponent(q)}` : ''
+    return request<{ contacts: import('@/api/types').Contact[] }>(`/api/v1/career/contacts${qs}`)
+  },
+
+  createContact: (body: { name: string; company?: string; role?: string; notes?: string }) =>
+    request<import('@/api/types').Contact>('/api/v1/career/contacts', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  deleteContact: (id: string) =>
+    request(`/api/v1/career/contacts/${id}`, { method: 'DELETE' }),
+
+  skills: (q?: string) => {
+    const qs = q ? `?q=${encodeURIComponent(q)}` : ''
+    return request<{ skills: import('@/api/types').Skill[] }>(`/api/v1/career/skills${qs}`)
+  },
+
+  createSkill: (name: string, level?: string) =>
+    request<import('@/api/types').Skill>('/api/v1/career/skills', {
+      method: 'POST',
+      body: JSON.stringify({ name, level: level || '' }),
+    }),
+
+  deleteSkill: (id: string) =>
+    request(`/api/v1/career/skills/${id}`, { method: 'DELETE' }),
+
+  latestWeight: () =>
+    request<import('@/api/types').WeightLog>('/api/v1/health/weight/latest'),
+
+  recordWeight: (weight_kg: number) =>
+    request<import('@/api/types').WeightLog>('/api/v1/health/weight', {
+      method: 'POST',
+      body: JSON.stringify({ weight_kg }),
+    }),
+
+  latestSteps: () =>
+    request<import('@/api/types').StepLog>('/api/v1/health/steps/latest'),
+
+  recordSteps: (steps: number) =>
+    request<import('@/api/types').StepLog>('/api/v1/health/steps', {
+      method: 'POST',
+      body: JSON.stringify({ steps }),
+    }),
+
+  latestSleep: () =>
+    request<import('@/api/types').SleepLog>('/api/v1/health/sleep/latest'),
+
+  recordSleep: (duration_hours: number) =>
+    request<import('@/api/types').SleepLog>('/api/v1/health/sleep', {
+      method: 'POST',
+      body: JSON.stringify({ duration_hours }),
+    }),
+
+  /**
+   * Prefer GET /finance/overview (categories + period).
+   * Cash-flow only on 404/501 for older deploys — no “API missing” copy in UI.
+   */
   financeOverview: async (period: Period): Promise<FinanceOverview> => {
     const key = periodKey(period)
     try {
-      return await request<FinanceOverview>(`/api/v1/finance/overview?period=${key}`)
+      const raw = await request<FinanceOverview>(`/api/v1/finance/overview?period=${key}`)
+      return normalizeFinanceOverview(raw, period)
     } catch (e) {
       if (!(e instanceof ApiClientError) || (e.status !== 404 && e.status !== 501)) {
         throw e
@@ -204,9 +465,9 @@ export const api = {
 
       return {
         period_label: periodFullLabel(period),
-        income_cents: cf.income_cents,
-        expense_cents: cf.expense_cents,
-        net_cents: cf.net_cents,
+        income_cents: cf.income_cents ?? 0,
+        expense_cents: cf.expense_cents ?? 0,
+        net_cents: cf.net_cents ?? 0,
         currency: cf.currency || 'RUB',
         categories: [],
       }
@@ -214,8 +475,29 @@ export const api = {
   },
 }
 
+/** Coerce overview payload so Legend/Ring always get a categories array. */
+function normalizeFinanceOverview(
+  raw: FinanceOverview,
+  period: Period,
+): FinanceOverview {
+  const categories = Array.isArray(raw.categories) ? raw.categories : []
+  return {
+    period_label: raw.period_label || periodFullLabel(period),
+    income_cents: Number(raw.income_cents) || 0,
+    expense_cents: Number(raw.expense_cents) || 0,
+    net_cents: Number(raw.net_cents) || 0,
+    currency: raw.currency || 'RUB',
+    categories: categories.map((c) => ({
+      name: c.name || 'Прочее',
+      amount_cents: Number(c.amount_cents) || 0,
+      percent: Number(c.percent) || 0,
+      color_hint: c.color_hint,
+    })),
+  }
+}
+
 export function enrichFinanceCategories(overview: FinanceOverview): FinanceOverview {
-  if (overview.categories.length === 0) return overview
+  if (!overview.categories || overview.categories.length === 0) return overview
   const slices = majorCategories(overview.categories, overview.expense_cents)
   return {
     ...overview,

@@ -77,6 +77,18 @@ func (s *titleLookupStore) ListByDueDate(context.Context, ids.UserID, time.Time)
 	return nil, nil
 }
 
+func (s *titleLookupStore) ListOpenDueOnOrBefore(context.Context, ids.UserID, time.Time) ([]domain.Task, error) {
+	return nil, nil
+}
+
+func (s *titleLookupStore) ListOpenDueBetween(context.Context, ids.UserID, time.Time, time.Time) ([]domain.Task, error) {
+	return nil, nil
+}
+
+func (s *titleLookupStore) ListByTag(context.Context, ids.UserID, string) ([]domain.Task, error) {
+	return nil, nil
+}
+
 func (s *titleLookupStore) SetProjects(context.Context, ids.TaskID, []ids.ProjectID) error {
 	return nil
 }

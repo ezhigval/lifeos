@@ -37,13 +37,14 @@ type ScheduleReminderInput struct {
 	FireAt  time.Time
 }
 
-func (uc *ScheduleReminder) Execute(ctx context.Context, in ScheduleReminderInput) error {
+func (uc *ScheduleReminder) Execute(ctx context.Context, in ScheduleReminderInput) (ReminderDTO, error) {
 	if in.UserID.IsZero() || in.Message == "" {
-		return fmt.Errorf("invalid reminder input")
+		return ReminderDTO{}, fmt.Errorf("invalid reminder input")
 	}
+	id := uuid.Must(uuid.NewV7())
 	payload, _ := json.Marshal(map[string]string{"message": in.Message})
 	_, err := db.New(uc.store.pool).InsertScheduledJob(ctx, db.InsertScheduledJobParams{
-		ID:      pgconv.UUID(uuid.Must(uuid.NewV7())),
+		ID:      pgconv.UUID(id),
 		UserID:  pgconv.UserID(in.UserID),
 		JobType: "reminder",
 		Payload: payload,
@@ -51,9 +52,14 @@ func (uc *ScheduleReminder) Execute(ctx context.Context, in ScheduleReminderInpu
 		Channel: "telegram",
 	})
 	if err != nil {
-		return fmt.Errorf("schedule reminder: %w", err)
+		return ReminderDTO{}, fmt.Errorf("schedule reminder: %w", err)
 	}
-	return nil
+	return ReminderDTO{
+		ID:      id.String(),
+		Message: in.Message,
+		FireAt:  in.FireAt.UTC(),
+		Status:  "pending",
+	}, nil
 }
 
 func (uc *ScheduleReminder) EnsureReview(ctx context.Context, userID ids.UserID, jobType string, runAt time.Time) error {

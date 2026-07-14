@@ -50,22 +50,66 @@ func TestReplyKeyboardMarkupShape(t *testing.T) {
 
 func TestReplyKeyboardInstalled(t *testing.T) {
 	t.Parallel()
-	if replyKeyboardInstalled(nil) {
+	url := "https://abc.trycloudflare.com/app/"
+	if replyKeyboardInstalled(nil, false, "") {
 		t.Fatal("nil")
 	}
-	if replyKeyboardInstalled(map[string]any{replyKBSetKey: true}) {
+	if replyKeyboardInstalled(map[string]any{replyKBSetKey: true}, false, "") {
 		t.Fatal("missing version must reinstall")
 	}
 	if !replyKeyboardInstalled(map[string]any{
 		replyKBSetKey:     true,
 		replyKBVersionKey: float64(replyKBVersion),
-	}) {
-		t.Fatal("expected installed")
+		replyKBMiniAppKey: false,
+	}, false, "") {
+		t.Fatal("expected installed without mini app")
+	}
+	if replyKeyboardInstalled(map[string]any{
+		replyKBSetKey:     true,
+		replyKBVersionKey: float64(replyKBVersion),
+		replyKBMiniAppKey: false,
+	}, true, url) {
+		t.Fatal("mini app presence mismatch must reinstall")
+	}
+	if !replyKeyboardInstalled(map[string]any{
+		replyKBSetKey:        true,
+		replyKBVersionKey:    float64(replyKBVersion),
+		replyKBMiniAppKey:    true,
+		replyKBMiniAppURLKey: url,
+	}, true, url) {
+		t.Fatal("expected installed with matching mini app URL")
+	}
+	if replyKeyboardInstalled(map[string]any{
+		replyKBSetKey:        true,
+		replyKBVersionKey:    float64(replyKBVersion),
+		replyKBMiniAppKey:    true,
+		replyKBMiniAppURLKey: "https://old.trycloudflare.com/app/",
+	}, true, url) {
+		t.Fatal("rotated tunnel URL must force reinstall")
 	}
 	if replyKeyboardInstalled(map[string]any{
 		replyKBSetKey:     true,
 		replyKBVersionKey: float64(1),
-	}) {
+		replyKBMiniAppKey: false,
+	}, false, "") {
 		t.Fatal("old version must reinstall")
+	}
+}
+
+func TestReplyKeyboardHasMiniApp(t *testing.T) {
+	t.Parallel()
+	if replyKeyboardHasMiniApp(MainReplyKeyboard("")) {
+		t.Fatal("empty URL must omit mini app row")
+	}
+	if !replyKeyboardHasMiniApp(MainReplyKeyboard("https://example.com/app/")) {
+		t.Fatal("URL must add mini app text row")
+	}
+	kb := MainReplyKeyboard("https://example.com/app/")
+	for _, row := range kb {
+		for _, btn := range row {
+			if btn.WebApp != "" {
+				t.Fatalf("reply keyboard must not carry web_app URL, got %+v", btn)
+			}
+		}
 	}
 }

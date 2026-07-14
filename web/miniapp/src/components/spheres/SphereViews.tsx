@@ -9,11 +9,14 @@ import {
   Plus,
 } from 'lucide-react'
 import { api } from '@/api/client'
-import type { Project, Sphere } from '@/api/types'
+import type { Project, Sphere, Task } from '@/api/types'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { Button } from '@/components/ui/Button'
 import { Sheet } from '@/components/ui/Sheet'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { QueryError } from '@/components/ui/QueryError'
+import { ruApiError } from '@/lib/apiError'
 import { cn } from '@/lib/cn'
 import {
   getExpandedProjects,
@@ -21,16 +24,25 @@ import {
   setExpandedProjects,
   setExpandedSpheres,
 } from '@/lib/storage'
-import { hapticLight, hapticSuccess } from '@/lib/telegram'
+import {
+  confirmAction,
+  hapticError,
+  hapticLight,
+  hapticSuccess,
+  hapticWarning,
+} from '@/lib/telegram'
 
 export function SphereTree() {
   const navigate = useNavigate()
   const [expandedSpheres, setExpandedSpheresState] = useState(getExpandedSpheres)
   const [expandedProjects, setExpandedProjectsState] = useState(getExpandedProjects)
 
-  const { data: spheres, isLoading } = useQuery({
+  const { data: spheres, isLoading, isError, refetch } = useQuery({
     queryKey: ['spheres'],
-    queryFn: async () => (await api.spheres()).spheres,
+    queryFn: async () => {
+      const res = await api.spheres()
+      return Array.isArray(res.spheres) ? res.spheres : []
+    },
   })
 
   const toggleSphere = (id: string) => {
@@ -60,6 +72,22 @@ export function SphereTree() {
     )
   }
 
+  if (isError) {
+    return (
+      <div className="px-4">
+        <QueryError message="Не удалось загрузить сферы" onRetry={() => void refetch()} />
+      </div>
+    )
+  }
+
+  if ((spheres ?? []).length === 0) {
+    return (
+      <div className="px-4">
+        <CreateSphereEmpty />
+      </div>
+    )
+  }
+
   return (
     <div className="px-4">
       {(spheres ?? []).map((sphere) => (
@@ -75,6 +103,79 @@ export function SphereTree() {
         />
       ))}
     </div>
+  )
+}
+
+function CreateSphereEmpty() {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
+  const create = useMutation({
+    mutationFn: () => api.createSphere(name.trim()),
+    onSuccess: (sphere) => {
+      hapticSuccess()
+      if (sphere?.id) {
+        queryClient.setQueryData<Sphere[]>(['spheres'], (old) => {
+          const list = old ?? []
+          if (list.some((s) => s.id === sphere.id)) return list
+          return [...list, sphere]
+        })
+      }
+      void queryClient.invalidateQueries({ queryKey: ['spheres'] })
+      setOpen(false)
+      setName('')
+      setFormError(null)
+    },
+    onError: (err) => {
+      hapticError()
+      setFormError(ruApiError(err, 'Не удалось создать сферу'))
+    },
+  })
+
+  return (
+    <>
+      <EmptyState
+        title="Сфер пока нет"
+        description="Создай первую сферу жизни"
+        actionLabel="Создать сферу"
+        onAction={() => {
+          setFormError(null)
+          setName('')
+          setOpen(true)
+        }}
+      />
+      <Sheet
+        open={open}
+        onClose={() => {
+          setOpen(false)
+          setFormError(null)
+        }}
+        title="Новая сфера"
+      >
+        <input
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value)
+            if (formError) setFormError(null)
+          }}
+          placeholder="Работа, Здоровье…"
+          className="mb-4 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+        />
+        {formError && (
+          <p className="mb-3 text-sm text-rose-400" role="alert">
+            {formError}
+          </p>
+        )}
+        <Button
+          className="w-full"
+          disabled={!name.trim() || create.isPending}
+          onClick={() => create.mutate()}
+        >
+          Создать
+        </Button>
+      </Sheet>
+    </>
   )
 }
 
@@ -97,7 +198,10 @@ function SphereNode({
 }) {
   const { data: projects } = useQuery({
     queryKey: ['projects', sphere.id],
-    queryFn: async () => (await api.projects(sphere.id)).projects,
+    queryFn: async () => {
+      const res = await api.projects(sphere.id)
+      return Array.isArray(res.projects) ? res.projects : []
+    },
     enabled: expanded,
   })
 
@@ -143,36 +247,61 @@ function ProjectNode({
   onToggle: () => void
   onOpen: () => void
 }) {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: tasks } = useQuery({
     queryKey: ['project-tasks', project.id],
-    queryFn: async () => (await api.projectTasks(project.id)).tasks,
+    queryFn: async () => {
+      const res = await api.projectTasks(project.id)
+      return Array.isArray(res.tasks) ? res.tasks : []
+    },
     enabled: expanded,
+  })
+
+  const complete = useMutation({
+    mutationFn: (id: string) => api.completeTask(id),
+    onSuccess: () => {
+      hapticSuccess()
+      queryClient.invalidateQueries({ queryKey: ['project-tasks', project.id] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    },
+    onError: () => hapticError(),
   })
 
   return (
     <div>
       <div className="flex items-center gap-1 rounded-xl bg-[var(--tg-theme-bg-color,#0f172a)]/50">
-        <button type="button" onClick={onToggle} className="p-2">
+        <button type="button" onClick={onToggle} className="min-h-11 min-w-11 p-2" aria-label="Развернуть">
           {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         </button>
-        <button type="button" onClick={onOpen} className="flex flex-1 items-center gap-2 py-2 text-left text-sm">
+        <button type="button" onClick={onOpen} className="flex min-h-11 flex-1 items-center gap-2 py-2 text-left text-sm">
           <FolderKanban size={16} className="text-[var(--tg-theme-hint-color,#94a3b8)]" />
           {project.name}
         </button>
       </div>
       {expanded && (
-        <div className="ml-3 space-y-1 py-1">
-          {(tasks ?? []).slice(0, 8).map((t) => (
-            <p
-              key={t.id}
-              className={cn(
-                'truncate py-1 pl-2 text-sm',
-                t.status === 'done' && 'text-[var(--tg-theme-hint-color,#94a3b8)] line-through',
-              )}
-            >
-              • {t.title}
-            </p>
-          ))}
+        <div className="ml-1 space-y-1 py-1">
+          {(tasks ?? [])
+            .filter((t) => t.status !== 'cancelled')
+            .slice(0, 8)
+            .map((t) => (
+              <TaskCard
+                key={t.id}
+                title={t.title}
+                priority={t.priority}
+                kind={t.kind}
+                done={t.status === 'done'}
+                onComplete={
+                  t.status === 'done'
+                    ? undefined
+                    : () => {
+                        hapticLight()
+                        complete.mutate(t.id)
+                      }
+                }
+                onOpen={() => navigate(`/tasks/${t.id}`)}
+              />
+            ))}
         </div>
       )}
     </div>
@@ -185,16 +314,24 @@ export function SphereDetailPage() {
   const [showArchive, setShowArchive] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [newName, setNewName] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const { data: spheres } = useQuery({
     queryKey: ['spheres'],
-    queryFn: async () => (await api.spheres()).spheres,
+    queryFn: async () => {
+      const res = await api.spheres()
+      return Array.isArray(res.spheres) ? res.spheres : []
+    },
   })
   const sphere = spheres?.find((s) => s.id === sphereId)
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects', sphereId],
-    queryFn: async () => (await api.projects(sphereId!)).projects,
+    queryFn: async () => {
+      const res = await api.projects(sphereId!)
+      return Array.isArray(res.projects) ? res.projects : []
+    },
     enabled: Boolean(sphereId),
   })
 
@@ -204,11 +341,23 @@ export function SphereDetailPage() {
   const createProject = useMutation({
     mutationFn: () =>
       api.createProject({ name: newName.trim(), sphere_ids: [sphereId!] }),
-    onSuccess: () => {
+    onSuccess: (project) => {
       hapticSuccess()
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      if (project?.id) {
+        queryClient.setQueryData<Project[]>(['projects', sphereId], (old) => {
+          const list = old ?? []
+          if (list.some((p) => p.id === project.id)) return list
+          return [project, ...list]
+        })
+      }
+      void queryClient.invalidateQueries({ queryKey: ['projects'] })
       setCreateOpen(false)
       setNewName('')
+      setFormError(null)
+    },
+    onError: (err) => {
+      hapticError()
+      setFormError(ruApiError(err, 'Не удалось создать проект'))
     },
   })
 
@@ -216,9 +365,20 @@ export function SphereDetailPage() {
     mutationFn: (id: string) => api.archiveProject(id),
     onSuccess: () => {
       hapticSuccess()
+      setActionError(null)
       queryClient.invalidateQueries({ queryKey: ['projects'] })
     },
+    onError: (err) => {
+      hapticError()
+      setActionError(ruApiError(err, 'Не удалось архивировать'))
+    },
   })
+
+  const onArchive = async (id: string, name: string) => {
+    hapticWarning()
+    const ok = await confirmAction(`Архивировать проект «${name}»?`)
+    if (ok) archiveProject.mutate(id)
+  }
 
   if (!sphere) {
     return <p className="p-4 text-[var(--tg-theme-hint-color,#94a3b8)]">Сфера не найдена</p>
@@ -229,11 +389,25 @@ export function SphereDetailPage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold">Активные проекты</h2>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus size={16} className="mr-1" />
-            Проект
-          </Button>
+          {(active.length > 0 || archived.length > 0) && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setFormError(null)
+                setNewName('')
+                setCreateOpen(true)
+              }}
+            >
+              <Plus size={16} className="mr-1" />
+              Проект
+            </Button>
+          )}
         </div>
+        {actionError && (
+          <p className="mb-2 text-sm text-rose-400" role="alert">
+            {actionError}
+          </p>
+        )}
         {isLoading && <Skeleton className="h-20 w-full" />}
         <div className="space-y-2">
           {active.map((p) => (
@@ -241,11 +415,20 @@ export function SphereDetailPage() {
               key={p.id}
               project={p}
               sphereId={sphereId!}
-              onArchive={() => archiveProject.mutate(p.id)}
+              onArchive={() => void onArchive(p.id, p.name)}
             />
           ))}
           {!isLoading && active.length === 0 && (
-            <p className="text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Нет активных проектов</p>
+            <EmptyState
+              title="Нет активных проектов"
+              description="Создай проект в этой сфере"
+              actionLabel="Создать"
+              onAction={() => {
+                setFormError(null)
+                setNewName('')
+                setCreateOpen(true)
+              }}
+            />
           )}
         </div>
       </section>
@@ -291,13 +474,28 @@ export function SphereDetailPage() {
         )}
       </section>
 
-      <Sheet open={createOpen} onClose={() => setCreateOpen(false)} title="Новый проект">
+      <Sheet
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false)
+          setFormError(null)
+        }}
+        title="Новый проект"
+      >
         <input
           value={newName}
-          onChange={(e) => setNewName(e.target.value)}
+          onChange={(e) => {
+            setNewName(e.target.value)
+            if (formError) setFormError(null)
+          }}
           placeholder="Название проекта"
           className="mb-4 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
         />
+        {formError && (
+          <p className="mb-3 text-sm text-rose-400" role="alert">
+            {formError}
+          </p>
+        )}
         <Button
           className="w-full"
           disabled={!newName.trim() || createProject.isPending}
@@ -328,49 +526,72 @@ function ProjectCard({
     : null
 
   return (
-    <button
-      type="button"
-      onClick={() => navigate(`/spheres/${sphereId}/projects/${project.id}`)}
-      className="w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] p-4 text-left"
-    >
+    <div className="rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] p-4">
       <div className="flex items-start justify-between gap-2">
-        <span className="font-medium">{project.name}</span>
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onArchive()
-          }}
-          className="p-1 text-[var(--tg-theme-hint-color,#94a3b8)]"
+          onClick={() => navigate(`/spheres/${sphereId}/projects/${project.id}`)}
+          className="min-w-0 flex-1 text-left font-medium active:opacity-80"
+        >
+          {project.name}
+        </button>
+        <button
+          type="button"
+          onClick={onArchive}
+          className="rounded-full p-2 text-[var(--tg-theme-hint-color,#94a3b8)]"
+          aria-label="В архив"
         >
           <Archive size={16} />
         </button>
       </div>
       {pct !== null && (
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/20">
-          <div className="h-full rounded-full bg-[var(--tg-theme-button-color,#22c55e)]" style={{ width: `${pct}%` }} />
-        </div>
+        <button
+          type="button"
+          onClick={() => navigate(`/spheres/${sphereId}/projects/${project.id}`)}
+          className="mt-2 block w-full"
+          aria-label="Открыть прогресс"
+        >
+          <div className="h-1.5 overflow-hidden rounded-full bg-black/20">
+            <div
+              className="h-full rounded-full bg-[var(--tg-theme-button-color,#22c55e)]"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </button>
       )}
-    </button>
+    </div>
   )
 }
 
 export function ProjectDetailPage() {
   const { sphereId, projectId } = useParams<{ sphereId: string; projectId: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showDone, setShowDone] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
+  const [priority, setPriority] = useState('medium')
+  const [kind, setKind] = useState<'task' | 'reminder' | 'meeting'>('task')
+  const [dueDate, setDueDate] = useState('')
+  const [address, setAddress] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const { data: projects } = useQuery({
     queryKey: ['projects', sphereId],
-    queryFn: async () => (await api.projects(sphereId!)).projects,
+    queryFn: async () => {
+      const res = await api.projects(sphereId!)
+      return Array.isArray(res.projects) ? res.projects : []
+    },
   })
   const project = projects?.find((p) => p.id === projectId)
 
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['project-tasks', projectId],
-    queryFn: async () => (await api.projectTasks(projectId!)).tasks,
+    queryFn: async () => {
+      const res = await api.projectTasks(projectId!)
+      return Array.isArray(res.tasks) ? res.tasks : []
+    },
     enabled: Boolean(projectId),
   })
 
@@ -384,18 +605,65 @@ export function ProjectDetailPage() {
     mutationFn: (id: string) => api.completeTask(id),
     onSuccess: () => {
       hapticSuccess()
+      setActionError(null)
       queryClient.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    },
+    onError: (err) => {
+      hapticError()
+      setActionError(ruApiError(err, 'Не удалось выполнить задачу'))
+    },
+  })
+
+  const reopen = useMutation({
+    mutationFn: (id: string) => api.reopenTask(id),
+    onSuccess: () => {
+      hapticSuccess()
+      setActionError(null)
+      queryClient.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    },
+    onError: (err) => {
+      hapticError()
+      setActionError(ruApiError(err, 'Не удалось вернуть задачу'))
     },
   })
 
   const createTask = useMutation({
     mutationFn: () =>
-      api.createTask({ title: newTitle.trim(), project_ids: [projectId!] }),
-    onSuccess: () => {
+      api.createTask({
+        title: newTitle.trim(),
+        priority,
+        kind,
+        project_ids: [projectId!],
+        ...(dueDate ? { due_date: dueDate } : {}),
+        ...(address.trim() ? { address: address.trim() } : {}),
+      }),
+    onSuccess: (task) => {
       hapticSuccess()
-      queryClient.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      if (task?.id) {
+        queryClient.setQueryData<Task[]>(
+          ['project-tasks', projectId],
+          (old) => {
+            const list = old ?? []
+            if (list.some((t) => t.id === task.id)) return list
+            return [task, ...list]
+          },
+        )
+      }
+      void queryClient.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      void queryClient.invalidateQueries({ queryKey: ['tasks'] })
       setCreateOpen(false)
       setNewTitle('')
+      setPriority('medium')
+      setKind('task')
+      setDueDate('')
+      setAddress('')
+      setFormError(null)
+    },
+    onError: (err) => {
+      hapticError()
+      setFormError(ruApiError(err, 'Не удалось создать задачу'))
     },
   })
 
@@ -406,16 +674,33 @@ export function ProjectDetailPage() {
     return <p className="p-4">Проект не найден</p>
   }
 
+  const openCreate = () => {
+    setFormError(null)
+    setNewTitle('')
+    setPriority('medium')
+    setKind('task')
+    setDueDate('')
+    setAddress('')
+    setCreateOpen(true)
+  }
+
   return (
     <div className="space-y-4 px-4">
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold">Активные задачи</h2>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus size={16} className="mr-1" />
-            Задача
-          </Button>
+          {active.length > 0 && (
+            <Button size="sm" onClick={openCreate}>
+              <Plus size={16} className="mr-1" />
+              Задача
+            </Button>
+          )}
         </div>
+        {actionError && (
+          <p className="mb-2 text-sm text-rose-400" role="alert">
+            {actionError}
+          </p>
+        )}
         {isLoading && <Skeleton className="h-14 w-full" />}
         <div className="space-y-2">
           {active.map((t) => (
@@ -423,11 +708,18 @@ export function ProjectDetailPage() {
               key={t.id}
               title={t.title}
               priority={t.priority}
+              kind={t.kind}
               onComplete={() => complete.mutate(t.id)}
+              onOpen={() => navigate(`/tasks/${t.id}`)}
             />
           ))}
           {!isLoading && active.length === 0 && (
-            <p className="text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Нет активных задач</p>
+            <EmptyState
+              title="Нет активных задач"
+              description="Добавь задачу в проект"
+              actionLabel="Создать"
+              onAction={openCreate}
+            />
           )}
         </div>
       </section>
@@ -454,19 +746,101 @@ export function ProjectDetailPage() {
         {showDone && (
           <div className="space-y-2">
             {done.map((t) => (
-              <TaskCard key={t.id} title={t.title} done />
+              <div key={t.id} className="space-y-1">
+                <TaskCard
+                  title={t.title}
+                  kind={t.kind}
+                  done
+                  onOpen={() => navigate(`/tasks/${t.id}`)}
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="w-full"
+                  disabled={reopen.isPending}
+                  onClick={() => reopen.mutate(t.id)}
+                >
+                  Вернуть
+                </Button>
+              </div>
             ))}
           </div>
         )}
       </section>
 
-      <Sheet open={createOpen} onClose={() => setCreateOpen(false)} title="Новая задача">
+      <Sheet
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false)
+          setFormError(null)
+        }}
+        title="Новая задача"
+      >
         <input
           value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
+          onChange={(e) => {
+            setNewTitle(e.target.value)
+            if (formError) setFormError(null)
+          }}
           placeholder="Название задачи"
+          className="mb-3 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+        />
+        <p className="mb-2 text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Тип</p>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {(['task', 'reminder', 'meeting'] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setKind(k)}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-sm',
+                kind === k
+                  ? 'bg-[var(--tg-theme-button-color,#22c55e)] text-[var(--tg-theme-button-text-color,#fff)]'
+                  : 'bg-[var(--tg-theme-secondary-bg-color,#1e293b)] text-[var(--tg-theme-hint-color,#94a3b8)]',
+              )}
+            >
+              {kindLabel(k)}
+            </button>
+          ))}
+        </div>
+        <p className="mb-2 text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Приоритет</p>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {(['urgent', 'high', 'medium', 'low'] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPriority(p)}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-sm capitalize',
+                priority === p
+                  ? 'bg-[var(--tg-theme-button-color,#22c55e)] text-[var(--tg-theme-button-text-color,#fff)]'
+                  : 'bg-[var(--tg-theme-secondary-bg-color,#1e293b)] text-[var(--tg-theme-hint-color,#94a3b8)]',
+              )}
+            >
+              {priorityLabel(p)}
+            </button>
+          ))}
+        </div>
+        <label className="mb-3 block text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">
+          Срок (опционально)
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="mt-1 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+          />
+        </label>
+        <input
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="Адрес (опционально)"
           className="mb-4 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
         />
+        {formError && (
+          <p className="mb-3 text-sm text-rose-400" role="alert">
+            {formError}
+          </p>
+        )}
         <Button
           className="w-full"
           disabled={!newTitle.trim() || createTask.isPending}
@@ -477,4 +851,28 @@ export function ProjectDetailPage() {
       </Sheet>
     </div>
   )
+}
+
+function priorityLabel(p: string) {
+  switch (p) {
+    case 'urgent':
+      return 'Срочно'
+    case 'high':
+      return 'Высокий'
+    case 'low':
+      return 'Низкий'
+    default:
+      return 'Средний'
+  }
+}
+
+function kindLabel(k: 'task' | 'reminder' | 'meeting') {
+  switch (k) {
+    case 'reminder':
+      return 'Напоминание'
+    case 'meeting':
+      return 'Встреча'
+    default:
+      return 'Задача'
+  }
 }

@@ -33,6 +33,9 @@ type Config struct {
 	JWTSecret   string
 	APIKey      string
 	JWTTTLHours int
+	// WebAppAuthTTLHours is how long Telegram initData remains acceptable (HMAC auth_date).
+	// Independent of JWT session TTL — keep short (default 24h) even if Mini App JWT is longer.
+	WebAppAuthTTLHours int
 
 	// MiniAppURL is the public HTTPS URL of the Telegram Mini App (…/app/).
 	MiniAppURL string
@@ -78,6 +81,11 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("LIFEOS_JWT_TTL_HOURS: %w", err)
 	}
 	cfg.JWTTTLHours = int(ttlHours)
+	webAppTTL, err := parseInt64Default(os.Getenv("LIFEOS_WEBAPP_AUTH_TTL_HOURS"), 24)
+	if err != nil {
+		return Config{}, fmt.Errorf("LIFEOS_WEBAPP_AUTH_TTL_HOURS: %w", err)
+	}
+	cfg.WebAppAuthTTLHours = int(webAppTTL)
 
 	seedID, err := parseInt64Default(os.Getenv("LIFEOS_SEED_TELEGRAM_ID"), 0)
 	if err != nil {

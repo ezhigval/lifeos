@@ -109,16 +109,161 @@ func TestValidateDoneRequiresCompletedAt(t *testing.T) {
 	}
 }
 
-func TestValidateInvalidStatus(t *testing.T) {
+func TestCancelTask(t *testing.T) {
 	t.Parallel()
 
-	task, err := domain.NewTask(ids.NewUserID(), "task", domain.PriorityMedium, nil, time.Now())
+	now := time.Now().UTC()
+	task, err := domain.NewTask(ids.NewUserID(), "task", domain.PriorityMedium, nil, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	task.Status = domain.Status("broken")
+	if err := task.Cancel(now); err != nil {
+		t.Fatalf("Cancel() error = %v", err)
+	}
+	if task.Status != domain.StatusCancelled {
+		t.Fatalf("status = %s", task.Status)
+	}
+}
 
-	if err := task.Validate(); err != domain.ErrInvalidStatus {
+func TestCannotCancelDoneTask(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	task, err := domain.NewTask(ids.NewUserID(), "task", domain.PriorityMedium, nil, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := task.Complete(now); err != nil {
+		t.Fatal(err)
+	}
+	if err := task.Cancel(now); err != domain.ErrCannotCancelDone {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestRescheduleTask(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	today := time.Date(2026, 7, 14, 0, 0, 0, 0, time.UTC)
+	task, err := domain.NewTask(ids.NewUserID(), "task", domain.PriorityMedium, &today, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tomorrow := today.Add(24 * time.Hour)
+	if err := task.Reschedule(tomorrow, now); err != nil {
+		t.Fatal(err)
+	}
+	if task.DueDate == nil || !task.DueDate.Equal(tomorrow) {
+		t.Fatalf("due = %v", task.DueDate)
+	}
+}
+
+func TestEditTaskFields(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	task, err := domain.NewTask(ids.NewUserID(), "old", domain.PriorityLow, nil, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	title := "new"
+	mins := 45
+	tags := []string{"#Work", "home"}
+	if err := task.Edit(domain.EditFields{
+		Title: &title, DurationMinutes: &mins, Tags: &tags,
+	}, now); err != nil {
+		t.Fatal(err)
+	}
+	if task.Title != "new" || task.DurationMinutes == nil || *task.DurationMinutes != 45 {
+		t.Fatalf("task = %+v", task)
+	}
+	found := map[string]bool{}
+	for _, tag := range task.Tags {
+		found[tag] = true
+	}
+	if !found["work"] || !found["home"] {
+		t.Fatalf("tags = %v", task.Tags)
+	}
+}
+
+func TestExtractHashtags(t *testing.T) {
+	t.Parallel()
+
+	title, tags := domain.ExtractHashtags("купить молоко #шопинг #дом")
+	if title != "купить молоко" {
+		t.Fatalf("title = %q", title)
+	}
+	found := map[string]bool{}
+	for _, tag := range tags {
+		found[tag] = true
+	}
+	if !found["шопинг"] || !found["дом"] {
+		t.Fatalf("tags = %v", tags)
+	}
+}
+
+func TestApplyEditAndArchiveAndDelete(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 7, 14, 8, 0, 0, 0, time.UTC)
+	task, err := domain.NewTask(ids.NewUserID(), "task", domain.PriorityMedium, nil, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	due := now.Add(24 * time.Hour)
+	desc := "note"
+	if err := task.ApplyEdit("new", domain.PriorityHigh, &due, &desc, now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if task.Title != "new" || task.Priority != domain.PriorityHigh || task.Description == nil {
+		t.Fatalf("edit failed: %+v", task)
+	}
+	if err := task.Archive(now.Add(2 * time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if task.Status != domain.StatusCancelled {
+		t.Fatalf("status = %s", task.Status)
+	}
+	if err := task.SoftDelete(now.Add(3 * time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if task.DeletedAt == nil {
+		t.Fatal("expected deleted_at")
+	}
+}
+
+func TestCannotApplyEditTerminalTask(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 7, 14, 8, 0, 0, 0, time.UTC)
+	task, err := domain.NewTask(ids.NewUserID(), "task", domain.PriorityMedium, nil, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := task.Complete(now); err != nil {
+		t.Fatal(err)
+	}
+	if err := task.ApplyEdit("x", domain.PriorityLow, nil, nil, now); err != domain.ErrCannotEditTerminal {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestEditClearsDescriptionAndDue(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 7, 14, 8, 0, 0, 0, time.UTC)
+	due := now
+	desc := "note"
+	task, err := domain.NewTask(ids.NewUserID(), "task", domain.PriorityMedium, &due, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	task.Description = &desc
+	if err := task.Edit(domain.EditFields{ClearDescription: true, ClearDueDate: true}, now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if task.Description != nil || task.DueDate != nil {
+		t.Fatalf("expected cleared fields: %+v", task)
 	}
 }

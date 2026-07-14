@@ -18,3 +18,14 @@ WHERE user_id = $1
   AND kind = 'expense'
   AND occurred_at >= $2
   AND occurred_at < $3;
+
+-- name: SumExpensesByCategoryBetween :many
+SELECT c.name AS name, COALESCE(SUM(t.amount_cents), 0)::bigint AS amount_cents
+FROM finance_transactions t
+JOIN finance_categories c ON c.id = t.category_id
+WHERE t.user_id = $1
+  AND t.kind = 'expense'
+  AND t.occurred_at >= $2
+  AND t.occurred_at < $3
+GROUP BY c.name
+ORDER BY amount_cents DESC, c.name ASC;

@@ -38,7 +38,9 @@ type PayDebtInput struct {
 	DebtID      ids.DebtID
 	Creditor    string
 	AmountCents int64
-	Source      events.Source
+	// Regular marks an installment payment and advances next_payment_date.
+	Regular bool
+	Source  events.Source
 }
 
 func (uc *PayDebt) Execute(ctx context.Context, in PayDebtInput) (DebtDTO, error) {
@@ -70,6 +72,9 @@ func (uc *PayDebt) Execute(ctx context.Context, in PayDebtInput) (DebtDTO, error
 	if err := debt.Pay(in.AmountCents); err != nil {
 		return DebtDTO{}, err
 	}
+	if in.Regular {
+		debt.AdvanceInstallment(now)
+	}
 
 	err = uc.transactor.WithinTransaction(ctx, func(txCtx context.Context) error {
 		if err := uc.debts.UpdateDebt(txCtx, debt); err != nil {
@@ -81,10 +86,11 @@ func (uc *PayDebt) Execute(ctx context.Context, in PayDebtInput) (DebtDTO, error
 			AggregateID:   debt.ID.UUID(),
 			EventType:     "DebtPaymentRecorded",
 			Payload: map[string]any{
-				"creditor":      debt.Creditor,
-				"paid_cents":    in.AmountCents,
-				"remaining":     debt.RemainingCents(),
-				"status":        debt.Status,
+				"creditor":   debt.Creditor,
+				"paid_cents": in.AmountCents,
+				"remaining":  debt.RemainingCents(),
+				"status":     debt.Status,
+				"regular":    in.Regular,
 			},
 			Source:     in.Source,
 			OccurredAt: now,

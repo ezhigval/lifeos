@@ -1,6 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Layers } from 'lucide-react'
+import { Home, Layers, Menu } from 'lucide-react'
 import { cn } from '@/lib/cn'
+
+const tabs = [
+  { to: '/', label: 'Главная', icon: Home, end: true },
+  { to: '/spheres', label: 'Сферы', icon: Layers, end: false },
+  { to: '/more', label: 'Ещё', icon: Menu, end: false },
+] as const
 
 export function BottomNav() {
   return (
@@ -11,36 +17,25 @@ export function BottomNav() {
         'pb-[max(0.5rem,env(safe-area-inset-bottom))]',
       )}
     >
-      <div className="mx-auto grid max-w-lg grid-cols-2 gap-1 px-4 py-2">
-        <NavLink
-          to="/"
-          end
-          className={({ isActive }) =>
-            cn(
-              'flex flex-col items-center gap-1 rounded-2xl py-2 text-xs font-medium transition',
-              isActive
-                ? 'text-[var(--tg-theme-button-color,#22c55e)]'
-                : 'text-[var(--tg-theme-hint-color,#94a3b8)]',
-            )
-          }
-        >
-          <Home size={22} />
-          Главная
-        </NavLink>
-        <NavLink
-          to="/spheres"
-          className={({ isActive }) =>
-            cn(
-              'flex flex-col items-center gap-1 rounded-2xl py-2 text-xs font-medium transition',
-              isActive
-                ? 'text-[var(--tg-theme-button-color,#22c55e)]'
-                : 'text-[var(--tg-theme-hint-color,#94a3b8)]',
-            )
-          }
-        >
-          <Layers size={22} />
-          Сферы
-        </NavLink>
+      <div className="mx-auto grid max-w-lg grid-cols-3 gap-1 px-3 py-2">
+        {tabs.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              cn(
+                'flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-2xl py-1.5 text-xs font-medium transition-colors',
+                isActive
+                  ? 'text-[var(--tg-theme-button-color,#22c55e)]'
+                  : 'text-[var(--tg-theme-hint-color,#94a3b8)]',
+              )
+            }
+          >
+            <Icon size={22} />
+            {label}
+          </NavLink>
+        ))}
       </div>
     </nav>
   )

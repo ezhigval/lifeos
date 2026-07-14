@@ -1,12 +1,14 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
+	habitsdomain "github.com/valentinezhov/lifeos/internal/habits/domain"
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
 )
@@ -45,6 +47,10 @@ func (rt *Router) listHabitsToday(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.ListHabits == nil {
+		writeError(w, http.StatusNotImplemented, "list habits is not configured")
 		return
 	}
 	items, err := rt.deps.ListHabits.Execute(r.Context(), userID)
@@ -97,8 +103,16 @@ func (rt *Router) trackHabit(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid habit id")
 		return
 	}
+	if rt.deps.TrackHabit == nil {
+		writeError(w, http.StatusNotImplemented, "track habit is not configured")
+		return
+	}
 	result, err := rt.deps.TrackHabit.ExecuteByID(r.Context(), userID, habitID, events.SourceHTTP)
 	if err != nil {
+		if errors.Is(err, habitsdomain.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "habit not found")
+			return
+		}
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}

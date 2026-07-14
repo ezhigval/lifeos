@@ -15,6 +15,8 @@ const defaultListLimit = 10
 
 type NoteStore interface {
 	Save(ctx context.Context, note domain.Note) error
+	GetByID(ctx context.Context, userID ids.UserID, noteID ids.NoteID) (domain.Note, error)
+	UpdateBody(ctx context.Context, userID ids.UserID, noteID ids.NoteID, body string, now time.Time) (domain.Note, error)
 	ListRecent(ctx context.Context, userID ids.UserID, limit int32) ([]domain.Note, error)
 	ListByTag(ctx context.Context, userID ids.UserID, tag string, limit int32) ([]domain.Note, error)
 	Search(ctx context.Context, userID ids.UserID, query string, limit int32) ([]domain.Note, error)

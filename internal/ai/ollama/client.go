@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// DefaultHTTPTimeout caps Ollama chat so unknown-intent UX degrades quickly.
+const DefaultHTTPTimeout = 8 * time.Second
+
 type Client struct {
 	baseURL    string
 	model      string
@@ -18,6 +21,10 @@ type Client struct {
 }
 
 func NewClient(baseURL, model string) *Client {
+	return NewClientWithTimeout(baseURL, model, DefaultHTTPTimeout)
+}
+
+func NewClientWithTimeout(baseURL, model string, timeout time.Duration) *Client {
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if baseURL == "" {
 		baseURL = "http://localhost:11434"
@@ -25,11 +32,14 @@ func NewClient(baseURL, model string) *Client {
 	if model == "" {
 		model = "llama3.2"
 	}
+	if timeout <= 0 {
+		timeout = DefaultHTTPTimeout
+	}
 	return &Client{
 		baseURL: baseURL,
 		model:   model,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: timeout,
 		},
 	}
 }

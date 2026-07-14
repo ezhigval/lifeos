@@ -1,7 +1,7 @@
 # ADR-009: MVP Infrastructure Scope
 
 ## Status
-Accepted
+Accepted (historical MVP decision; see Revision below)
 
 ## Context
 Аудит спецификации выявил преждевременную сложность: Redis, JWT, OpenTelemetry и Grafana в default Docker Compose для single-user local bot. Idempotency реализуема через PostgreSQL (`processed_updates`). JWT не нужен без REST API.
@@ -9,15 +9,18 @@ Accepted
 ## Decision
 **MVP default compose:** только `app` + `postgres`.
 
-| Component | MVP default | When added |
-|-----------|---------------|------------|
-| PostgreSQL | ✅ | Sprint 0 |
-| Redis | ❌ (compose profile `cache`) | Phase 2 / multi-instance |
-| JWT | ❌ | Phase 3 (REST API) |
-| OpenTelemetry | ❌ | Sprint 7 (hardening) |
-| Grafana | ❌ (compose profile `observability`) | Sprint 7 |
-| Prometheus | ✅ `/metrics` endpoint | Sprint 1 |
-| Webhook | ❌ | Phase 1.5 |
+| Component | MVP default (decision) | Current code (2026-07) |
+|-----------|------------------------|-------------------------|
+| PostgreSQL | ✅ | ✅ |
+| Redis | ❌ (compose profile `cache`) | profile `cache` |
+| JWT | ❌ (defer to REST) | ✅ REST + Mini App |
+| OpenTelemetry | ❌ | optional (`LIFEOS_OTEL_ENABLED`) |
+| Grafana | ❌ (profile `observability`) | profile `observability` |
+| Prometheus | ✅ `/metrics` | ✅ |
+| Webhook | ❌ | optional (`LIFEOS_TELEGRAM_MODE=webhook`) |
+
+## Revision (post-MVP)
+Default compose по-прежнему `app` + `postgres`. JWT, REST `/api/v1`, Mini App static serving и OTel hooks добавлены как **опциональные/включаемые** возможности без раздувания default infra (нет Redis/Grafana в default).
 
 ## Consequences
 **+** Проще `docker compose up`, меньше точек отказа  

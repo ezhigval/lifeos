@@ -74,7 +74,7 @@ function Root() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 8,
+          gap: 12,
           padding: 32,
           textAlign: 'center',
           background: '#0f172a',
@@ -82,7 +82,24 @@ function Root() {
         }}
       >
         <p style={{ fontSize: 18, fontWeight: 500, margin: 0 }}>Не удалось войти</p>
-        <p style={{ fontSize: 14, color: '#94a3b8', margin: 0 }}>{auth.message}</p>
+        <p style={{ fontSize: 14, color: '#94a3b8', margin: 0, maxWidth: 320 }}>{auth.message}</p>
+        <button
+          type="button"
+          style={{
+            marginTop: 8,
+            borderRadius: 16,
+            border: 'none',
+            background: 'var(--tg-theme-button-color, #22c55e)',
+            color: 'var(--tg-theme-button-text-color, #fff)',
+            padding: '8px 16px',
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: 'pointer',
+          }}
+          onClick={() => window.location.reload()}
+        >
+          Повторить
+        </button>
       </div>
     )
   }

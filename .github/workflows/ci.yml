@@ -46,6 +46,9 @@ jobs:
       - name: Format check
         run: test -z "$(gofmt -l .)"
 
+      - name: OpenAPI route parity
+        run: make openapi-check
+
       - name: Vet
         run: go vet ./...
 
@@ -53,10 +56,10 @@ jobs:
         run: |
           go test ./... -count=1 -coverprofile=coverage.out
           go tool cover -func=coverage.out | tee cover.txt
-          grep -E 'tasks/(domain|app)|projects/domain|ai/rulebased' cover.txt
+          grep -E 'tasks/(domain|app)|projects/domain|ai/rulebased|finance/(domain|app)|spheres/domain|identity/domain' cover.txt
 
-      - name: Integration test
-        run: go test ./internal/transport/http/api/... ./e2e/... -count=1 -tags=integration
+      - name: Coverage gate
+        run: make coverage-check
 
       - name: Migrate up
         run: go run ./cmd/lifeos migrate up

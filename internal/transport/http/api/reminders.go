@@ -34,6 +34,10 @@ func (rt *Router) listReminders(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if rt.deps.ListReminders == nil {
+		writeError(w, http.StatusNotImplemented, "list reminders is not configured")
+		return
+	}
 	items, err := rt.deps.ListReminders.Execute(r.Context(), userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -57,6 +61,10 @@ func (rt *Router) createReminder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if rt.deps.ScheduleReminder == nil {
+		writeError(w, http.StatusNotImplemented, "schedule reminder is not configured")
+		return
+	}
 	var req createReminderRequest
 	if err := decodeJSON(r, &req); err != nil || strings.TrimSpace(req.Message) == "" || req.FireAt == "" {
 		writeError(w, http.StatusBadRequest, "message and fire_at are required")
@@ -71,7 +79,7 @@ func (rt *Router) createReminder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "fire_at must be in the future")
 		return
 	}
-	err = rt.deps.ScheduleReminder.Execute(r.Context(), notifapp.ScheduleReminderInput{
+	dto, err := rt.deps.ScheduleReminder.Execute(r.Context(), notifapp.ScheduleReminderInput{
 		UserID:  userID,
 		Message: strings.TrimSpace(req.Message),
 		FireAt:  fireAt,
@@ -80,16 +88,17 @@ func (rt *Router) createReminder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"message": req.Message,
-		"fire_at": fireAt.UTC().Format(time.RFC3339),
-	})
+	writeJSON(w, http.StatusCreated, reminderToJSON(dto))
 }
 
 func (rt *Router) cancelReminder(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.CancelReminder == nil {
+		writeError(w, http.StatusNotImplemented, "cancel reminder is not configured")
 		return
 	}
 	reminderID, err := uuid.Parse(chi.URLParam(r, "id"))

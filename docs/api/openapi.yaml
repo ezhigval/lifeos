@@ -1,7 +1,10 @@
 openapi: 3.1.0
 info:
   title: LifeOS API
-  version: 0.1.0
+  version: 0.2.0
+  description: |
+    REST surface for LifeOS. Auth: JWT Bearer after API key or Telegram Mini App initData.
+    Source of truth for route list: `internal/transport/http/api/router.go`.
 paths:
   /api/v1/auth/token:
     post:
@@ -72,6 +75,31 @@ paths:
         '200':
           description: Task list
   /api/v1/tasks:
+    get:
+      summary: List open tasks by hashtag
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: tag
+          schema:
+            type: string
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+          description: With `to`, list open tasks due in range (YYYY-MM-DD)
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Task list filtered by tag or due date range
+        '400':
+          description: Missing tag or invalid date range
     post:
       summary: Create task
       security:
@@ -86,11 +114,20 @@ paths:
               properties:
                 title:
                   type: string
+                description:
+                  type: string
                 priority:
                   type: string
                 due_date:
                   type: string
                   format: date
+                duration_minutes:
+                  type: integer
+                  minimum: 1
+                tags:
+                  type: array
+                  items:
+                    type: string
                 project_ids:
                   type: array
                   items:
@@ -99,6 +136,93 @@ paths:
       responses:
         '201':
           description: Created
+  /api/v1/tasks/{id}:
+    get:
+      summary: Get task by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Task
+        '404':
+          description: Not found
+    patch:
+      summary: Edit task (partial update)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                  description: Explicit null or empty clears description
+                clear_description:
+                  type: boolean
+                priority:
+                  type: string
+                due_date:
+                  type: string
+                  format: date
+                  nullable: true
+                  description: Explicit null or empty clears due_date
+                clear_due_date:
+                  type: boolean
+                duration_minutes:
+                  type: integer
+                  minimum: 1
+                clear_duration:
+                  type: boolean
+                tags:
+                  type: array
+                  items:
+                    type: string
+                project_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: Updated
+        '404':
+          description: Not found
+    delete:
+      summary: Soft-delete task
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
   /api/v1/tasks/{id}/complete:
     post:
       summary: Complete task
@@ -114,6 +238,85 @@ paths:
       responses:
         '200':
           description: Completed
+  /api/v1/tasks/{id}/reopen:
+    post:
+      summary: Reopen a done task
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Reopened
+        '404':
+          description: Not found
+  /api/v1/tasks/{id}/cancel:
+    post:
+      summary: Cancel task
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Cancelled
+        '404':
+          description: Not found
+  /api/v1/tasks/{id}/archive:
+    post:
+      summary: Archive task (soft cancel)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Archived
+        '404':
+          description: Not found
+  /api/v1/tasks/{id}/reschedule:
+    post:
+      summary: Reschedule task to a new due date
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [due_date]
+              properties:
+                due_date:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Rescheduled
+        '404':
+          description: Not found
   /api/v1/projects/progress:
     get:
       summary: Project progress
@@ -180,7 +383,11 @@ paths:
         - bearerAuth: []
       responses:
         '200':
-          description: Summary
+          description: Summary matching Mini App AnalyticsSummary (percent fields are ints 0–100)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsSummary'
   /api/v1/finance/income:
     post:
       summary: Record income
@@ -235,6 +442,32 @@ paths:
       responses:
         '200':
           description: Cash flow summary
+  /api/v1/finance/overview:
+    get:
+      summary: Finance overview for a calendar month
+      description: |
+        Period is `YYYY-MM` interpreted in the user's timezone.
+        Categories are expense totals for that month with percent of expense_cents (0–100).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: period
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+            example: '2026-07'
+          description: Calendar month key (YYYY-MM)
+      responses:
+        '200':
+          description: Finance overview matching Mini App FinanceOverview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinanceOverview'
+        '400':
+          description: Invalid or malformed period
   /api/v1/finance/debts:
     get:
       summary: List open debts
@@ -243,6 +476,16 @@ paths:
       responses:
         '200':
           description: Debt list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [debts]
+                properties:
+                  debts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Debt'
     post:
       summary: Create debt
       security:
@@ -267,6 +510,12 @@ paths:
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Debt'
+        '400':
+          description: Invalid creditor, amount, or due_date
   /api/v1/finance/debts/{id}/pay:
     post:
       summary: Pay debt
@@ -290,9 +539,76 @@ paths:
                 amount_cents:
                   type: integer
                   format: int64
+                regular:
+                  type: boolean
+                  description: If true, advances next_payment_date for installment plan
       responses:
         '200':
           description: Updated debt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Debt'
+        '400':
+          description: Invalid amount, overpayment, or debt not open
+        '404':
+          description: Debt not found
+  /api/v1/finance/plan:
+    get:
+      summary: Finance plan (planned income/expense + debt installments)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Planned cashflows and upcoming debt installments
+    post:
+      summary: Create planned income or expense
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, title, amount_cents]
+              properties:
+                kind:
+                  type: string
+                  enum: [income, expense]
+                title:
+                  type: string
+                amount_cents:
+                  type: integer
+                  format: int64
+                interval:
+                  type: string
+                  enum: [once, weekly, monthly]
+                next_date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Created planned item
+        '400':
+          description: Invalid payload
+  /api/v1/finance/plan/{id}:
+    delete:
+      summary: Delete planned cashflow
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
   /api/v1/habits/today:
     get:
       summary: Habits for today
@@ -300,7 +616,17 @@ paths:
         - bearerAuth: []
       responses:
         '200':
-          description: Habit list
+          description: Habit list with today completion and streak
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [habits]
+                properties:
+                  habits:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HabitDay'
   /api/v1/habits:
     post:
       summary: Create habit
@@ -319,6 +645,12 @@ paths:
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Habit'
+        '400':
+          description: Invalid name
   /api/v1/habits/{id}/track:
     post:
       summary: Track habit completion
@@ -334,6 +666,20 @@ paths:
       responses:
         '200':
           description: Tracked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name, streak]
+                properties:
+                  name:
+                    type: string
+                  streak:
+                    type: integer
+        '400':
+          description: Invalid habit id
+        '404':
+          description: Habit not found
   /api/v1/reminders:
     get:
       summary: List pending reminders
@@ -342,6 +688,16 @@ paths:
       responses:
         '200':
           description: Reminder list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reminders]
+                properties:
+                  reminders:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Reminder'
     post:
       summary: Schedule reminder
       security:
@@ -361,7 +717,13 @@ paths:
                   format: date-time
       responses:
         '201':
-          description: Scheduled
+          description: Created reminder
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reminder'
+        '400':
+          description: Missing fields, invalid fire_at, or fire_at in the past
   /api/v1/reminders/{id}:
     delete:
       summary: Cancel pending reminder
@@ -377,6 +739,12 @@ paths:
       responses:
         '200':
           description: Cancelled reminder
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reminder'
+        '400':
+          description: Invalid reminder id
         '404':
           description: Not found
   /api/v1/notes:
@@ -400,6 +768,20 @@ paths:
       responses:
         '200':
           description: Note list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [notes]
+                properties:
+                  notes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Note'
+                  query:
+                    type: string
+                  tag:
+                    type: string
     post:
       summary: Create note
       security:
@@ -421,7 +803,61 @@ paths:
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+        '400':
+          description: Body required
   /api/v1/notes/{id}:
+    get:
+      summary: Get note by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Note
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+        '404':
+          description: Not found
+    patch:
+      summary: Update note body
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body:
+                  type: string
+      responses:
+        '200':
+          description: Updated note
+        '400':
+          description: Body required
+        '404':
+          description: Not found
     delete:
       summary: Delete note
       security:
@@ -436,6 +872,12 @@ paths:
       responses:
         '200':
           description: Deleted note
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+        '400':
+          description: Invalid note id
         '404':
           description: Not found
   /api/v1/career/contacts:
@@ -451,6 +893,18 @@ paths:
       responses:
         '200':
           description: Contact list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [contacts]
+                properties:
+                  contacts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Contact'
+                  query:
+                    type: string
     post:
       summary: Create career contact
       security:
@@ -474,6 +928,12 @@ paths:
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+        '400':
+          description: Name required
   /api/v1/career/contacts/{id}:
     delete:
       summary: Delete career contact
@@ -489,6 +949,12 @@ paths:
       responses:
         '200':
           description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+        '400':
+          description: Invalid contact id
         '404':
           description: Not found
   /api/v1/career/skills:
@@ -504,6 +970,18 @@ paths:
       responses:
         '200':
           description: Skill list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [skills]
+                properties:
+                  skills:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Skill'
+                  query:
+                    type: string
     post:
       summary: Create career skill
       security:
@@ -523,6 +1001,12 @@ paths:
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Skill'
+        '400':
+          description: Name required
   /api/v1/career/skills/{id}:
     delete:
       summary: Delete career skill
@@ -538,6 +1022,12 @@ paths:
       responses:
         '200':
           description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Skill'
+        '400':
+          description: Invalid skill id
         '404':
           description: Not found
   /api/v1/health/weight:
@@ -548,6 +1038,16 @@ paths:
       responses:
         '200':
           description: Weight history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [weights]
+                properties:
+                  weights:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WeightLog'
     post:
       summary: Record weight
       security:
@@ -566,6 +1066,12 @@ paths:
       responses:
         '201':
           description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeightLog'
+        '400':
+          description: weight_kg required
   /api/v1/health/weight/latest:
     get:
       summary: Latest weight entry
@@ -574,8 +1080,12 @@ paths:
       responses:
         '200':
           description: Latest weight
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeightLog'
         '404':
-          description: Not found
+          description: No weight records (Mini App treats as empty)
   /api/v1/health/steps:
     get:
       summary: List recent step logs
@@ -584,6 +1094,16 @@ paths:
       responses:
         '200':
           description: Steps history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [steps]
+                properties:
+                  steps:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StepLog'
     post:
       summary: Record steps
       security:
@@ -603,6 +1123,12 @@ paths:
       responses:
         '201':
           description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StepLog'
+        '400':
+          description: steps required
   /api/v1/health/steps/latest:
     get:
       summary: Latest steps entry
@@ -611,8 +1137,12 @@ paths:
       responses:
         '200':
           description: Latest steps
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StepLog'
         '404':
-          description: Not found
+          description: No step records (Mini App treats as empty)
   /api/v1/health/sleep:
     get:
       summary: List recent sleep logs
@@ -621,6 +1151,16 @@ paths:
       responses:
         '200':
           description: Sleep history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sleep]
+                properties:
+                  sleep:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SleepLog'
     post:
       summary: Record sleep
       security:
@@ -645,6 +1185,12 @@ paths:
       responses:
         '201':
           description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SleepLog'
+        '400':
+          description: duration_hours or duration_minutes required
   /api/v1/health/sleep/latest:
     get:
       summary: Latest sleep entry
@@ -653,8 +1199,12 @@ paths:
       responses:
         '200':
           description: Latest sleep
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SleepLog'
         '404':
-          description: Not found
+          description: No sleep records (Mini App treats as empty)
   /api/v1/calendar/today:
     get:
       summary: Events for today
@@ -663,6 +1213,16 @@ paths:
       responses:
         '200':
           description: Event list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events]
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CalendarEvent'
   /api/v1/calendar/events:
     post:
       summary: Create calendar event
@@ -681,9 +1241,16 @@ paths:
                 starts_at:
                   type: string
                   format: date-time
+                  description: RFC3339 timestamp
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarEvent'
+        '400':
+          description: Invalid title or starts_at
   /api/v1/projects:
     get:
       summary: List active projects
@@ -767,6 +1334,110 @@ paths:
       responses:
         '200':
           description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSettings'
+  /api/v1/settings/spheres:
+    get:
+      summary: List life spheres
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Sphere list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [spheres]
+                properties:
+                  spheres:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Sphere'
+    post:
+      summary: Create life sphere
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                sort_order:
+                  type: integer
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sphere'
+        '400':
+          description: Invalid name
+  /api/v1/settings/spheres/{id}:
+    put:
+      summary: Update life sphere
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, sort_order]
+              properties:
+                name:
+                  type: string
+                sort_order:
+                  type: integer
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sphere'
+        '400':
+          description: Invalid input
+        '404':
+          description: Not found
+    delete:
+      summary: Delete life sphere
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deleted sphere (body returned for Mini App)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sphere'
+        '404':
+          description: Not found
+        '409':
+          description: Sphere has linked projects
   /api/v1/settings/morning-review:
     put:
       summary: Update morning review time
@@ -787,6 +1458,16 @@ paths:
       responses:
         '200':
           description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [morning_review_at]
+                properties:
+                  morning_review_at:
+                    $ref: '#/components/schemas/TimeOfDay'
+        '400':
+          description: Invalid time
   /api/v1/settings/evening-review:
     put:
       summary: Update evening review time
@@ -807,6 +1488,16 @@ paths:
       responses:
         '200':
           description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [evening_review_at]
+                properties:
+                  evening_review_at:
+                    $ref: '#/components/schemas/TimeOfDay'
+        '400':
+          description: Invalid time
   /api/v1/settings/quiet-hours:
     put:
       summary: Update quiet hours
@@ -831,8 +1522,60 @@ paths:
       responses:
         '200':
           description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [quiet_hours_start, quiet_hours_end]
+                properties:
+                  quiet_hours_start:
+                    $ref: '#/components/schemas/TimeOfDay'
+                  quiet_hours_end:
+                    $ref: '#/components/schemas/TimeOfDay'
+        '400':
+          description: Invalid time
 components:
   schemas:
+    FinanceOverview:
+      type: object
+      required: [period_label, income_cents, expense_cents, net_cents, currency, categories]
+      properties:
+        period_label:
+          type: string
+          description: Russian month name and year (e.g. "июль 2026")
+          example: июль 2026
+        income_cents:
+          type: integer
+          format: int64
+        expense_cents:
+          type: integer
+          format: int64
+        net_cents:
+          type: integer
+          format: int64
+        currency:
+          type: string
+          example: RUB
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinanceCategory'
+    FinanceCategory:
+      type: object
+      required: [name, amount_cents, percent]
+      properties:
+        name:
+          type: string
+        amount_cents:
+          type: integer
+          format: int64
+        percent:
+          type: number
+          format: double
+          description: Share of expense_cents (0–100)
+        color_hint:
+          type: string
+          description: Optional color hint for UI
     TokenResponse:
       type: object
       required: [access_token, expires_in, token_type]
@@ -845,6 +1588,283 @@ components:
         token_type:
           type: string
           example: Bearer
+        telegram_id:
+          type: integer
+          format: int64
+          description: Telegram user id from signed initData.user.id (webapp) or looked-up user (API key)
+    Sphere:
+      type: object
+      required: [id, name, sort_order, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sort_order:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    Habit:
+      type: object
+      required: [id, name, frequency]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        frequency:
+          type: string
+          example: daily
+    HabitDay:
+      type: object
+      required: [id, name, today_completed, streak]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        today_completed:
+          type: boolean
+        streak:
+          type: integer
+    CalendarEvent:
+      type: object
+      required: [id, title, starts_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+          description: RFC3339 UTC
+    TimeOfDay:
+      type: object
+      required: [hour, minute]
+      properties:
+        hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+        minute:
+          type: integer
+          minimum: 0
+          maximum: 59
+    UserSettings:
+      type: object
+      required:
+        - morning_review_at
+        - evening_review_at
+        - weekly_review_at
+        - monthly_review_at
+        - quiet_hours_start
+        - quiet_hours_end
+        - language
+      properties:
+        morning_review_at:
+          $ref: '#/components/schemas/TimeOfDay'
+        evening_review_at:
+          $ref: '#/components/schemas/TimeOfDay'
+        weekly_review_at:
+          $ref: '#/components/schemas/TimeOfDay'
+        monthly_review_at:
+          $ref: '#/components/schemas/TimeOfDay'
+        quiet_hours_start:
+          oneOf:
+            - $ref: '#/components/schemas/TimeOfDay'
+            - type: 'null'
+        quiet_hours_end:
+          oneOf:
+            - $ref: '#/components/schemas/TimeOfDay'
+            - type: 'null'
+        language:
+          type: string
+          example: ru
+    AnalyticsSummary:
+      type: object
+      required:
+        - period_label
+        - tasks_created
+        - tasks_completed
+        - completion_rate
+        - open_tasks
+        - habit_consistency
+        - habit_completions
+        - habit_count
+        - projects
+      properties:
+        period_label:
+          type: string
+        tasks_created:
+          type: integer
+          format: int64
+        tasks_completed:
+          type: integer
+          format: int64
+        completion_rate:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Integer percent 0–100
+        open_tasks:
+          type: integer
+          format: int64
+        habit_consistency:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Integer percent 0–100
+        habit_completions:
+          type: integer
+          format: int64
+        habit_count:
+          type: integer
+          format: int64
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsProjectKPI'
+    AnalyticsProjectKPI:
+      type: object
+      required: [title, percent]
+      properties:
+        title:
+          type: string
+        percent:
+          type: string
+          description: Progress label (e.g. "42%" or "—")
+    Note:
+      type: object
+      required: [id, body, tags, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        body:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+    Debt:
+      type: object
+      required: [id, creditor, amount_cents, paid_cents, remaining_cents, currency]
+      properties:
+        id:
+          type: string
+          format: uuid
+        creditor:
+          type: string
+        amount_cents:
+          type: integer
+          format: int64
+        paid_cents:
+          type: integer
+          format: int64
+        remaining_cents:
+          type: integer
+          format: int64
+        currency:
+          type: string
+          example: RUB
+        due_date:
+          type: string
+          format: date
+    Reminder:
+      type: object
+      required: [id, message, fire_at, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        message:
+          type: string
+        fire_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+    Contact:
+      type: object
+      required: [id, name, company, role, notes, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        company:
+          type: string
+        role:
+          type: string
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    Skill:
+      type: object
+      required: [id, name, level, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        level:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    WeightLog:
+      type: object
+      required: [id, weight_kg, logged_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        weight_kg:
+          type: number
+          format: double
+        logged_at:
+          type: string
+          format: date-time
+    StepLog:
+      type: object
+      required: [id, steps, logged_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        steps:
+          type: integer
+        logged_at:
+          type: string
+          format: date-time
+    SleepLog:
+      type: object
+      required: [id, duration_minutes, duration_hours, logged_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        duration_minutes:
+          type: integer
+        duration_hours:
+          type: number
+          format: double
+        logged_at:
+          type: string
+          format: date-time
   securitySchemes:
     bearerAuth:
       type: http

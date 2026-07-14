@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/valentinezhov/lifeos/internal/identity/domain"
@@ -151,9 +153,9 @@ func (r *Repository) ListAll(ctx context.Context) ([]domain.User, error) {
 	return out, nil
 }
 
-// Delete removes the user and all cascaded domain data.
-// Projects are deleted first to avoid project_spheres.sphere_id ON DELETE RESTRICT
-// when life_spheres are removed via users CASCADE.
+// Delete permanently wipes the user and all owned domain rows, then removes
+// the users row. Explicit deletes avoid project_spheres ON DELETE RESTRICT and
+// keep the wipe correct even when some CASCADE edges are missing.
 func (r *Repository) Delete(ctx context.Context, userID ids.UserID) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -161,10 +163,42 @@ func (r *Repository) Delete(ctx context.Context, userID ids.UserID) error {
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err := tx.Exec(ctx, `DELETE FROM projects WHERE user_id = $1`, userID.UUID()); err != nil {
-		return fmt.Errorf("delete user projects: %w", err)
+	uid := userID.UUID()
+	stmts := []string{
+		`DELETE FROM task_projects WHERE task_id IN (SELECT id FROM tasks WHERE user_id = $1)
+		   OR project_id IN (SELECT id FROM projects WHERE user_id = $1)`,
+		`DELETE FROM project_spheres WHERE project_id IN (SELECT id FROM projects WHERE user_id = $1)`,
+		`DELETE FROM habit_logs WHERE habit_id IN (SELECT id FROM habits WHERE user_id = $1)`,
+		`DELETE FROM planned_cashflows WHERE user_id = $1`,
+		`DELETE FROM finance_transactions WHERE user_id = $1`,
+		`DELETE FROM finance_categories WHERE user_id = $1`,
+		`DELETE FROM debts WHERE user_id = $1`,
+		`DELETE FROM tasks WHERE user_id = $1`,
+		`DELETE FROM projects WHERE user_id = $1`,
+		`DELETE FROM habits WHERE user_id = $1`,
+		`DELETE FROM notes WHERE user_id = $1`,
+		`DELETE FROM calendar_events WHERE user_id = $1`,
+		`DELETE FROM career_contacts WHERE user_id = $1`,
+		`DELETE FROM career_skills WHERE user_id = $1`,
+		`DELETE FROM health_weight_logs WHERE user_id = $1`,
+		`DELETE FROM health_step_logs WHERE user_id = $1`,
+		`DELETE FROM health_sleep_logs WHERE user_id = $1`,
+		`DELETE FROM day_availability WHERE user_id = $1`,
+		`DELETE FROM scheduled_jobs WHERE user_id = $1`,
+		`DELETE FROM domain_events WHERE user_id = $1`,
+		`DELETE FROM telegram_sessions WHERE user_id = $1`,
+		`DELETE FROM life_spheres WHERE user_id = $1`,
+		`DELETE FROM user_settings WHERE user_id = $1`,
 	}
-	tag, err := tx.Exec(ctx, `DELETE FROM users WHERE id = $1`, userID.UUID())
+	for _, q := range stmts {
+		if _, err := tx.Exec(ctx, q, uid); err != nil {
+			if isUndefinedTable(err) {
+				continue
+			}
+			return fmt.Errorf("wipe user data: %w", err)
+		}
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM users WHERE id = $1`, uid)
 	if err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}
@@ -176,3 +210,15 @@ func (r *Repository) Delete(ctx context.Context, userID ids.UserID) error {
 	}
 	return nil
 }
+
+func isUndefinedTable(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "does not exist")
+}
+
+// Silence unused import if pool helpers referenced elsewhere.
+var _ = (*pgxpool.Pool)(nil)

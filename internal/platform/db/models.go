@@ -47,14 +47,17 @@ type DayAvailability struct {
 }
 
 type Debt struct {
-	ID          pgtype.UUID
-	UserID      pgtype.UUID
-	Creditor    string
-	AmountCents int64
-	PaidCents   int64
-	DueDate     pgtype.Date
-	Status      string
-	CreatedAt   pgtype.Timestamptz
+	ID                  pgtype.UUID
+	UserID              pgtype.UUID
+	Creditor            string
+	AmountCents         int64
+	PaidCents           int64
+	DueDate             pgtype.Date
+	Status              string
+	CreatedAt           pgtype.Timestamptz
+	InstallmentCents    int64
+	InstallmentInterval string
+	NextPaymentDate     pgtype.Date
 }
 
 type DomainEvent struct {
@@ -146,6 +149,19 @@ type Note struct {
 	Tags      []string
 }
 
+type PlannedCashflow struct {
+	ID          pgtype.UUID
+	UserID      pgtype.UUID
+	Kind        string
+	Title       string
+	AmountCents int64
+	Interval    string
+	NextDate    pgtype.Date
+	DebtID      pgtype.UUID
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
 type ProcessedUpdate struct {
 	UpdateID    int64
 	ProcessedAt pgtype.Timestamptz
@@ -185,17 +201,22 @@ type ScheduledJob struct {
 }
 
 type Task struct {
-	ID          pgtype.UUID
-	UserID      pgtype.UUID
-	Title       string
-	Description pgtype.Text
-	Status      string
-	Priority    string
-	DueDate     pgtype.Date
-	CompletedAt pgtype.Timestamptz
-	DeletedAt   pgtype.Timestamptz
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	ID              pgtype.UUID
+	UserID          pgtype.UUID
+	Title           string
+	Description     pgtype.Text
+	Status          string
+	Priority        string
+	DueDate         pgtype.Date
+	CompletedAt     pgtype.Timestamptz
+	DeletedAt       pgtype.Timestamptz
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+	DurationMinutes pgtype.Int4
+	Tags            []string
+	Kind            string
+	Address         pgtype.Text
+	NoteID          pgtype.UUID
 }
 
 type TaskProject struct {

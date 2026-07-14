@@ -1,78 +1,62 @@
 # Roadmap
 
-**Version:** 0.3  
-**See also:** [ARCHITECTURE.md](../architecture/ARCHITECTURE.md)
+**Version:** 0.5  
+**Synced:** 2026-07-14 (owner lock)  
+**See also:** [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) · [agents/PLANNING_NOTES.md](../agents/PLANNING_NOTES.md)
 
 ---
 
-## Horizon Overview
+## Horizon
 
 ```
-2026 Q3          2026 Q4          2027 Q1          2027+
-────────         ────────         ────────         ────
-Foundation ✅    Expansion ✅     Intelligence     Multi-client
-(M1–M5)          (M6–M8)          (LLM polish)     (Mobile, sync)
+Now                         Next                        Later
+────────                    ────────                    ─────
+Stages 0–3 ✅               Real dogfood 14d            Web/Mobile icebox
+Mini App + auth + LLM opt   OpenAPI CI / observ.
 ```
 
 ---
 
-## Phase 0: Design ✅
+## Phase 0–2 (done)
 
-- [x] Domain Model, Architecture, ADRs
-- [x] ER + Sequence diagrams
-- [x] Roadmap, Backlog, Sprint Plan
+Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST + Mini App scaffold ✅
 
 ---
 
-## Phase 1: Foundation (MVP) ✅
+## Stage 1 — Merge WIP + Bugfix (active)
 
-**Goal:** Telegram бот — capture, tasks, reminders, reviews.
+- [x] Merge task lifecycle branch
+- [x] Merge miniapp UX branch
+- [x] Free-audit bugfix: Backend / Frontend / Telegram (TASK-001 DONE)
+- [x] Cross-zone asks → Stage 2 OPEN
 
-| Milestone | Status |
-|-----------|--------|
-| M1 Skeleton | ✅ |
-| M2 Core Domain | ✅ |
-| M3 Telegram + NL | ✅ |
-| M4 Scheduler + Reviews | ✅ |
-| M5 Hardening | 🚧 partial (OTel, backup scripts) |
+## Stage 2 — Mini App + functionality (active)
 
-**Exit criteria:** 14 days daily use, 0 P0 bugs — in progress.
+- [x] Backend TASK-002: `GET /finance/overview?period=YYYY-MM`
+- [x] Frontend TASK-002: wire overview + polish
+- [x] Telegram TASK-002: align UX with lifecycle / Mini App
+- [x] **Stage 2.1 TASK-003:** Habits / Calendar / Settings daily cycle
+- [x] **Stage 2.2 TASK-004:** Notes / Health / Career / Reminders / Debts / Analytics
+- [ ] No full bot↔Mini App parity required
 
----
+## Stage 3 — Stabilization + Intelligence ✅
 
-## Phase 2: Expansion ✅ (mostly)
+- [x] **3.0 TASK-005:** Dogfood free-audit (Frontend / Backend / Telegram)
+- [x] **3.1 TASK-006:** Thin Telegram handler (strangler) — handler.go ~−51%
+- [x] **3.2 TASK-007:** Intelligence polish (LLM composite + assistant HTML-safe)
 
-| Milestone | Status |
-|-----------|--------|
-| M6 Finance | ✅ |
-| M7 Habits + Calendar + Projects/Spheres | ✅ |
-| M8 Analytics | ✅ query layer |
+## Remaining debt (ongoing)
 
-Дополнительно реализовано: **knowledge, health, career**, REST API + JWT, Mini App scaffold.
+- [x] OpenAPI ↔ router parity CI (`make openapi-check`)
+- [x] 14-day dogfood checklist: [DOGFOOD.md](DOGFOOD.md)
+- [x] Test / observability budget (~20%) — coverage gates + TG regressions + `/metrics` note
+- [ ] Owner runs 14-day dogfood gate (G2→G3) on Mac + Telegram
+- [ ] Collect dogfood P0 → inbox `TASK-008-dogfood-p0` (DRAFT)
 
----
+## Icebox
 
-## Phase 3: Intelligence — next
-
-- [ ] LLM resolver production-ready (Ollama adapter exists)
-- [ ] Assistant summaries for reviews
-- [ ] Webhook Telegram (optional, code exists)
-- [ ] OpenAPI sync with all endpoints
-
----
-
-## Phase 4: Life Domains — ongoing
-
-- [x] Knowledge, Career, Health (Telegram + API)
-- [ ] Mini App: full feature parity with bot
-- [ ] Production module (orders, pipeline)
-- [ ] Multi-user / family mode
-
----
-
-## Technical Debt Budget
-
-Каждый sprint: ~20% на tests, observability, docs, boundary refactoring.
+Web app · native mobile · family/multi-user · bank/calendar sync · GraphQL · STT
+Mini App UX plan (detail): [docs/miniapp/UX_UI_PLAN.md](../miniapp/UX_UI_PLAN.md)
 
 ---
 
@@ -80,7 +64,10 @@ Foundation ✅    Expansion ✅     Intelligence     Multi-client
 
 | Gate | Criteria | Status |
 |------|----------|--------|
-| G0 → G1 (code) | Runnable app + CI | ✅ |
-| G1 → G2 (daily use) | M1–M4 complete | ✅ |
-| G2 → G3 (stable) | 14 days dogfooding | 🚧 |
-| G3 → G4 (expansion) | Phase 2 domains | ✅ |
+| G0 → G1 | Runnable + CI | ✅ |
+| G1 → G2 | M1–M4 | ✅ |
+| G2 → G3 | 14-day dogfood ([DOGFOOD.md](DOGFOOD.md)) | 🚧 |
+| G3 → G4 | Phase 2 domains | ✅ |
+| Stage1 → Stage2 | WIP merged + P0 bugs closed | ✅ |
+| Stage2 → Stage3 | Mini App depth + contracts | ✅ |
+| Stage3 complete | Dogfood audit + thin handler + LLM optional | ✅ |

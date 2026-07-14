@@ -10,7 +10,7 @@
 | [006](006-domain-event-log.md) | Domain Event Log | Accepted |
 | [007](007-builtin-scheduler.md) | Built-in Scheduler (unified jobs) | Accepted (v0.2) |
 | [008](008-manual-di.md) | Manual Dependency Injection | Accepted |
-| [009](009-mvp-infra-scope.md) | MVP Infrastructure Scope | Accepted |
+| [009](009-mvp-infra-scope.md) | MVP Infrastructure Scope | Accepted (post-MVP revision note) |
 
 ## Template for New ADRs
 

@@ -17,7 +17,7 @@ Accepted (revised v0.2)
 ## Rules
 1. Domain imports: `time`, `errors`, `fmt`, `internal/platform/ids` only
 2. Repository interfaces — в `domain` или `infra` (консистентно внутри модуля)
-3. Reader ports для cross-context — у потребителя в `app` (e.g. `GoalReader` in tasks/app)
+3. Reader ports для cross-context — у потребителя в `app` (e.g. `ProjectReader` in tasks/app)
 4. Use case = один публичный `Execute` method
 5. Cross-context reads — `internal/query/`, не import чужого domain
 

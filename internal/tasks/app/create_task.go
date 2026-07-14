@@ -3,59 +3,13 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
 	"github.com/valentinezhov/lifeos/internal/tasks/domain"
 )
-
-type TaskStore interface {
-	Save(ctx context.Context, task domain.Task) error
-	SetProjects(ctx context.Context, taskID ids.TaskID, projectIDs []ids.ProjectID) error
-	GetByID(ctx context.Context, userID ids.UserID, taskID ids.TaskID) (domain.Task, error)
-	ListByDueDate(ctx context.Context, userID ids.UserID, dueDate time.Time) ([]domain.Task, error)
-	ListByProject(ctx context.Context, userID ids.UserID, projectID ids.ProjectID) ([]domain.Task, error)
-	FindOpenByTitle(ctx context.Context, userID ids.UserID, title string) (domain.Task, error)
-	Update(ctx context.Context, task domain.Task) error
-}
-
-type EventLog interface {
-	Append(ctx context.Context, rec events.Record) error
-}
-
-type Transactor interface {
-	WithinTransaction(ctx context.Context, fn func(ctx context.Context) error) error
-}
-
-type TaskDTO struct {
-	ID         ids.TaskID
-	Title      string
-	Status     domain.Status
-	Priority   domain.Priority
-	DueDate    *time.Time
-	ProjectIDs []ids.ProjectID
-}
-
-func ToDTO(task domain.Task) TaskDTO {
-	idsCopy := append([]ids.ProjectID(nil), task.ProjectIDs...)
-	return TaskDTO{
-		ID: task.ID, Title: task.Title, Status: task.Status, Priority: task.Priority,
-		DueDate: task.DueDate, ProjectIDs: idsCopy,
-	}
-}
-
-func ToDTOs(tasks []domain.Task) []TaskDTO {
-	out := make([]TaskDTO, 0, len(tasks))
-	for _, task := range tasks {
-		out = append(out, ToDTO(task))
-	}
-	return out
-}
-
-type ProjectChecker interface {
-	AllExist(ctx context.Context, userID ids.UserID, projectIDs []ids.ProjectID) (bool, error)
-}
 
 type CreateTask struct {
 	store      TaskStore
@@ -73,12 +27,18 @@ func NewCreateTask(store TaskStore, events EventLog, transactor Transactor, proj
 }
 
 type CreateTaskInput struct {
-	UserID     ids.UserID
-	Title      string
-	Priority   domain.Priority
-	DueDate    *time.Time
-	ProjectIDs []ids.ProjectID
-	Source     events.Source
+	UserID          ids.UserID
+	Title           string
+	Description     *string
+	Priority        domain.Priority
+	Kind            domain.Kind
+	Address         *string
+	NoteID          *ids.NoteID
+	DueDate         *time.Time
+	DurationMinutes *int
+	Tags            []string
+	ProjectIDs      []ids.ProjectID
+	Source          events.Source
 }
 
 func (uc *CreateTask) Execute(ctx context.Context, in CreateTaskInput) (TaskDTO, error) {
@@ -89,10 +49,47 @@ func (uc *CreateTask) Execute(ctx context.Context, in CreateTaskInput) (TaskDTO,
 		in.Priority = domain.PriorityMedium
 	}
 
+	title := in.Title
+	tags := domain.NormalizeTags(in.Tags)
+	if clean, fromTitle := domain.ExtractHashtags(title); len(fromTitle) > 0 {
+		title = clean
+		tags = domain.NormalizeTags(append(tags, fromTitle...))
+	}
+
 	now := uc.now()
-	task, err := domain.NewTask(in.UserID, in.Title, in.Priority, in.DueDate, now)
+	task, err := domain.NewTask(in.UserID, title, in.Priority, in.DueDate, now)
 	if err != nil {
 		return TaskDTO{}, err
+	}
+	if in.Description != nil {
+		desc := strings.TrimSpace(*in.Description)
+		if desc != "" {
+			task.Description = &desc
+		}
+	}
+	if in.DurationMinutes != nil {
+		if *in.DurationMinutes <= 0 {
+			return TaskDTO{}, domain.ErrInvalidDuration
+		}
+		mins := *in.DurationMinutes
+		task.DurationMinutes = &mins
+	}
+	task.Tags = tags
+	if in.Kind != "" {
+		if !in.Kind.Valid() {
+			return TaskDTO{}, domain.ErrInvalidKind
+		}
+		task.Kind = in.Kind
+	}
+	if in.Address != nil {
+		addr := strings.TrimSpace(*in.Address)
+		if addr != "" {
+			task.Address = &addr
+		}
+	}
+	if in.NoteID != nil && !in.NoteID.IsZero() {
+		id := *in.NoteID
+		task.NoteID = &id
 	}
 	if len(in.ProjectIDs) > 0 && uc.projects != nil {
 		ok, err := uc.projects.AllExist(ctx, in.UserID, in.ProjectIDs)
@@ -120,7 +117,9 @@ func (uc *CreateTask) Execute(ctx context.Context, in CreateTaskInput) (TaskDTO,
 			AggregateID:   task.ID.UUID(),
 			EventType:     "TaskCreated",
 			Payload: map[string]any{
-				"title": task.Title, "priority": task.Priority, "due_date": task.DueDate, "project_ids": task.ProjectIDs,
+				"title": task.Title, "description": task.Description,
+				"priority": task.Priority, "due_date": task.DueDate,
+				"duration_minutes": task.DurationMinutes, "tags": task.Tags, "project_ids": task.ProjectIDs,
 			},
 			Source:     in.Source,
 			OccurredAt: now,

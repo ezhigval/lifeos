@@ -29,6 +29,10 @@ func (rt *Router) listCalendarToday(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if rt.deps.ListCalendar == nil {
+		writeError(w, http.StatusNotImplemented, "calendar is not configured")
+		return
+	}
 	items, err := rt.deps.ListCalendar.Execute(r.Context(), userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

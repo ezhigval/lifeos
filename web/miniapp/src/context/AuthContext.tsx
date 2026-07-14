@@ -11,7 +11,7 @@ import {
   authWithInitData,
   authWithDevCredentials,
 } from '@/api/client'
-import { getInitData, initTelegram, isTelegramEnv, tgUser } from '@/lib/telegram'
+import { getInitData, initTelegram, isTelegramEnv, telegramIdFromInitData, tgUser, clearFrozenInitData } from '@/lib/telegram'
 import {
   buildSession,
   clearSession,
@@ -67,7 +67,7 @@ function tryRestoreSession(): boolean {
     if (session) clearSession()
     return false
   }
-  const tgId = tgUser()?.id
+  const tgId = telegramIdFromInitData() ?? tgUser()?.id
   if (!sessionMatchesTelegram(session, tgId)) {
     clearSession()
     return false
@@ -77,15 +77,40 @@ function tryRestoreSession(): boolean {
 }
 
 async function loginWithInitData(initData: string): Promise<StoredSession> {
-  const result = await withTimeout(
-    authWithInitData(initData),
-    AUTH_TIMEOUT_MS,
-    'auth/telegram-webapp',
-  )
-  const telegramId = tgUser()?.id
-  const session = buildSession(result.accessToken, result.expiresIn, telegramId)
-  applySession(session)
-  return session
+  try {
+    const result = await withTimeout(
+      authWithInitData(initData),
+      AUTH_TIMEOUT_MS,
+      'auth/telegram-webapp',
+    )
+    // Prefer server-echoed telegram_id (parsed from HMAC-verified initData.user.id).
+    const telegramId =
+      result.telegramId ?? telegramIdFromInitData(initData) ?? tgUser()?.id
+    const session = buildSession(result.accessToken, result.expiresIn, telegramId)
+    applySession(session)
+    return session
+  } catch (err) {
+    // Stale hash/sessionStorage initData → clear and retry once with live WebApp.initData.
+    const msg = err instanceof Error ? err.message : ''
+    if (msg.includes('invalid init_data hash') || msg.includes('init_data')) {
+      clearFrozenInitData()
+      initTelegram()
+      const fresh = getInitData()
+      if (fresh && fresh !== initData) {
+        const result = await withTimeout(
+          authWithInitData(fresh),
+          AUTH_TIMEOUT_MS,
+          'auth/telegram-webapp-retry',
+        )
+        const telegramId =
+          result.telegramId ?? telegramIdFromInitData(fresh) ?? tgUser()?.id
+        const session = buildSession(result.accessToken, result.expiresIn, telegramId)
+        applySession(session)
+        return session
+      }
+    }
+    throw err
+  }
 }
 
 async function loginWithDev(): Promise<StoredSession | null> {
@@ -136,14 +161,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         initTelegram()
 
-        // 1) Prefer persisted JWT — do NOT touch initData if session is fresh.
+        // 1) Prefer persisted JWT — but reject wiped user ids (after /delete).
         if (tryRestoreSession()) {
-          if (!cancelled) setState({ status: 'ready' })
-          return
+          try {
+            const token = loadSession()?.accessToken
+            const res = await fetch('/api/v1/settings', {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            })
+            if (res.status === 401) {
+              clearSession()
+              setAccessToken(null)
+            } else {
+              if (!cancelled) setState({ status: 'ready' })
+              return
+            }
+          } catch {
+            if (!cancelled) setState({ status: 'ready' })
+            return
+          }
         }
 
         // 2) One-shot Telegram bootstrap when we have no/expired session.
-        const initData = await waitForInitData(1_500)
+        const initData = await waitForInitData(3_000)
         if (initData) {
           await loginWithInitData(initData)
           if (!cancelled) setState({ status: 'ready' })
@@ -161,7 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setState({
             status: 'error',
             message: isTelegramEnv()
-              ? 'Нет сохранённой сессии и Telegram не передал initData. Открой Mini App кнопкой «📱 Mini App».'
+              ? 'Нет initData. Закрой окно и открой синей кнопкой «📱 Открыть Mini App» в чате (или Menu → Mini App). Reply-клавиатура и ссылка из текста не передают initData.'
               : 'Открой из Telegram или задай VITE_DEV_API_KEY и VITE_DEV_TELEGRAM_ID',
           })
         }

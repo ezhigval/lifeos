@@ -3,12 +3,14 @@ package telegram
 import (
 	"fmt"
 
+	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
 	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
 	taskapp "github.com/valentinezhov/lifeos/internal/tasks/app"
-	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
 	taskdomain "github.com/valentinezhov/lifeos/internal/tasks/domain"
 )
 
+// FormatDashboard wraps a pre-formatted HTML body (Format* / FormatAssistantHTML).
+// Body must already be safe for parse_mode=HTML — do not pass raw LLM/user text here.
 func FormatDashboard(body string) string {
 	if body == "" {
 		body = "Выбери раздел reply-кнопками внизу или напиши команду."
@@ -40,13 +42,13 @@ func taskDoneButtons(items []taskapp.TaskDTO) [][]InlineButton {
 	}
 	var rows [][]InlineButton
 	for _, item := range items {
-		if item.Status == taskdomain.StatusDone {
+		if item.Status == taskdomain.StatusDone || item.Status == taskdomain.StatusCancelled {
 			continue
 		}
-		rows = append(rows, []InlineButton{{
-			Text:         "✓ " + truncate(item.Title, 28),
-			CallbackData: CBTaskDone + item.ID.String(),
-		}})
+		rows = append(rows, []InlineButton{
+			{Text: "✓ " + truncate(item.Title, 22), CallbackData: CBTaskDone + item.ID.String()},
+			{Text: "✕", CallbackData: CBTaskCancel + item.ID.String()},
+		})
 	}
 	return rows
 }
@@ -91,20 +93,8 @@ func projectListButtons(items []projectsapp.ProjectDTO) [][]InlineButton {
 
 func FormatProjectTasksWithActions(projectName string, items []taskapp.TaskDTO) (string, [][]InlineButton) {
 	text := FormatProjectTasks(projectName, items)
-	if len(items) == 0 {
-		return text, nil
-	}
-	var rows [][]InlineButton
-	for _, item := range items {
-		if item.Status == taskdomain.StatusDone {
-			continue
-		}
-		rows = append(rows, []InlineButton{{
-			Text:         "✓ " + truncate(item.Title, 28),
-			CallbackData: CBTaskDone + item.ID.String(),
-		}})
-	}
-	return text, rows
+	content := taskDoneButtons(items)
+	return text, content
 }
 
 func truncate(s string, max int) string {

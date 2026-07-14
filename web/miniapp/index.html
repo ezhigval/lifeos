@@ -28,6 +28,50 @@
     <!-- Official Telegram script only. Do NOT also import @twa-dev/sdk —
          it embeds another copy and double-loading blanks many WebViews. -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Capture launch payload BEFORE the React module boots. Reload() drops
+         #tgWebAppData; sessionStorage keeps initData for this Mini App sheet. -->
+    <script>
+      (function () {
+        var KEY = 'lifeos.tg.initData.v1'
+        function readWebApp() {
+          try {
+            return (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) || ''
+          } catch (e) {
+            return ''
+          }
+        }
+        function readHash() {
+          try {
+            var h = location.hash || ''
+            if (h.charAt(0) === '#') h = h.slice(1)
+            var key = 'tgWebAppData='
+            var i = h.indexOf(key)
+            if (i < 0) return ''
+            var rest = h.slice(i + key.length)
+            var next = rest.search(/&tgWebApp[A-Za-z]+=/)
+            if (next >= 0) rest = rest.slice(0, next)
+            return decodeURIComponent(rest.replace(/\+/g, '%20'))
+          } catch (e) {
+            return ''
+          }
+        }
+        function readStored() {
+          try {
+            return sessionStorage.getItem(KEY) || ''
+          } catch (e) {
+            return ''
+          }
+        }
+        // Prefer live WebApp.initData; never let a stale storage copy win.
+        var raw = readWebApp() || readHash() || readStored()
+        if (raw) {
+          window.__LIFEOS_INIT_DATA__ = raw
+          try {
+            sessionStorage.setItem(KEY, raw)
+          } catch (e) {}
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"><div id="boot">Загрузка LifeOS…</div></div>
