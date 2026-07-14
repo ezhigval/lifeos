@@ -1,7 +1,7 @@
 # TASK-006: Stage 3.1 — App facades if intent wiring needs Backend
 
 - **Agent:** backend
-- **Status:** DRAFT
+- **Status:** OPEN
 - **Priority:** P2
 - **Stage:** stabilization (3.1)
 

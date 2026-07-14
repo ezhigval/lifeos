@@ -1,7 +1,7 @@
 # TASK-006: Stage 3.1 — Thin Telegram handler (strangler)
 
 - **Agent:** telegram
-- **Status:** DRAFT
+- **Status:** OPEN
 - **Priority:** P1
 - **Stage:** stabilization (3.1)
 
