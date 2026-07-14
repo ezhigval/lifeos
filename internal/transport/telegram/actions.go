@@ -56,7 +56,7 @@ func (h *MessageHandler) runAction(ctx context.Context, userID ids.UserID, actio
 		if err != nil {
 			return dispatchResult{}, err
 		}
-		out := dispatchResult{text: msg, deferTasks: low}
+		out := dispatchResult{text: FormatTriage(msg), deferTasks: low}
 		if len(low) > 0 {
 			out.inline = [][]InlineButton{{{Text: "Перенести low", CallbackData: CBTriageDefer}}}
 		}

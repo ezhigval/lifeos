@@ -9,6 +9,8 @@ import (
 	taskdomain "github.com/valentinezhov/lifeos/internal/tasks/domain"
 )
 
+// FormatDashboard wraps a pre-formatted HTML body (Format* / FormatAssistantHTML).
+// Body must already be safe for parse_mode=HTML — do not pass raw LLM/user text here.
 func FormatDashboard(body string) string {
 	if body == "" {
 		body = "Выбери раздел reply-кнопками внизу или напиши команду."

@@ -1,7 +1,7 @@
 # TASK-007: Stage 3.2 — Assistant presentation (Telegram)
 
 - **Agent:** telegram
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P2
 - **Stage:** intelligence (3.2)
 
@@ -11,5 +11,5 @@ Ensure review/assistant messages still format safely when LLM assisted (HTML esc
 
 ## Acceptance
 
-- [ ] Report verified OK or small formatter harden
-- [ ] Commit only if needed
+- [x] Report verified OK or small formatter harden
+- [x] Commit only if needed

@@ -322,10 +322,16 @@ func (h *MessageHandler) dispatchIntent(ctx context.Context, userID ids.UserID, 
 		return h.calendarTodayView(ctx, userID)
 	case ai.IntentReviewWeekly:
 		text, err := h.review.Weekly(ctx, userID)
-		return dispatchResult{text: text}, err
+		if err != nil {
+			return dispatchResult{}, err
+		}
+		return dispatchResult{text: FormatAssistantHTML(text)}, nil
 	case ai.IntentReviewMonthly:
 		text, err := h.review.Monthly(ctx, userID, false)
-		return dispatchResult{text: text}, err
+		if err != nil {
+			return dispatchResult{}, err
+		}
+		return dispatchResult{text: FormatAssistantHTML(text)}, nil
 	case ai.IntentAnalyticsSummary:
 		return h.analyticsView(ctx, userID)
 	case ai.IntentNoteCreate:

@@ -3,6 +3,7 @@ package telegram
 import (
 	"fmt"
 	"html"
+	"regexp"
 	"strings"
 	"time"
 
@@ -19,6 +20,35 @@ import (
 	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
 	taskapp "github.com/valentinezhov/lifeos/internal/tasks/app"
 )
+
+// Room under Telegram's 4096 cap after FormatDashboard wraps the body.
+const maxAssistantHTMLRunes = 3500
+
+// Allowlisted Telegram HTML tags restored after full escape (LLM/review/triage text).
+var reTelegramAllowedTag = regexp.MustCompile(`(?i)&lt;(/?)(b|strong|i|em)&gt;`)
+
+// FormatAssistantHTML escapes free-form assistant/review text for parse_mode=HTML,
+// restores a small allowlist of emphasis tags, and truncates to a safe length.
+// Do not use on bodies already passed through html.EscapeString (double-escape).
+func FormatAssistantHTML(text string) string {
+	text = sanitizeTelegramHTML(strings.TrimSpace(text))
+	r := []rune(text)
+	if len(r) <= maxAssistantHTMLRunes {
+		return text
+	}
+	return string(r[:maxAssistantHTMLRunes-1]) + "…"
+}
+
+func sanitizeTelegramHTML(s string) string {
+	escaped := html.EscapeString(s)
+	return reTelegramAllowedTag.ReplaceAllStringFunc(escaped, func(match string) string {
+		parts := reTelegramAllowedTag.FindStringSubmatch(match)
+		if len(parts) != 3 {
+			return match
+		}
+		return "<" + parts[1] + strings.ToLower(parts[2]) + ">"
+	})
+}
 
 func FormatTaskCreated(dto taskapp.TaskDTO) string {
 	out := fmt.Sprintf("✅ Задача создана: <b>%s</b>", html.EscapeString(dto.Title))
@@ -152,7 +182,7 @@ func FormatAvailability(until string) string {
 }
 
 func FormatTriage(proposal string) string {
-	return proposal
+	return FormatAssistantHTML(proposal)
 }
 
 func FormatTaskCompleted(dto taskapp.TaskDTO) string {

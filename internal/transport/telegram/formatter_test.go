@@ -20,6 +20,54 @@ func TestFormatReminderScheduledUsesMessageAndLocalAt(t *testing.T) {
 	}
 }
 
+func TestFormatAssistantHTMLEscapesRawTagsKeepsBold(t *testing.T) {
+	t.Parallel()
+	got := FormatAssistantHTML("😮‍💨 <b>Перегруз</b>\n🔴 купить <молоко> & ещё")
+	if !strings.Contains(got, "<b>Перегруз</b>") {
+		t.Fatalf("bold lost: %s", got)
+	}
+	if !strings.Contains(got, "&lt;молоко&gt;") {
+		t.Fatalf("title must be escaped: %s", got)
+	}
+	if strings.Contains(got, "<молоко>") || strings.Contains(got, "<script") {
+		t.Fatalf("raw angle brackets leaked: %s", got)
+	}
+	if !strings.Contains(got, "&amp;") {
+		t.Fatalf("ampersand must be escaped: %s", got)
+	}
+}
+
+func TestFormatAssistantHTMLStripsDisallowedTags(t *testing.T) {
+	t.Parallel()
+	got := FormatAssistantHTML(`ok <a href="http://x">link</a> <b>keep</b>`)
+	if strings.Contains(got, "<a ") || strings.Contains(got, "</a>") {
+		t.Fatalf("anchor must not be restored: %s", got)
+	}
+	if !strings.Contains(got, "<b>keep</b>") {
+		t.Fatalf("bold keep lost: %s", got)
+	}
+}
+
+func TestFormatAssistantHTMLTruncates(t *testing.T) {
+	t.Parallel()
+	long := strings.Repeat("я", maxAssistantHTMLRunes+50)
+	got := FormatAssistantHTML(long)
+	if !strings.HasSuffix(got, "…") {
+		t.Fatalf("expected ellipsis suffix: %q", got[len(got)-3:])
+	}
+	if n := len([]rune(got)); n != maxAssistantHTMLRunes {
+		t.Fatalf("want %d runes, got %d", maxAssistantHTMLRunes, n)
+	}
+}
+
+func TestFormatTriageUsesAssistantHTML(t *testing.T) {
+	t.Parallel()
+	got := FormatTriage("<b>x</b> y <z>")
+	if got != FormatAssistantHTML("<b>x</b> y <z>") {
+		t.Fatalf("FormatTriage must delegate: %s", got)
+	}
+}
+
 func TestEnsureFutureFireAtRollsPast(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 7, 14, 15, 0, 0, 0, time.UTC)
