@@ -63,4 +63,4 @@ cd web/miniapp && npm run lint    # OK (3 pre-existing only-export-components wa
 
 ## Commits
 
-- `40bbde386fc8486a215dd6ea8e95b0789f4f454b` — `fix(miniapp): Stage 2.2 Notes/Health/Career/Reminders/Debts`
+- `af8fc3b22341678f16320b1c69aa3316c743c924` — `fix(miniapp): Stage 2.2 Notes/Health/Career/Reminders/Debts`
