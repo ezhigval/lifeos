@@ -202,7 +202,14 @@ func TestListTasksTodayUsesTimezone(t *testing.T) {
 
 	store := newFakeStore()
 	userID := ids.NewUserID()
-	today := time.Date(2026, 7, 14, 0, 0, 0, 0, time.UTC)
+	// DateInTimezone returns the user's wall-calendar day as UTC midnight.
+	// After ~21:00 UTC that day is next calendar date in Europe/Moscow.
+	loc, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := time.Now().UTC().In(loc)
+	today := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC)
 
 	task, err := domain.NewTask(userID, "today task", domain.PriorityMedium, &today, time.Now().UTC())
 	if err != nil {
@@ -213,12 +220,6 @@ func TestListTasksTodayUsesTimezone(t *testing.T) {
 	}
 
 	uc := app.NewListTasksToday(store, fakeUsers{tz: "Europe/Moscow"})
-	ucNow := func() time.Time {
-		return time.Date(2026, 7, 14, 10, 0, 0, 0, time.UTC)
-	}
-	// inject now via unexported field isn't possible; Europe/Moscow same calendar day works with UTC 10:00 on Jul 14
-	_ = ucNow
-
 	items, err := uc.Execute(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)

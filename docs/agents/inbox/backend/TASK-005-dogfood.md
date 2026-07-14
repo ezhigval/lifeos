@@ -1,7 +1,7 @@
 # TASK-005: Stage 3.0 — Post-2.2 dogfood free-audit
 
 - **Agent:** backend
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P0
 - **Stage:** stabilization (3.0)
 
@@ -20,7 +20,7 @@ Free-audit HTTP/API/domain after Stage 2.2. Fix P0/P1: reminders id regression, 
 
 ## Acceptance
 
-- [ ] P0/P1 fixed or documented
-- [ ] tests green
-- [ ] Report `docs/agents/reports/backend/TASK-005.md`
-- [ ] Commit + push
+- [x] P0/P1 fixed or documented
+- [x] tests green
+- [x] Report `docs/agents/reports/backend/TASK-005.md`
+- [x] Commit + push

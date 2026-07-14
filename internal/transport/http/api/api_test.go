@@ -2018,6 +2018,18 @@ func TestRemindersHTTPContract(t *testing.T) {
 	if createRec.Code != http.StatusCreated {
 		t.Fatalf("create status=%d body=%s", createRec.Code, createRec.Body.String())
 	}
+	var created struct {
+		ID      string `json:"id"`
+		Message string `json:"message"`
+		FireAt  string `json:"fire_at"`
+		Status  string `json:"status"`
+	}
+	if err := json.Unmarshal(createRec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.ID == "" || created.Message != "pill" || created.Status != "pending" || created.FireAt == "" {
+		t.Fatalf("create must return ReminderDTO with id, got %+v body=%s", created, createRec.Body.String())
+	}
 
 	listRec := doJSON(t, env.router, http.MethodGet, "/api/v1/reminders", auth, nil)
 	if listRec.Code != http.StatusOK {
@@ -2037,12 +2049,25 @@ func TestRemindersHTTPContract(t *testing.T) {
 	if len(listed.Reminders) != 1 || listed.Reminders[0].Message != "pill" || listed.Reminders[0].Status != "pending" {
 		t.Fatalf("listed=%+v", listed.Reminders)
 	}
-
-	delRec := doJSON(t, env.router, http.MethodDelete, "/api/v1/reminders/"+listed.Reminders[0].ID, auth, nil)
-	if delRec.Code != http.StatusOK {
-		t.Fatalf("cancel status=%d body=%s", delRec.Code, delRec.Body.String())
+	if listed.Reminders[0].ID != created.ID {
+		t.Fatalf("list id=%q != create id=%q", listed.Reminders[0].ID, created.ID)
 	}
-	missing := doJSON(t, env.router, http.MethodDelete, "/api/v1/reminders/"+listed.Reminders[0].ID, auth, nil)
+
+	delRec := doJSON(t, env.router, http.MethodDelete, "/api/v1/reminders/"+created.ID, auth, nil)
+	if delRec.Code != http.StatusOK {
+		t.Fatalf("cancel by create id status=%d body=%s", delRec.Code, delRec.Body.String())
+	}
+	var cancelled struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(delRec.Body.Bytes(), &cancelled); err != nil {
+		t.Fatal(err)
+	}
+	if cancelled.ID != created.ID || cancelled.Status != "cancelled" {
+		t.Fatalf("cancel response=%+v", cancelled)
+	}
+	missing := doJSON(t, env.router, http.MethodDelete, "/api/v1/reminders/"+created.ID, auth, nil)
 	if missing.Code != http.StatusNotFound {
 		t.Fatalf("missing cancel status=%d", missing.Code)
 	}
