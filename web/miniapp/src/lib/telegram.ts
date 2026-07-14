@@ -42,10 +42,28 @@ function getWebApp(): TelegramWebApp | undefined {
   return window.Telegram?.WebApp
 }
 
+const INIT_DATA_STORAGE_KEY = 'lifeos.tg.initData.v1'
+
+function readStoredInitData(): string {
+  try {
+    return sessionStorage.getItem(INIT_DATA_STORAGE_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+function storeInitData(raw: string) {
+  try {
+    sessionStorage.setItem(INIT_DATA_STORAGE_KEY, raw)
+  } catch {
+    /* private mode / quota */
+  }
+}
+
 /**
  * Capture initData ASAP. Telegram puts tgWebAppData into location.hash;
  * HashRouter (or any hash rewrite) can wipe it on later navigations / reloads.
- * We freeze the value once so auth always sees the original signed payload.
+ * We freeze the value once (memory + sessionStorage) so auth survives reload.
  */
 export function freezeInitData(): string {
   if (typeof window === 'undefined') return ''
@@ -73,8 +91,13 @@ export function freezeInitData(): string {
     }
   }
 
+  if (!raw) {
+    raw = readStoredInitData()
+  }
+
   if (raw) {
     window.__LIFEOS_INIT_DATA__ = raw
+    storeInitData(raw)
   }
   return raw
 }

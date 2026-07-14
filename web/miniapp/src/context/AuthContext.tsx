@@ -145,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // 2) One-shot Telegram bootstrap when we have no/expired session.
-        const initData = await waitForInitData(1_500)
+        const initData = await waitForInitData(3_000)
         if (initData) {
           await loginWithInitData(initData)
           if (!cancelled) setState({ status: 'ready' })
@@ -163,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setState({
             status: 'error',
             message: isTelegramEnv()
-              ? 'Нет сохранённой сессии и Telegram не передал initData. Открой Mini App кнопкой «📱 Mini App».'
+              ? 'Нет initData. Закрой это окно и открой заново кнопкой «📱 Mini App» внизу чата (или Menu → Mini App). Не открывай URL из текста сообщения.'
               : 'Открой из Telegram или задай VITE_DEV_API_KEY и VITE_DEV_TELEGRAM_ID',
           })
         }
