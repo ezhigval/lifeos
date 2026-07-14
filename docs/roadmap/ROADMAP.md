@@ -25,8 +25,8 @@ Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST +
 
 ## Stage 1 — Merge WIP + Bugfix (active)
 
-- [ ] Merge task lifecycle branch
-- [ ] Merge miniapp UX branch
+- [x] Merge task lifecycle branch
+- [x] Merge miniapp UX branch
 - [ ] Free-audit bugfix: Backend / Frontend / Telegram (TASK-001 OPEN)
 - [ ] Cross-zone asks closed via Architect
 
@@ -51,6 +51,7 @@ Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST +
 ## Icebox
 
 Web app · native mobile · family/multi-user · bank/calendar sync · GraphQL · STT
+Mini App UX plan (detail): [docs/miniapp/UX_UI_PLAN.md](../miniapp/UX_UI_PLAN.md)
 
 ---
 

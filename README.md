@@ -51,6 +51,10 @@ make docker-up       # пересоздать app с новым LIFEOS_MINIAPP_U
 | ER / Sequence | [docs/diagrams/](docs/diagrams/) |
 | ADR (001–009) | [docs/adr/](docs/adr/) |
 | Roadmap | [docs/roadmap/ROADMAP.md](docs/roadmap/ROADMAP.md) |
+| Mini App UX/UI | [docs/miniapp/UX_UI_PLAN.md](docs/miniapp/UX_UI_PLAN.md) |
+| Mini App local | [docs/miniapp/LOCAL_DEV.md](docs/miniapp/LOCAL_DEV.md) |
+| Mini App Frontend lead | [docs/miniapp/FRONTEND_LEAD_PROMPT.md](docs/miniapp/FRONTEND_LEAD_PROMPT.md) |
+| Mini App Backend | [docs/miniapp/BACKEND_PROMPT.md](docs/miniapp/BACKEND_PROMPT.md) |
 | OpenAPI | [docs/api/openapi.yaml](docs/api/openapi.yaml) |
 | Агенты (Architect / Backend / Frontend / Telegram) | [docs/agents/](docs/agents/) |
 

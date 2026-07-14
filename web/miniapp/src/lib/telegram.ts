@@ -6,6 +6,13 @@ type TelegramUser = {
   language_code?: string
 }
 
+type TelegramBackButton = {
+  show?: () => void
+  hide?: () => void
+  onClick?: (cb: () => void) => void
+  offClick?: (cb: () => void) => void
+}
+
 type TelegramWebApp = {
   initData?: string
   initDataUnsafe?: { user?: TelegramUser }
@@ -15,6 +22,8 @@ type TelegramWebApp = {
   expand?: () => void
   setHeaderColor?: (color: string) => void
   setBackgroundColor?: (color: string) => void
+  showConfirm?: (message: string, callback: (ok: boolean) => void) => void
+  BackButton?: TelegramBackButton
   HapticFeedback?: {
     impactOccurred?: (style: string) => void
     notificationOccurred?: (type: string) => void
@@ -119,10 +128,67 @@ export function hapticSuccess() {
   }
 }
 
+export function hapticError() {
+  try {
+    getWebApp()?.HapticFeedback?.notificationOccurred?.('error')
+  } catch {
+    /* ignore */
+  }
+}
+
+export function hapticWarning() {
+  try {
+    getWebApp()?.HapticFeedback?.notificationOccurred?.('warning')
+  } catch {
+    /* ignore */
+  }
+}
+
 export function tgUser(): TelegramUser | undefined {
   try {
     return getWebApp()?.initDataUnsafe?.user
   } catch {
     return undefined
   }
+}
+
+export function showTelegramBackButton(onClick: () => void) {
+  const btn = getWebApp()?.BackButton
+  if (!btn?.onClick || !btn.show) return () => undefined
+  try {
+    btn.onClick(onClick)
+    btn.show()
+  } catch {
+    return () => undefined
+  }
+  return () => {
+    try {
+      btn.offClick?.(onClick)
+      btn.hide?.()
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function hideTelegramBackButton() {
+  try {
+    getWebApp()?.BackButton?.hide?.()
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function confirmAction(message: string): Promise<boolean> {
+  const wa = getWebApp()
+  if (wa && typeof wa.showConfirm === 'function') {
+    return new Promise((resolve) => {
+      try {
+        wa.showConfirm!(message, (ok) => resolve(Boolean(ok)))
+      } catch {
+        resolve(window.confirm(message))
+      }
+    })
+  }
+  return window.confirm(message)
 }

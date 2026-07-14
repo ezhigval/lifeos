@@ -202,3 +202,33 @@ func TestExtractHashtags(t *testing.T) {
 		t.Fatalf("tags = %v", tags)
 	}
 }
+
+func TestApplyEditAndArchiveAndDelete(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 7, 14, 8, 0, 0, 0, time.UTC)
+	task, err := domain.NewTask(ids.NewUserID(), "task", domain.PriorityMedium, nil, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	due := now.Add(24 * time.Hour)
+	desc := "note"
+	if err := task.ApplyEdit("new", domain.PriorityHigh, &due, &desc, now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if task.Title != "new" || task.Priority != domain.PriorityHigh || task.Description == nil {
+		t.Fatalf("edit failed: %+v", task)
+	}
+	if err := task.Archive(now.Add(2 * time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if task.Status != domain.StatusCancelled {
+		t.Fatalf("status = %s", task.Status)
+	}
+	if err := task.SoftDelete(now.Add(3 * time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if task.DeletedAt == nil {
+		t.Fatal("expected deleted_at")
+	}
+}

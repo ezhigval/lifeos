@@ -14,6 +14,8 @@ import { TaskCard } from '@/components/tasks/TaskCard'
 import { Button } from '@/components/ui/Button'
 import { Sheet } from '@/components/ui/Sheet'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { QueryError } from '@/components/ui/QueryError'
 import { cn } from '@/lib/cn'
 import {
   getExpandedProjects,
@@ -21,14 +23,20 @@ import {
   setExpandedProjects,
   setExpandedSpheres,
 } from '@/lib/storage'
-import { hapticLight, hapticSuccess } from '@/lib/telegram'
+import {
+  confirmAction,
+  hapticError,
+  hapticLight,
+  hapticSuccess,
+  hapticWarning,
+} from '@/lib/telegram'
 
 export function SphereTree() {
   const navigate = useNavigate()
   const [expandedSpheres, setExpandedSpheresState] = useState(getExpandedSpheres)
   const [expandedProjects, setExpandedProjectsState] = useState(getExpandedProjects)
 
-  const { data: spheres, isLoading } = useQuery({
+  const { data: spheres, isLoading, isError, refetch } = useQuery({
     queryKey: ['spheres'],
     queryFn: async () => (await api.spheres()).spheres,
   })
@@ -60,6 +68,22 @@ export function SphereTree() {
     )
   }
 
+  if (isError) {
+    return (
+      <div className="px-4">
+        <QueryError message="Не удалось загрузить сферы" onRetry={() => void refetch()} />
+      </div>
+    )
+  }
+
+  if ((spheres ?? []).length === 0) {
+    return (
+      <div className="px-4">
+        <CreateSphereEmpty />
+      </div>
+    )
+  }
+
   return (
     <div className="px-4">
       {(spheres ?? []).map((sphere) => (
@@ -75,6 +99,48 @@ export function SphereTree() {
         />
       ))}
     </div>
+  )
+}
+
+function CreateSphereEmpty() {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const create = useMutation({
+    mutationFn: () => api.createSphere(name.trim()),
+    onSuccess: () => {
+      hapticSuccess()
+      queryClient.invalidateQueries({ queryKey: ['spheres'] })
+      setOpen(false)
+      setName('')
+    },
+    onError: () => hapticError(),
+  })
+
+  return (
+    <>
+      <EmptyState
+        title="Сфер пока нет"
+        description="Создай первую сферу жизни"
+        actionLabel="Создать сферу"
+        onAction={() => setOpen(true)}
+      />
+      <Sheet open={open} onClose={() => setOpen(false)} title="Новая сфера">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Работа, Здоровье…"
+          className="mb-4 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+        />
+        <Button
+          className="w-full"
+          disabled={!name.trim() || create.isPending}
+          onClick={() => create.mutate()}
+        >
+          Создать
+        </Button>
+      </Sheet>
+    </>
   )
 }
 
@@ -143,36 +209,61 @@ function ProjectNode({
   onToggle: () => void
   onOpen: () => void
 }) {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: tasks } = useQuery({
     queryKey: ['project-tasks', project.id],
     queryFn: async () => (await api.projectTasks(project.id)).tasks,
     enabled: expanded,
   })
 
+  const complete = useMutation({
+    mutationFn: (id: string) => api.completeTask(id),
+    onSuccess: () => {
+      hapticSuccess()
+      queryClient.invalidateQueries({ queryKey: ['project-tasks', project.id] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    },
+    onError: () => hapticError(),
+  })
+
   return (
     <div>
       <div className="flex items-center gap-1 rounded-xl bg-[var(--tg-theme-bg-color,#0f172a)]/50">
-        <button type="button" onClick={onToggle} className="p-2">
+        <button type="button" onClick={onToggle} className="min-h-11 min-w-11 p-2" aria-label="Развернуть">
           {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         </button>
-        <button type="button" onClick={onOpen} className="flex flex-1 items-center gap-2 py-2 text-left text-sm">
+        <button type="button" onClick={onOpen} className="flex min-h-11 flex-1 items-center gap-2 py-2 text-left text-sm">
           <FolderKanban size={16} className="text-[var(--tg-theme-hint-color,#94a3b8)]" />
           {project.name}
         </button>
       </div>
       {expanded && (
-        <div className="ml-3 space-y-1 py-1">
-          {(tasks ?? []).slice(0, 8).map((t) => (
-            <p
-              key={t.id}
-              className={cn(
-                'truncate py-1 pl-2 text-sm',
-                t.status === 'done' && 'text-[var(--tg-theme-hint-color,#94a3b8)] line-through',
-              )}
-            >
-              • {t.title}
-            </p>
-          ))}
+        <div className="ml-1 space-y-1 py-1">
+          {(tasks ?? [])
+            .filter((t) => t.status !== 'cancelled')
+            .slice(0, 8)
+            .map((t) => (
+              <TaskCard
+                key={t.id}
+                title={t.title}
+                priority={t.priority}
+                done={t.status === 'done'}
+                onComplete={
+                  t.status === 'done'
+                    ? undefined
+                    : () => {
+                        hapticLight()
+                        complete.mutate(t.id)
+                      }
+                }
+                onEdit={
+                  t.status === 'done' || t.status === 'cancelled'
+                    ? undefined
+                    : () => navigate(`/tasks/${t.id}`)
+                }
+              />
+            ))}
         </div>
       )}
     </div>
@@ -218,7 +309,14 @@ export function SphereDetailPage() {
       hapticSuccess()
       queryClient.invalidateQueries({ queryKey: ['projects'] })
     },
+    onError: () => hapticError(),
   })
+
+  const onArchive = async (id: string, name: string) => {
+    hapticWarning()
+    const ok = await confirmAction(`Архивировать проект «${name}»?`)
+    if (ok) archiveProject.mutate(id)
+  }
 
   if (!sphere) {
     return <p className="p-4 text-[var(--tg-theme-hint-color,#94a3b8)]">Сфера не найдена</p>
@@ -241,7 +339,7 @@ export function SphereDetailPage() {
               key={p.id}
               project={p}
               sphereId={sphereId!}
-              onArchive={() => archiveProject.mutate(p.id)}
+              onArchive={() => void onArchive(p.id, p.name)}
             />
           ))}
           {!isLoading && active.length === 0 && (
@@ -328,39 +426,51 @@ function ProjectCard({
     : null
 
   return (
-    <button
-      type="button"
-      onClick={() => navigate(`/spheres/${sphereId}/projects/${project.id}`)}
-      className="w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] p-4 text-left"
-    >
+    <div className="rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] p-4">
       <div className="flex items-start justify-between gap-2">
-        <span className="font-medium">{project.name}</span>
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onArchive()
-          }}
-          className="p-1 text-[var(--tg-theme-hint-color,#94a3b8)]"
+          onClick={() => navigate(`/spheres/${sphereId}/projects/${project.id}`)}
+          className="min-w-0 flex-1 text-left font-medium active:opacity-80"
+        >
+          {project.name}
+        </button>
+        <button
+          type="button"
+          onClick={onArchive}
+          className="rounded-full p-2 text-[var(--tg-theme-hint-color,#94a3b8)]"
+          aria-label="В архив"
         >
           <Archive size={16} />
         </button>
       </div>
       {pct !== null && (
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/20">
-          <div className="h-full rounded-full bg-[var(--tg-theme-button-color,#22c55e)]" style={{ width: `${pct}%` }} />
-        </div>
+        <button
+          type="button"
+          onClick={() => navigate(`/spheres/${sphereId}/projects/${project.id}`)}
+          className="mt-2 block w-full"
+          aria-label="Открыть прогресс"
+        >
+          <div className="h-1.5 overflow-hidden rounded-full bg-black/20">
+            <div
+              className="h-full rounded-full bg-[var(--tg-theme-button-color,#22c55e)]"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </button>
       )}
-    </button>
+    </div>
   )
 }
 
 export function ProjectDetailPage() {
   const { sphereId, projectId } = useParams<{ sphereId: string; projectId: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showDone, setShowDone] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
+  const [priority, setPriority] = useState('medium')
 
   const { data: projects } = useQuery({
     queryKey: ['projects', sphereId],
@@ -385,18 +495,27 @@ export function ProjectDetailPage() {
     onSuccess: () => {
       hapticSuccess()
       queryClient.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
+    onError: () => hapticError(),
   })
 
   const createTask = useMutation({
     mutationFn: () =>
-      api.createTask({ title: newTitle.trim(), project_ids: [projectId!] }),
+      api.createTask({
+        title: newTitle.trim(),
+        priority,
+        project_ids: [projectId!],
+      }),
     onSuccess: () => {
       hapticSuccess()
       queryClient.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
       setCreateOpen(false)
       setNewTitle('')
+      setPriority('medium')
     },
+    onError: () => hapticError(),
   })
 
   const active = (tasks ?? []).filter((t) => t.status !== 'done' && t.status !== 'cancelled')
@@ -424,6 +543,7 @@ export function ProjectDetailPage() {
               title={t.title}
               priority={t.priority}
               onComplete={() => complete.mutate(t.id)}
+              onEdit={() => navigate(`/tasks/${t.id}`)}
             />
           ))}
           {!isLoading && active.length === 0 && (
@@ -460,13 +580,35 @@ export function ProjectDetailPage() {
         )}
       </section>
 
-      <Sheet open={createOpen} onClose={() => setCreateOpen(false)} title="Новая задача">
+      <Sheet
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Новая задача"
+      >
         <input
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           placeholder="Название задачи"
-          className="mb-4 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+          className="mb-3 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
         />
+        <p className="mb-2 text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Приоритет</p>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {(['urgent', 'high', 'medium', 'low'] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPriority(p)}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-sm capitalize',
+                priority === p
+                  ? 'bg-[var(--tg-theme-button-color,#22c55e)] text-[var(--tg-theme-button-text-color,#fff)]'
+                  : 'bg-[var(--tg-theme-secondary-bg-color,#1e293b)] text-[var(--tg-theme-hint-color,#94a3b8)]',
+              )}
+            >
+              {priorityLabel(p)}
+            </button>
+          ))}
+        </div>
         <Button
           className="w-full"
           disabled={!newTitle.trim() || createTask.isPending}
@@ -477,4 +619,17 @@ export function ProjectDetailPage() {
       </Sheet>
     </div>
   )
+}
+
+function priorityLabel(p: string) {
+  switch (p) {
+    case 'urgent':
+      return 'Срочно'
+    case 'high':
+      return 'Высокий'
+    case 'low':
+      return 'Низкий'
+    default:
+      return 'Средний'
+  }
 }

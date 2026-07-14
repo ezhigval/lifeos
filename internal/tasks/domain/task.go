@@ -19,6 +19,8 @@ var (
 	ErrCannotEditTerminal = errors.New("done or cancelled task cannot be edited")
 	ErrCannotReschedule   = errors.New("done or cancelled task cannot be rescheduled")
 	ErrInvalidDuration    = errors.New("duration_minutes must be positive")
+	ErrCannotArchiveDone  = errors.New("done task cannot be archived")
+	ErrAlreadyDeleted     = errors.New("task is already deleted")
 )
 
 type Status string
@@ -124,6 +126,38 @@ func (t *Task) Cancel(now time.Time) error {
 	return nil
 }
 
+// ApplyEdit updates title, priority, due date and optional description.
+func (t *Task) ApplyEdit(title string, priority Priority, dueDate *time.Time, description *string, now time.Time) error {
+	if title == "" {
+		return ErrEmptyTitle
+	}
+	if !priority.Valid() {
+		return ErrInvalidPriority
+	}
+	t.Title = title
+	t.Priority = priority
+	t.DueDate = dueDate
+	t.Description = description
+	t.UpdatedAt = now.UTC()
+	return t.Validate()
+}
+
+// Archive marks the task as cancelled (soft archive, still in DB).
+func (t *Task) Archive(now time.Time) error {
+	if t.DeletedAt != nil {
+		return ErrAlreadyDeleted
+	}
+	if t.Status == StatusCancelled {
+		return ErrAlreadyCancelled
+	}
+	if t.Status == StatusDone {
+		return ErrCannotArchiveDone
+	}
+	t.Status = StatusCancelled
+	t.UpdatedAt = now.UTC()
+	return nil
+}
+
 func (t *Task) Reschedule(dueDate time.Time, now time.Time) error {
 	if t.Status == StatusDone || t.Status == StatusCancelled {
 		return ErrCannotReschedule
@@ -187,6 +221,17 @@ func (t *Task) Edit(fields EditFields, now time.Time) error {
 		t.Tags = NormalizeTags(*fields.Tags)
 	}
 	t.UpdatedAt = now.UTC()
+	return nil
+}
+
+// SoftDelete sets deleted_at (hidden from lists).
+func (t *Task) SoftDelete(now time.Time) error {
+	if t.DeletedAt != nil {
+		return ErrAlreadyDeleted
+	}
+	deleted := now.UTC()
+	t.DeletedAt = &deleted
+	t.UpdatedAt = deleted
 	return nil
 }
 

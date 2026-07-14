@@ -95,10 +95,10 @@
 | `POST /auth/telegram-webapp` | ✅ |
 | OpenAPI sync | 🚧 improved; keep in parity with router |
 | Ollama LLM resolver | 🚧 optional |
-| Mini App | 🚧 Home + Spheres + Finance; Habits/Calendar/Settings depth — WIP / unmerged |
+| Mini App | 🚧 merged UX: Home/Spheres/Finance/More/Habits/Calendar/Settings/Task detail — see [UX_UI_PLAN](../miniapp/UX_UI_PLAN.md) |
 
 ---
 
-## M10+: Next (после совместного планирования)
+## M10+: Next
 
-Bugfix stage → Intelligence polish → Mini App depth → multi-client later.
+Stage 1 bugfix → Stage 2 Mini App + functionality (primary) → Intelligence later.

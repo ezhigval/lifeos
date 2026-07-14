@@ -178,8 +178,12 @@ func (r *Repository) Update(ctx context.Context, task domain.Task) error {
 		DurationMinutes: pgconv.Int4Ptr(task.DurationMinutes),
 		Tags:            tags,
 		CompletedAt:     pgconv.Timestamptz(task.CompletedAt),
+		DeletedAt:       pgconv.Timestamptz(task.DeletedAt),
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrNotFound
+		}
 		return fmt.Errorf("update task: %w", err)
 	}
 	return nil

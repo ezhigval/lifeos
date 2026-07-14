@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react'
+import { Check, Pencil } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -14,9 +14,10 @@ type Props = {
   priority?: string
   done?: boolean
   onComplete?: () => void
+  onEdit?: () => void
 }
 
-export function TaskCard({ title, detail, priority = 'medium', done, onComplete }: Props) {
+export function TaskCard({ title, detail, priority = 'medium', done, onComplete, onEdit }: Props) {
   return (
     <div
       className={cn(
@@ -34,10 +35,16 @@ export function TaskCard({ title, detail, priority = 'medium', done, onComplete 
             ? 'border-emerald-500 bg-emerald-500 text-white'
             : 'border-[var(--tg-theme-hint-color,#64748b)]',
         )}
+        aria-label={done ? 'Выполнено' : 'Отметить выполненным'}
       >
         {done && <Check size={14} />}
       </button>
-      <div className="min-w-0 flex-1">
+      <button
+        type="button"
+        className="min-w-0 flex-1 text-left"
+        onClick={onEdit}
+        disabled={!onEdit}
+      >
         <div className="flex items-center gap-2">
           <span
             className={cn('h-2 w-2 shrink-0 rounded-full', PRIORITY_COLORS[priority] ?? PRIORITY_COLORS.medium)}
@@ -47,7 +54,17 @@ export function TaskCard({ title, detail, priority = 'medium', done, onComplete 
         {detail && (
           <p className="mt-0.5 text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">{detail}</p>
         )}
-      </div>
+      </button>
+      {onEdit && !done && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="mt-0.5 rounded-full p-2 text-[var(--tg-theme-hint-color,#94a3b8)] active:scale-95"
+          aria-label="Редактировать"
+        >
+          <Pencil size={16} />
+        </button>
+      )}
     </div>
   )
 }

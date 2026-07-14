@@ -42,6 +42,10 @@ type Deps struct {
 	EditTask         *tasksapp.EditTask
 	RescheduleTask   *tasksapp.RescheduleTask
 	ListByTag        *tasksapp.ListTasksByTag
+	GetTask          *tasksapp.GetTask
+	UpdateTask       *tasksapp.UpdateTask
+	ArchiveTask      *tasksapp.ArchiveTask
+	DeleteTask       *tasksapp.DeleteTask
 	ProjectProg      *projectsapp.GetProjectProgress
 	Review           *query.Review
 	Priorities       *query.GetTopPriorities
@@ -112,9 +116,12 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Get("/tasks/today", rt.listTasksToday)
 			r.Get("/tasks", rt.listTasks)
 			r.Post("/tasks", rt.createTask)
+			r.Get("/tasks/{id}", rt.getTask)
 			r.Patch("/tasks/{id}", rt.editTask)
+			r.Delete("/tasks/{id}", rt.deleteTask)
 			r.Post("/tasks/{id}/complete", rt.completeTask)
 			r.Post("/tasks/{id}/cancel", rt.cancelTask)
+			r.Post("/tasks/{id}/archive", rt.archiveTask)
 			r.Post("/tasks/{id}/reschedule", rt.rescheduleTask)
 			r.Get("/projects/progress", rt.projectProgress)
 			r.Get("/reviews/morning", rt.morningReview)
@@ -248,6 +255,7 @@ func timeUntil(exp time.Time) int {
 type taskJSON struct {
 	ID              string   `json:"id"`
 	Title           string   `json:"title"`
+	Description     *string  `json:"description,omitempty"`
 	Status          string   `json:"status"`
 	Priority        string   `json:"priority"`
 	DueDate         *string  `json:"due_date,omitempty"`
@@ -261,6 +269,7 @@ func taskToJSON(dto tasksapp.TaskDTO) taskJSON {
 	out := taskJSON{
 		ID:              dto.ID.String(),
 		Title:           dto.Title,
+		Description:     dto.Description,
 		Status:          string(dto.Status),
 		Priority:        string(dto.Priority),
 		DurationMinutes: dto.DurationMinutes,
