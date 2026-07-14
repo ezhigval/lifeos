@@ -1,7 +1,7 @@
 # TASK-006: Stage 3.1 — Thin Telegram handler (strangler)
 
 - **Agent:** telegram
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P1
 - **Stage:** stabilization (3.1)
 
@@ -23,7 +23,7 @@ Reduce `handler.go` god-object without big-bang rewrite. Extract intent dispatch
 
 ## Acceptance
 
-- [ ] handler.go significantly smaller OR clear extracted modules
-- [ ] `go test ./internal/transport/telegram/...` green
-- [ ] Report `docs/agents/reports/telegram/TASK-006.md`
-- [ ] Commit + push
+- [x] handler.go significantly smaller OR clear extracted modules
+- [x] `go test ./internal/transport/telegram/...` green
+- [x] Report `docs/agents/reports/telegram/TASK-006.md`
+- [x] Commit + push
