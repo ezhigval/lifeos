@@ -42,36 +42,44 @@ func TestCanDeleteUser(t *testing.T) {
 	}
 }
 
-func TestBasePayloadDropsPendingDeleteKeys(t *testing.T) {
+func TestFilterBasePayloadDropsPendingDeleteKeys(t *testing.T) {
 	t.Parallel()
-	// runAction default path now uses SetState(Idle, basePayload) so walking away
-	// via reply keyboard must not keep pending_delete_* armed.
+	// runAction default path uses SetState(Idle, basePayload→filterBasePayload)
+	// so walking away via reply keyboard must not keep pending_delete_* armed.
 	payload := map[string]any{
 		replyKBSetKey:            true,
 		replyKBVersionKey:        float64(replyKBVersion),
 		replyKBMiniAppKey:        false,
+		replyKBMiniAppURLKey:     "https://example.test/app",
+		"view_project_id":        "proj-1",
 		PayloadPendingDeleteTG:   float64(42),
 		PayloadPendingDeleteName: "@me",
 		"draft_task_title":       "stale",
+		"draft_project_name":     "wipe-me",
 	}
-	// Mimic basePayload selection rules without a session store.
-	out := map[string]any{}
-	if v, ok := payload[replyKBSetKey]; ok {
-		out[replyKBSetKey] = v
-	}
-	if v, ok := payload[replyKBVersionKey]; ok {
-		out[replyKBVersionKey] = v
-	}
-	if v, ok := payload[replyKBMiniAppKey]; ok {
-		out[replyKBMiniAppKey] = v
-	}
+	out := filterBasePayload(payload)
 	if _, ok := out[PayloadPendingDeleteTG]; ok {
 		t.Fatal("pending delete must not survive base payload rebuild")
+	}
+	if _, ok := out[PayloadPendingDeleteName]; ok {
+		t.Fatal("pending delete name must not survive")
 	}
 	if _, ok := out["draft_task_title"]; ok {
 		t.Fatal("draft keys must not survive base payload rebuild")
 	}
+	if _, ok := out["draft_project_name"]; ok {
+		t.Fatal("draft project must not survive")
+	}
 	if out[replyKBSetKey] != true {
 		t.Fatal("reply keyboard flags must be preserved")
+	}
+	if out[replyKBMiniAppURLKey] != "https://example.test/app" {
+		t.Fatal("miniapp url must be preserved")
+	}
+	if out["view_project_id"] != "proj-1" {
+		t.Fatal("view_project_id must be preserved")
+	}
+	if len(filterBasePayload(nil)) != 0 {
+		t.Fatal("nil payload → empty map")
 	}
 }

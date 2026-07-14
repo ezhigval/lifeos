@@ -598,10 +598,16 @@ func (h *MessageHandler) resolveReminderToCancel(ctx context.Context, userID ids
 	if err != nil {
 		return uuid.Nil, hint, err
 	}
+	return matchReminderToCancel(items, hint)
+}
+
+// matchReminderToCancel picks the newest pending reminder (empty hint) or the
+// first whose message contains hint (case-insensitive).
+func matchReminderToCancel(items []notifapp.ReminderDTO, hint string) (uuid.UUID, string, error) {
+	hint = strings.TrimSpace(hint)
 	if len(items) == 0 {
 		return uuid.Nil, hint, notifapp.ErrReminderNotFound
 	}
-	hint = strings.TrimSpace(hint)
 	if hint == "" {
 		id, err := uuid.Parse(items[0].ID)
 		if err != nil {

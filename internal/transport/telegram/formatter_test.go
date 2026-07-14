@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	calendarapp "github.com/valentinezhov/lifeos/internal/calendar/app"
 	taskapp "github.com/valentinezhov/lifeos/internal/tasks/app"
 )
 
@@ -17,6 +18,57 @@ func TestFormatReminderScheduledUsesMessageAndLocalAt(t *testing.T) {
 	empty := FormatReminderScheduled("", "14.07 19:00")
 	if !strings.Contains(empty, "14.07 19:00") || strings.Contains(empty, "()") {
 		t.Fatalf("empty message: %s", empty)
+	}
+}
+
+func TestFormatReminderCancelledUsesMessageAndAt(t *testing.T) {
+	t.Parallel()
+	got := FormatReminderCancelled("позвонить", "14.07 19:00")
+	if !strings.Contains(got, "позвонить") || !strings.Contains(got, "14.07 19:00") {
+		t.Fatalf("got %s", got)
+	}
+	empty := FormatReminderCancelled("", "14.07 19:00")
+	if !strings.Contains(empty, "14.07 19:00") || strings.Contains(empty, "::") {
+		t.Fatalf("empty message: %s", empty)
+	}
+	if !strings.Contains(FormatReminderNotFound(""), "активное") {
+		t.Fatal("empty hint")
+	}
+	if !strings.Contains(FormatReminderNotFound("йога"), "йога") {
+		t.Fatal("hint must appear")
+	}
+}
+
+func TestFormatLocalTimeUsesUserTimezone(t *testing.T) {
+	t.Parallel()
+	// Stage 3.0: reminder/calendar acks must not show UTC for MSK users.
+	// 16:00 UTC == 19:00 Europe/Moscow («вечером»).
+	utc := time.Date(2026, 7, 14, 16, 0, 0, 0, time.UTC)
+	got := formatLocalTime(utc, "Europe/Moscow")
+	if got != "14.07 19:00" {
+		t.Fatalf("MSK want 14.07 19:00, got %q", got)
+	}
+	if formatLocalTime(utc, "UTC") != "14.07 16:00" {
+		t.Fatalf("UTC: %q", formatLocalTime(utc, "UTC"))
+	}
+	// Invalid TZ falls back to UTC (not Moscow wall clock).
+	if formatLocalTime(utc, "Not/AZone") != "14.07 16:00" {
+		t.Fatalf("bad tz fallback: %q", formatLocalTime(utc, "Not/AZone"))
+	}
+}
+
+func TestFormatCalendarEventCreatedUsesLocalTime(t *testing.T) {
+	t.Parallel()
+	dto := calendarapp.EventDTO{
+		Title:    "дизайн",
+		StartsAt: time.Date(2026, 7, 14, 16, 0, 0, 0, time.UTC),
+	}
+	got := FormatCalendarEventCreated(dto, "Europe/Moscow")
+	if !strings.Contains(got, "дизайн") || !strings.Contains(got, "14.07 19:00") {
+		t.Fatalf("local ack missing: %s", got)
+	}
+	if strings.Contains(got, "16:00") {
+		t.Fatalf("must not show UTC wall clock: %s", got)
 	}
 }
 

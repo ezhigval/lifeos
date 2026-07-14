@@ -1,7 +1,7 @@
 # TASK-009: Telegram package test hygiene
 
 - **Agent:** telegram
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P2
 - **Stage:** debt
 
@@ -20,6 +20,6 @@
 
 ## Acceptance
 
-- [ ] `go test ./internal/transport/telegram/...` green with more assert coverage
-- [ ] Report `docs/agents/reports/telegram/TASK-009.md`
-- [ ] Commit if meaningful
+- [x] `go test ./internal/transport/telegram/...` green with more assert coverage
+- [x] Report `docs/agents/reports/telegram/TASK-009.md`
+- [x] Commit if meaningful

@@ -22,20 +22,29 @@ func (h *MessageHandler) basePayload(ctx context.Context, userID ids.UserID) map
 	if err != nil || sess.StatePayload == nil {
 		return map[string]any{}
 	}
+	return filterBasePayload(sess.StatePayload)
+}
+
+// filterBasePayload keeps only keyboard/view keys so reply-keyboard navigation
+// cannot leave pending_delete_* or draft_* armed after the user walks away.
+func filterBasePayload(payload map[string]any) map[string]any {
+	if payload == nil {
+		return map[string]any{}
+	}
 	out := map[string]any{}
-	if v, ok := sess.StatePayload[replyKBSetKey]; ok {
+	if v, ok := payload[replyKBSetKey]; ok {
 		out[replyKBSetKey] = v
 	}
-	if v, ok := sess.StatePayload[replyKBVersionKey]; ok {
+	if v, ok := payload[replyKBVersionKey]; ok {
 		out[replyKBVersionKey] = v
 	}
-	if v, ok := sess.StatePayload[replyKBMiniAppKey]; ok {
+	if v, ok := payload[replyKBMiniAppKey]; ok {
 		out[replyKBMiniAppKey] = v
 	}
-	if v, ok := sess.StatePayload[replyKBMiniAppURLKey]; ok {
+	if v, ok := payload[replyKBMiniAppURLKey]; ok {
 		out[replyKBMiniAppURLKey] = v
 	}
-	if v, ok := sess.StatePayload["view_project_id"]; ok {
+	if v, ok := payload["view_project_id"]; ok {
 		out["view_project_id"] = v
 	}
 	return out
