@@ -1,7 +1,7 @@
 # TASK-007: Stage 3.2 — Intelligence polish
 
 - **Agent:** backend
-- **Status:** DRAFT
+- **Status:** OPEN
 - **Priority:** P1
 - **Stage:** intelligence (3.2)
 

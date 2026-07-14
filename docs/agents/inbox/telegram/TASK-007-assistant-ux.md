@@ -1,7 +1,7 @@
 # TASK-007: Stage 3.2 — Assistant presentation (Telegram)
 
 - **Agent:** telegram
-- **Status:** DRAFT
+- **Status:** OPEN
 - **Priority:** P2
 - **Stage:** intelligence (3.2)
 
