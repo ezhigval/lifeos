@@ -22,6 +22,7 @@ import (
 	healthapp "github.com/valentinezhov/lifeos/internal/health/app"
 	"github.com/valentinezhov/lifeos/internal/health/domain"
 	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
+	identitydomain "github.com/valentinezhov/lifeos/internal/identity/domain"
 	knowledgeapp "github.com/valentinezhov/lifeos/internal/knowledge/app"
 	notifapp "github.com/valentinezhov/lifeos/internal/notifications/app"
 	planapp "github.com/valentinezhov/lifeos/internal/planning/app"
@@ -245,118 +246,128 @@ func (h *MessageHandler) HandleUpdate(ctx context.Context, update Update) error 
 
 	chatID := update.Message.Chat.ID
 	userMsgID := update.Message.MessageID
-	text := strings.TrimSpace(update.Message.Text)
+	in := classifyInput(update.Message.Text)
 
-	if normalizeBotCommand(text) == CmdClear {
-		if err := h.clearChat(ctx, user.ID, chatID, userMsgID); err != nil {
-			out := dispatchResult{text: "Ошибка: " + err.Error()}
-			_ = h.present(ctx, user.ID, chatID, out)
-		}
-		return h.processed.Mark(ctx, update.UpdateID)
-	}
-
-	if normalizeBotCommand(text) == CmdDelete {
-		out, err := h.beginDeleteUser(ctx, user.ID, update.Message.From.ID, update.Message.From.Username, text)
-		if err != nil {
-			out = dispatchResult{text: "Ошибка: " + err.Error()}
-		}
-		if err := h.present(ctx, user.ID, chatID, out); err != nil {
-			return err
-		}
-		if err := h.client.DeleteMessage(ctx, chatID, userMsgID); err != nil {
-			h.log.Debug("delete user message failed", "chat_id", chatID, "message_id", userMsgID, "error", err)
-		}
-		return h.processed.Mark(ctx, update.UpdateID)
-	}
-
-	if sess, serr := h.sessions.Get(ctx, user.ID); serr == nil {
-		if _, ok := payloadInt64(sess.StatePayload, PayloadPendingDeleteTG); ok {
-			var (
-				out dispatchResult
-				err error
-			)
-			switch {
-			case isDeleteConfirmText(text):
-				out, err = h.confirmPendingDelete(ctx, user.ID, update.Message.From.ID, chatID, userMsgID)
-				if err == nil {
-					if fresh, eerr := h.ensureUser.Execute(ctx, identityapp.EnsureUserInput{
-						TelegramID:  update.Message.From.ID,
-						DisplayName: FormatDisplayName(update.Message.From),
-					}); eerr == nil {
-						user = fresh
-					}
-				}
-			case isCancelText(text):
-				out, err = h.cancelPendingDelete(ctx, user.ID)
-			}
-			if out.text != "" || err != nil {
-				if err != nil {
-					out = dispatchResult{text: "Ошибка: " + err.Error()}
-				}
-				if perr := h.present(ctx, user.ID, chatID, out); perr != nil {
-					return perr
-				}
-				_ = h.client.DeleteMessage(ctx, chatID, userMsgID)
-				return h.processed.Mark(ctx, update.UpdateID)
-			}
-		}
-	}
-
-	out, err := h.handleText(ctx, user.ID, text)
+	out, err := h.dispatchNormalized(ctx, user, update.Message.From, chatID, userMsgID, in)
 	if err != nil {
 		out = dispatchResult{text: "Ошибка: " + err.Error()}
+	}
+	// /clear already presented a fresh home during wipe.
+	if in.IsCommand() && in.Command == CmdClear && err == nil && out.text == "" && len(out.inline) == 0 {
+		return h.processed.Mark(ctx, update.UpdateID)
+	}
+	// Self-delete recreates the user row with a new id — rebind before present.
+	if fresh, eerr := h.ensureUser.Execute(ctx, identityapp.EnsureUserInput{
+		TelegramID:  update.Message.From.ID,
+		DisplayName: FormatDisplayName(update.Message.From),
+	}); eerr == nil {
+		user = fresh
 	}
 	if err := h.present(ctx, user.ID, chatID, out); err != nil {
 		return err
 	}
-	// Reply-keyboard presses and free-text intents update the single screen;
-	// delete the user's message so the chat does not fill with labels/spam.
 	if err := h.client.DeleteMessage(ctx, chatID, userMsgID); err != nil {
 		h.log.Debug("delete user message failed", "chat_id", chatID, "message_id", userMsgID, "error", err)
 	}
 	return h.processed.Mark(ctx, update.UpdateID)
 }
 
-func (h *MessageHandler) handleText(ctx context.Context, userID ids.UserID, text string) (dispatchResult, error) {
-	sess, err := h.sessions.Get(ctx, userID)
+func (h *MessageHandler) dispatchNormalized(
+	ctx context.Context,
+	user identitydomain.User,
+	from User,
+	chatID, userMsgID int64,
+	in NormalizedInput,
+) (dispatchResult, error) {
+	switch {
+	case in.IsCommand():
+		return h.handleCommand(ctx, user, from, chatID, userMsgID, in)
+	case in.IsKeyboard():
+		return h.handleKeyboard(ctx, user.ID, in.Action)
+	case in.IsText():
+		return h.handleFreeText(ctx, user, from, chatID, userMsgID, in.Text)
+	default:
+		return dispatchResult{text: FormatFallback()}, nil
+	}
+}
+
+func (h *MessageHandler) handleCommand(
+	ctx context.Context,
+	user identitydomain.User,
+	from User,
+	chatID, userMsgID int64,
+	in NormalizedInput,
+) (dispatchResult, error) {
+	switch in.Command {
+	case CmdClear:
+		if err := h.clearChat(ctx, user.ID, chatID, userMsgID); err != nil {
+			return dispatchResult{}, err
+		}
+		return dispatchResult{}, nil
+	case CmdDelete:
+		return h.beginDeleteUser(ctx, user.ID, from.ID, from.Username, in.Raw)
+	case CmdStart:
+		_ = h.resetReplyKeyboardFlag(ctx, user.ID)
+		if action, ok := commandToAction(in.Command); ok {
+			return h.runAction(ctx, user.ID, action)
+		}
+	case CmdCancel:
+		return h.handleFreeText(ctx, user, from, chatID, userMsgID, TextCancel)
+	}
+	if action, ok := commandToAction(in.Command); ok {
+		return h.runAction(ctx, user.ID, action)
+	}
+	return dispatchResult{text: "Неизвестная команда: " + in.Command}, nil
+}
+
+func (h *MessageHandler) handleKeyboard(ctx context.Context, userID ids.UserID, action string) (dispatchResult, error) {
+	return h.runAction(ctx, userID, action)
+}
+
+func (h *MessageHandler) handleFreeText(
+	ctx context.Context,
+	user identitydomain.User,
+	from User,
+	chatID, userMsgID int64,
+	text string,
+) (dispatchResult, error) {
+	sess, err := h.sessions.Get(ctx, user.ID)
 	if err != nil {
 		return dispatchResult{}, err
 	}
 
+	if _, ok := payloadInt64(sess.StatePayload, PayloadPendingDeleteTG); ok {
+		switch {
+		case isDeleteConfirmText(text):
+			return h.confirmPendingDelete(ctx, user.ID, from.ID, chatID, userMsgID)
+		case isCancelText(text):
+			return h.cancelPendingDelete(ctx, user.ID)
+		}
+	}
+
 	if isCancelText(text) && sess.State != tginfra.StateIdle {
-		_ = h.sessions.SetState(ctx, userID, tginfra.StateIdle, h.basePayload(ctx, userID))
+		if err := h.sessions.SetState(ctx, user.ID, tginfra.StateIdle, h.basePayload(ctx, user.ID)); err != nil {
+			return dispatchResult{}, err
+		}
 		return dispatchResult{text: "Отменено."}, nil
 	}
 
 	switch sess.State {
 	case tginfra.StateAwaitTaskTitle:
-		return h.onTaskTitleEntered(ctx, userID, text)
+		return h.onTaskTitleEntered(ctx, user.ID, text)
 	case tginfra.StateAwaitProjectTitle:
-		return h.onProjectTitleEntered(ctx, userID, text)
+		return h.onProjectTitleEntered(ctx, user.ID, text)
 	case tginfra.StateAwaitSphereName:
-		return h.onSphereNameEntered(ctx, userID, text)
+		return h.onSphereNameEntered(ctx, user.ID, text)
 	case tginfra.StateAwaitTaskProjects, tginfra.StateAwaitProjectSpheres:
 		return dispatchResult{text: "Выбери варианты кнопками на экране или напиши «отмена»."}, nil
-	}
-
-	if cmd := normalizeBotCommand(text); cmd != "" {
-		if cmd == CmdStart {
-			_ = h.resetReplyKeyboardFlag(ctx, userID)
-		}
-		if action, ok := commandToAction(cmd); ok {
-			return h.runAction(ctx, userID, action)
-		}
-	}
-
-	if action, ok := textToAction(text); ok {
-		return h.runAction(ctx, userID, action)
 	}
 
 	intent, err := h.resolver.Resolve(ctx, ai.ResolveInput{Text: text, Language: "ru"})
 	if err != nil {
 		return dispatchResult{}, err
 	}
-	return h.dispatchIntent(ctx, userID, intent)
+	return h.dispatchIntent(ctx, user.ID, intent)
 }
 
 func (h *MessageHandler) handleCallback(ctx context.Context, update Update) error {
@@ -436,11 +447,17 @@ func (h *MessageHandler) present(ctx context.Context, userID ids.UserID, chatID 
 func (h *MessageHandler) runAction(ctx context.Context, userID ids.UserID, action string) (dispatchResult, error) {
 	switch action {
 	case ActionAddTask:
-		_ = h.sessions.SetState(ctx, userID, tginfra.StateAwaitTaskTitle, h.basePayload(ctx, userID))
+		if err := h.sessions.SetState(ctx, userID, tginfra.StateAwaitTaskTitle, h.basePayload(ctx, userID)); err != nil {
+			return dispatchResult{}, err
+		}
 	case ActionAddProject:
-		_ = h.sessions.SetState(ctx, userID, tginfra.StateAwaitProjectTitle, h.basePayload(ctx, userID))
+		if err := h.sessions.SetState(ctx, userID, tginfra.StateAwaitProjectTitle, h.basePayload(ctx, userID)); err != nil {
+			return dispatchResult{}, err
+		}
 	default:
-		_ = h.sessions.SetStateOnly(ctx, userID, tginfra.StateIdle)
+		if err := h.sessions.SetStateOnly(ctx, userID, tginfra.StateIdle); err != nil {
+			return dispatchResult{}, err
+		}
 	}
 
 	switch action {
