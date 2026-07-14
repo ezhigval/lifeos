@@ -232,3 +232,38 @@ func TestApplyEditAndArchiveAndDelete(t *testing.T) {
 		t.Fatal("expected deleted_at")
 	}
 }
+
+func TestCannotApplyEditTerminalTask(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 7, 14, 8, 0, 0, 0, time.UTC)
+	task, err := domain.NewTask(ids.NewUserID(), "task", domain.PriorityMedium, nil, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := task.Complete(now); err != nil {
+		t.Fatal(err)
+	}
+	if err := task.ApplyEdit("x", domain.PriorityLow, nil, nil, now); err != domain.ErrCannotEditTerminal {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestEditClearsDescriptionAndDue(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 7, 14, 8, 0, 0, 0, time.UTC)
+	due := now
+	desc := "note"
+	task, err := domain.NewTask(ids.NewUserID(), "task", domain.PriorityMedium, &due, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	task.Description = &desc
+	if err := task.Edit(domain.EditFields{ClearDescription: true, ClearDueDate: true}, now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if task.Description != nil || task.DueDate != nil {
+		t.Fatalf("expected cleared fields: %+v", task)
+	}
+}

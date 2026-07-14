@@ -71,8 +71,8 @@ func (s *fakeTaskStore) Save(_ context.Context, task taskdomain.Task) error {
 
 func (s *fakeTaskStore) GetByID(_ context.Context, userID ids.UserID, taskID ids.TaskID) (taskdomain.Task, error) {
 	task, ok := s.tasks[taskID]
-	if !ok || task.UserID != userID {
-		return taskdomain.Task{}, errors.New("not found")
+	if !ok || task.UserID != userID || task.DeletedAt != nil {
+		return taskdomain.Task{}, taskdomain.ErrNotFound
 	}
 	return task, nil
 }
@@ -373,7 +373,14 @@ func newTestEnv(t *testing.T) testEnv {
 	store := newFakeTaskStore()
 	create := tasksapp.NewCreateTask(store, fakeEvents{}, fakeTx{}, nil)
 	complete := tasksapp.NewCompleteTask(store, fakeEvents{}, fakeTx{})
+	cancel := tasksapp.NewCancelTask(store, fakeEvents{}, fakeTx{})
+	edit := tasksapp.NewEditTask(store, fakeEvents{}, fakeTx{}, nil)
+	reschedule := tasksapp.NewRescheduleTask(store, fakeEvents{}, fakeTx{})
 	listToday := tasksapp.NewListTasksToday(store, fakeTZ{})
+	listByTag := tasksapp.NewListTasksByTag(store)
+	getTask := tasksapp.NewGetTask(store)
+	archive := tasksapp.NewArchiveTask(store, fakeEvents{}, fakeTx{})
+	deleteTask := tasksapp.NewDeleteTask(store, fakeEvents{}, fakeTx{})
 	projectStore := newFakeProjectStore()
 	habitStore := newFakeHabitStore()
 	debtStore := newFakeDebtStore()
@@ -381,26 +388,33 @@ func newTestEnv(t *testing.T) testEnv {
 	users := &stubUserRepo{user: user}
 
 	rt := api.NewRouter(api.Deps{
-		Log:           slog.Default(),
-		APIKey:        testAPIKey,
-		BotToken:      "123456:TESTTOKEN",
-		WebAppAuthTTL: time.Hour,
-		Tokens:        tokens,
-		GetUser:       identityapp.NewGetUserByTelegram(users),
-		EnsureUser:    identityapp.NewEnsureUserByTelegram(users, nil, "UTC", nil),
-		ListToday:     listToday,
-		CreateTask:    create,
-		Complete:      complete,
-		CreateProject: projectsapp.NewCreateProject(projectStore, fakeEvents{}, fakeTx{}),
-		ListProjects:  projectsapp.NewListProjects(projectStore),
-		ProjectProg:   projectsapp.NewGetProjectProgress(projectStore),
-		CreateHabit:   habitsapp.NewCreateHabit(habitStore, fakeEvents{}, fakeTx{}),
-		CreateDebt:    financeapp.NewCreateDebt(debtStore, fakeEvents{}, fakeTx{}),
-		ListDebts:     financeapp.NewListDebts(debtStore),
-		CreateNote:    knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
-		ListNotes:     knowledgeapp.NewListNotes(noteStore),
-		SearchNotes:   knowledgeapp.NewSearchNotes(noteStore),
-		DeleteNote:    knowledgeapp.NewDeleteNote(noteStore, fakeEvents{}, fakeTx{}),
+		Log:            slog.Default(),
+		APIKey:         testAPIKey,
+		BotToken:       "123456:TESTTOKEN",
+		WebAppAuthTTL:  time.Hour,
+		Tokens:         tokens,
+		GetUser:        identityapp.NewGetUserByTelegram(users),
+		EnsureUser:     identityapp.NewEnsureUserByTelegram(users, nil, "UTC", nil),
+		ListToday:      listToday,
+		CreateTask:     create,
+		Complete:       complete,
+		CancelTask:     cancel,
+		EditTask:       edit,
+		RescheduleTask: reschedule,
+		ListByTag:      listByTag,
+		GetTask:        getTask,
+		ArchiveTask:    archive,
+		DeleteTask:     deleteTask,
+		CreateProject:  projectsapp.NewCreateProject(projectStore, fakeEvents{}, fakeTx{}),
+		ListProjects:   projectsapp.NewListProjects(projectStore),
+		ProjectProg:    projectsapp.NewGetProjectProgress(projectStore),
+		CreateHabit:    habitsapp.NewCreateHabit(habitStore, fakeEvents{}, fakeTx{}),
+		CreateDebt:     financeapp.NewCreateDebt(debtStore, fakeEvents{}, fakeTx{}),
+		ListDebts:      financeapp.NewListDebts(debtStore),
+		CreateNote:     knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
+		ListNotes:      knowledgeapp.NewListNotes(noteStore),
+		SearchNotes:    knowledgeapp.NewSearchNotes(noteStore),
+		DeleteNote:     knowledgeapp.NewDeleteNote(noteStore, fakeEvents{}, fakeTx{}),
 	})
 	r := chi.NewRouter()
 	rt.Mount(r)
@@ -572,6 +586,121 @@ func TestTaskHTTPOFlow(t *testing.T) {
 	}
 	if done.Status != string(taskdomain.StatusDone) {
 		t.Fatalf("status=%q want done", done.Status)
+	}
+}
+
+func TestTaskLifecycleEditClearArchiveDelete(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	token := issueToken(t, env)
+	auth := map[string]string{"Authorization": "Bearer " + token}
+
+	today := time.Now().UTC().Format("2006-01-02")
+	desc := "body"
+	createRec := doJSON(t, env.router, http.MethodPost, "/api/v1/tasks", auth, map[string]any{
+		"title":       "edit me #work",
+		"description": desc,
+		"priority":    "medium",
+		"due_date":    today,
+		"tags":        []string{"inbox"},
+	})
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s", createRec.Code, createRec.Body.String())
+	}
+	var created struct {
+		ID          string  `json:"id"`
+		Title       string  `json:"title"`
+		Description *string `json:"description"`
+		Tags        []string `json:"tags"`
+		DueDate     *string `json:"due_date"`
+	}
+	if err := json.Unmarshal(createRec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.Title != "edit me" || created.Description == nil || *created.Description != desc {
+		t.Fatalf("created=%+v", created)
+	}
+	tagFound := false
+	for _, tag := range created.Tags {
+		if tag == "work" || tag == "inbox" {
+			tagFound = true
+		}
+	}
+	if !tagFound {
+		t.Fatalf("tags=%v", created.Tags)
+	}
+
+	getRec := doJSON(t, env.router, http.MethodGet, "/api/v1/tasks/"+created.ID, auth, nil)
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("get status=%d body=%s", getRec.Code, getRec.Body.String())
+	}
+
+	// Mini App style PATCH: explicit null clears due_date and description.
+	patchRec := doJSON(t, env.router, http.MethodPatch, "/api/v1/tasks/"+created.ID, auth, map[string]any{
+		"title":       "edited",
+		"priority":    "high",
+		"due_date":    nil,
+		"description": nil,
+	})
+	if patchRec.Code != http.StatusOK {
+		t.Fatalf("patch status=%d body=%s", patchRec.Code, patchRec.Body.String())
+	}
+	var patched struct {
+		Title       string  `json:"title"`
+		Priority    string  `json:"priority"`
+		Description *string `json:"description"`
+		DueDate     *string `json:"due_date"`
+	}
+	if err := json.Unmarshal(patchRec.Body.Bytes(), &patched); err != nil {
+		t.Fatal(err)
+	}
+	if patched.Title != "edited" || patched.Priority != "high" {
+		t.Fatalf("patched=%+v", patched)
+	}
+	if patched.Description != nil || patched.DueDate != nil {
+		t.Fatalf("expected cleared description/due_date, got %+v", patched)
+	}
+
+	listByTag := doJSON(t, env.router, http.MethodGet, "/api/v1/tasks?tag=work", auth, nil)
+	if listByTag.Code != http.StatusOK {
+		t.Fatalf("list by tag status=%d body=%s", listByTag.Code, listByTag.Body.String())
+	}
+
+	archiveRec := doJSON(t, env.router, http.MethodPost, "/api/v1/tasks/"+created.ID+"/archive", auth, nil)
+	if archiveRec.Code != http.StatusOK {
+		t.Fatalf("archive status=%d body=%s", archiveRec.Code, archiveRec.Body.String())
+	}
+	var archived struct {
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(archiveRec.Body.Bytes(), &archived); err != nil {
+		t.Fatal(err)
+	}
+	if archived.Status != string(taskdomain.StatusCancelled) {
+		t.Fatalf("status=%q", archived.Status)
+	}
+
+	deleteRec := doJSON(t, env.router, http.MethodDelete, "/api/v1/tasks/"+created.ID, auth, nil)
+	if deleteRec.Code != http.StatusNoContent {
+		t.Fatalf("delete status=%d body=%s", deleteRec.Code, deleteRec.Body.String())
+	}
+	missing := doJSON(t, env.router, http.MethodGet, "/api/v1/tasks/"+created.ID, auth, nil)
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("get after delete status=%d want 404", missing.Code)
+	}
+}
+
+func TestEditTaskNotFoundReturns404(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	token := issueToken(t, env)
+	auth := map[string]string{"Authorization": "Bearer " + token}
+	id := ids.NewTaskID().String()
+	rec := doJSON(t, env.router, http.MethodPatch, "/api/v1/tasks/"+id, auth, map[string]any{
+		"title": "ghost",
+	})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status=%d want 404 body=%s", rec.Code, rec.Body.String())
 	}
 }
 

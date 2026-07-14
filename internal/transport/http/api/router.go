@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -315,6 +316,7 @@ func (rt *Router) listTasksToday(w http.ResponseWriter, r *http.Request) {
 
 type createTaskRequest struct {
 	Title           string   `json:"title"`
+	Description     *string  `json:"description"`
 	Priority        string   `json:"priority"`
 	DueDate         *string  `json:"due_date"`
 	DurationMinutes *int     `json:"duration_minutes"`
@@ -347,9 +349,17 @@ func (rt *Router) createTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid project_ids")
 		return
 	}
+	var desc *string
+	if req.Description != nil {
+		trimmed := strings.TrimSpace(*req.Description)
+		if trimmed != "" {
+			desc = &trimmed
+		}
+	}
 	dto, err := rt.deps.CreateTask.Execute(r.Context(), tasksapp.CreateTaskInput{
 		UserID:          userID,
 		Title:           strings.TrimSpace(req.Title),
+		Description:     desc,
 		Priority:        taskdomain.Priority(req.Priority),
 		DueDate:         due,
 		DurationMinutes: req.DurationMinutes,
@@ -392,16 +402,16 @@ func (rt *Router) listTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 type editTaskRequest struct {
-	Title            *string   `json:"title"`
-	Description      *string   `json:"description"`
-	ClearDescription bool      `json:"clear_description"`
-	Priority         *string   `json:"priority"`
-	DueDate          *string   `json:"due_date"`
-	ClearDueDate     bool      `json:"clear_due_date"`
-	DurationMinutes  *int      `json:"duration_minutes"`
-	ClearDuration    bool      `json:"clear_duration"`
-	Tags             *[]string `json:"tags"`
-	ProjectIDs       *[]string `json:"project_ids"`
+	Title            *string         `json:"title"`
+	Description      nullableString  `json:"description"`
+	ClearDescription bool            `json:"clear_description"`
+	Priority         *string         `json:"priority"`
+	DueDate          nullableString  `json:"due_date"`
+	ClearDueDate     bool            `json:"clear_due_date"`
+	DurationMinutes  *int            `json:"duration_minutes"`
+	ClearDuration    bool            `json:"clear_duration"`
+	Tags             *[]string       `json:"tags"`
+	ProjectIDs       *[]string       `json:"project_ids"`
 }
 
 func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
@@ -424,15 +434,33 @@ func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	var due *time.Time
-	if req.DueDate != nil && *req.DueDate != "" {
-		t, err := time.Parse("2006-01-02", *req.DueDate)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid due_date")
-			return
+
+	clearDescription := req.ClearDescription
+	var description *string
+	if req.Description.Set {
+		if req.Description.Value == nil || strings.TrimSpace(*req.Description.Value) == "" {
+			clearDescription = true
+		} else {
+			trimmed := strings.TrimSpace(*req.Description.Value)
+			description = &trimmed
 		}
-		due = &t
 	}
+
+	clearDueDate := req.ClearDueDate
+	var due *time.Time
+	if req.DueDate.Set {
+		if req.DueDate.Value == nil || strings.TrimSpace(*req.DueDate.Value) == "" {
+			clearDueDate = true
+		} else {
+			t, err := time.Parse("2006-01-02", strings.TrimSpace(*req.DueDate.Value))
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid due_date")
+				return
+			}
+			due = &t
+		}
+	}
+
 	var priority *taskdomain.Priority
 	if req.Priority != nil {
 		p := taskdomain.Priority(*req.Priority)
@@ -447,15 +475,20 @@ func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
 		}
 		projectIDs = &parsed
 	}
+	var title *string
+	if req.Title != nil {
+		trimmed := strings.TrimSpace(*req.Title)
+		title = &trimmed
+	}
 	dto, err := rt.deps.EditTask.Execute(r.Context(), tasksapp.EditTaskInput{
 		UserID:           userID,
 		TaskID:           taskID,
-		Title:            req.Title,
-		Description:      req.Description,
-		ClearDescription: req.ClearDescription,
+		Title:            title,
+		Description:      description,
+		ClearDescription: clearDescription,
 		Priority:         priority,
 		DueDate:          due,
-		ClearDueDate:     req.ClearDueDate,
+		ClearDueDate:     clearDueDate,
 		DurationMinutes:  req.DurationMinutes,
 		ClearDuration:    req.ClearDuration,
 		Tags:             req.Tags,
@@ -463,6 +496,10 @@ func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
 		Source:           events.SourceHTTP,
 	})
 	if err != nil {
+		if errors.Is(err, tasksapp.ErrTaskNotFound) {
+			writeError(w, http.StatusNotFound, "task not found")
+			return
+		}
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -484,6 +521,10 @@ func (rt *Router) completeTask(w http.ResponseWriter, r *http.Request) {
 		UserID: userID, TaskID: taskID, Source: events.SourceHTTP,
 	})
 	if err != nil {
+		if errors.Is(err, tasksapp.ErrTaskNotFound) {
+			writeError(w, http.StatusNotFound, "task not found")
+			return
+		}
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -509,6 +550,10 @@ func (rt *Router) cancelTask(w http.ResponseWriter, r *http.Request) {
 		UserID: userID, TaskID: taskID, Source: events.SourceHTTP,
 	})
 	if err != nil {
+		if errors.Is(err, tasksapp.ErrTaskNotFound) {
+			writeError(w, http.StatusNotFound, "task not found")
+			return
+		}
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -548,6 +593,10 @@ func (rt *Router) rescheduleTask(w http.ResponseWriter, r *http.Request) {
 		UserID: userID, TaskID: taskID, DueDate: due, Source: events.SourceHTTP,
 	})
 	if err != nil {
+		if errors.Is(err, tasksapp.ErrTaskNotFound) {
+			writeError(w, http.StatusNotFound, "task not found")
+			return
+		}
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}

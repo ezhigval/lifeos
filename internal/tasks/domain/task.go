@@ -126,8 +126,11 @@ func (t *Task) Cancel(now time.Time) error {
 	return nil
 }
 
-// ApplyEdit updates title, priority, due date and optional description.
+// ApplyEdit updates title, priority, due date and optional description (full replace).
 func (t *Task) ApplyEdit(title string, priority Priority, dueDate *time.Time, description *string, now time.Time) error {
+	if t.Status == StatusDone || t.Status == StatusCancelled {
+		return ErrCannotEditTerminal
+	}
 	if title == "" {
 		return ErrEmptyTitle
 	}

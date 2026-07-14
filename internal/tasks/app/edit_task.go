@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -51,6 +52,9 @@ func (uc *EditTask) Execute(ctx context.Context, in EditTaskInput) (TaskDTO, err
 	err := uc.transactor.WithinTransaction(ctx, func(txCtx context.Context) error {
 		task, err := uc.store.GetByID(txCtx, in.UserID, in.TaskID)
 		if err != nil {
+			if errors.Is(err, domain.ErrNotFound) {
+				return ErrTaskNotFound
+			}
 			return err
 		}
 		if err := task.Edit(domain.EditFields{

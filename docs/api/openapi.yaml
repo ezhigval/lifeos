@@ -88,6 +88,8 @@ paths:
       responses:
         '200':
           description: Task list filtered by tag
+        '400':
+          description: Missing or invalid tag
     post:
       summary: Create task
       security:
@@ -101,6 +103,8 @@ paths:
               required: [title]
               properties:
                 title:
+                  type: string
+                description:
                   type: string
                 priority:
                   type: string
@@ -123,8 +127,24 @@ paths:
         '201':
           description: Created
   /api/v1/tasks/{id}:
+    get:
+      summary: Get task by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Task
+        '404':
+          description: Not found
     patch:
-      summary: Edit task
+      summary: Edit task (partial update)
       security:
         - bearerAuth: []
       parameters:
@@ -143,11 +163,19 @@ paths:
               properties:
                 title:
                   type: string
+                description:
+                  type: string
+                  nullable: true
+                  description: Explicit null or empty clears description
+                clear_description:
+                  type: boolean
                 priority:
                   type: string
                 due_date:
                   type: string
                   format: date
+                  nullable: true
+                  description: Explicit null or empty clears due_date
                 clear_due_date:
                   type: boolean
                 duration_minutes:
@@ -167,6 +195,24 @@ paths:
       responses:
         '200':
           description: Updated
+        '404':
+          description: Not found
+    delete:
+      summary: Soft-delete task
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
   /api/v1/tasks/{id}/complete:
     post:
       summary: Complete task
@@ -197,6 +243,25 @@ paths:
       responses:
         '200':
           description: Cancelled
+        '404':
+          description: Not found
+  /api/v1/tasks/{id}/archive:
+    post:
+      summary: Archive task (soft cancel)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Archived
+        '404':
+          description: Not found
   /api/v1/tasks/{id}/reschedule:
     post:
       summary: Reschedule task to a new due date
@@ -223,6 +288,8 @@ paths:
       responses:
         '200':
           description: Rescheduled
+        '404':
+          description: Not found
   /api/v1/projects/progress:
     get:
       summary: Project progress

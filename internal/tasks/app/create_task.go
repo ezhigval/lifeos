@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/valentinezhov/lifeos/internal/platform/events"
@@ -28,6 +29,7 @@ func NewCreateTask(store TaskStore, events EventLog, transactor Transactor, proj
 type CreateTaskInput struct {
 	UserID          ids.UserID
 	Title           string
+	Description     *string
 	Priority        domain.Priority
 	DueDate         *time.Time
 	DurationMinutes *int
@@ -55,6 +57,12 @@ func (uc *CreateTask) Execute(ctx context.Context, in CreateTaskInput) (TaskDTO,
 	task, err := domain.NewTask(in.UserID, title, in.Priority, in.DueDate, now)
 	if err != nil {
 		return TaskDTO{}, err
+	}
+	if in.Description != nil {
+		desc := strings.TrimSpace(*in.Description)
+		if desc != "" {
+			task.Description = &desc
+		}
 	}
 	if in.DurationMinutes != nil {
 		if *in.DurationMinutes <= 0 {
@@ -90,7 +98,8 @@ func (uc *CreateTask) Execute(ctx context.Context, in CreateTaskInput) (TaskDTO,
 			AggregateID:   task.ID.UUID(),
 			EventType:     "TaskCreated",
 			Payload: map[string]any{
-				"title": task.Title, "priority": task.Priority, "due_date": task.DueDate,
+				"title": task.Title, "description": task.Description,
+				"priority": task.Priority, "due_date": task.DueDate,
 				"duration_minutes": task.DurationMinutes, "tags": task.Tags, "project_ids": task.ProjectIDs,
 			},
 			Source:     in.Source,

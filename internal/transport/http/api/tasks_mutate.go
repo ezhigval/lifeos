@@ -20,6 +20,10 @@ func (rt *Router) getTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if rt.deps.GetTask == nil {
+		writeError(w, http.StatusNotImplemented, "get task is not configured")
+		return
+	}
 	taskID, err := ids.ParseTaskID(chi.URLParam(r, "id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid task id")
@@ -48,6 +52,10 @@ func (rt *Router) updateTask(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.UpdateTask == nil {
+		writeError(w, http.StatusNotImplemented, "update task is not configured")
 		return
 	}
 	taskID, err := ids.ParseTaskID(chi.URLParam(r, "id"))
@@ -102,6 +110,10 @@ func (rt *Router) archiveTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if rt.deps.ArchiveTask == nil {
+		writeError(w, http.StatusNotImplemented, "archive task is not configured")
+		return
+	}
 	taskID, err := ids.ParseTaskID(chi.URLParam(r, "id"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid task id")
@@ -125,6 +137,10 @@ func (rt *Router) deleteTask(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.DeleteTask == nil {
+		writeError(w, http.StatusNotImplemented, "delete task is not configured")
 		return
 	}
 	taskID, err := ids.ParseTaskID(chi.URLParam(r, "id"))

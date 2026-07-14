@@ -27,8 +27,8 @@ func (s *fakeStore) Save(_ context.Context, task domain.Task) error {
 
 func (s *fakeStore) GetByID(_ context.Context, userID ids.UserID, taskID ids.TaskID) (domain.Task, error) {
 	task, ok := s.tasks[taskID]
-	if !ok || task.UserID != userID {
-		return domain.Task{}, errors.New("not found")
+	if !ok || task.UserID != userID || task.DeletedAt != nil {
+		return domain.Task{}, domain.ErrNotFound
 	}
 	return task, nil
 }
@@ -296,6 +296,34 @@ func TestCancelRescheduleAndHashtags(t *testing.T) {
 	}
 	if len(tagged) != 1 || tagged[0].ID != created.ID {
 		t.Fatalf("tagged = %+v", tagged)
+	}
+}
+
+func TestCreateAndEditTaskDescription(t *testing.T) {
+	t.Parallel()
+
+	store := newFakeStore()
+	ev := &fakeEvents{}
+	userID := ids.NewUserID()
+	desc := " details "
+	created, err := app.NewCreateTask(store, ev, fakeTx{}, nil).Execute(context.Background(), app.CreateTaskInput{
+		UserID: userID, Title: "with desc", Description: &desc, Source: events.SourceCLI,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Description == nil || *created.Description != "details" {
+		t.Fatalf("created desc = %v", created.Description)
+	}
+
+	edited, err := app.NewEditTask(store, ev, fakeTx{}, nil).Execute(context.Background(), app.EditTaskInput{
+		UserID: userID, TaskID: created.ID, ClearDescription: true, Source: events.SourceCLI,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if edited.Description != nil {
+		t.Fatalf("expected cleared description, got %v", edited.Description)
 	}
 }
 

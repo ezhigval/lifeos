@@ -2,11 +2,13 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
+	"github.com/valentinezhov/lifeos/internal/tasks/domain"
 )
 
 type RescheduleTask struct {
@@ -43,6 +45,9 @@ func (uc *RescheduleTask) Execute(ctx context.Context, in RescheduleTaskInput) (
 	err := uc.transactor.WithinTransaction(ctx, func(txCtx context.Context) error {
 		task, err := uc.store.GetByID(txCtx, in.UserID, in.TaskID)
 		if err != nil {
+			if errors.Is(err, domain.ErrNotFound) {
+				return ErrTaskNotFound
+			}
 			return err
 		}
 		from := task.DueDate

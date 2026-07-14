@@ -1,76 +1,43 @@
 # Current State (code audit)
 
 **Date:** 2026-07-14  
-**Ref:** `main` @ synced docs branch  
+**Branch:** `cursor/docs-sync-orchestration-fe85`  
 **Product:** LifeOS — personal life-ops modular monolith
 
 ---
 
-## Stack (as running)
+## Decisions locked
+
+- Bug list: free audit (no owner dogfood list)
+- WIP merged: task-lifecycle + miniapp-ux
+- Next after bugfix: **Mini App + functionality**
+
+---
+
+## Stack
 
 | Layer | Tech |
 |-------|------|
 | Backend | Go 1.25 · Chi · pgx · SQLC · Goose · Cobra · slog · Prometheus · JWT |
-| DB | PostgreSQL 16 |
+| DB | PostgreSQL 16 (migrations through 00027 task duration/tags) |
 | Telegram | Long polling default; webhook optional |
-| Mini App | React 19 · Vite · Tailwind 4 · TanStack Query · Router basename `/app` |
+| Mini App | React 19 · Vite · Tailwind 4 · TanStack Query · BrowserRouter `/app` |
 | Deploy | Docker Compose: `app` + `postgres`; profiles `observability`, `cache` |
 
 ---
 
-## Backend modules present
+## Recently merged
 
-`identity`, `settings`, `tasks`, `projects`, `spheres`, `planning`, `finance`, `habits`, `calendar`, `knowledge`, `health`, `career`, `notifications`, `query`, `ai`, `platform`, `transport/{http,telegram}`
+### Task lifecycle
+Duration, tags, edit/cancel/reschedule, auto-reschedule incomplete, list-by-tag; HTTP + Telegram wiring.
 
-**Goals** удалены → `projects` (+ `task_projects`, `project_spheres`). Migrations through `00026_telegram_session_states`.
-
-Composition root: `cmd/lifeos/cmd/{serve,runtime,api}.go` (manual DI).
-
----
-
-## REST `/api/v1` (implemented)
-
-Public: `POST /auth/token`, `POST /auth/telegram-webapp`  
-JWT: tasks, projects, reviews, priorities, analytics, finance, habits, reminders, notes, career, health, calendar, settings (+ **spheres** CRUD under `/settings/spheres`).
-
-Contract: `docs/api/openapi.yaml` (kept in parity with `router.go`).
+### Mini App UX
+More tab, Habits, Calendar, Settings, Task detail, Analytics/Notes/Health/Career/Debts/Reminders screens; BackButton; empty/error UI. Auth initData freeze retained from main.
 
 ---
 
-## Telegram surface
+## Agents (Stage 1)
 
-Commands: `/start`, `/cancel`, `/clear`, `/delete`  
-Reply menu: Главная, Задачи, Привычки, Проекты, Календарь, Статистика, Настройки (+ Mini App web_app if URL set)  
-Screen/dashboard edit-or-send + session FSM drafts  
-IntentResolver: rule-based default, optional Ollama composite
-
----
-
-## Mini App surface (main)
-
-Routes: Home, Spheres tree → sphere → project  
-Features: upcoming tasks + complete, finance card/sheet, TG auth session persist  
-Nav: Главная + Сферы (Ещё / Habits / Calendar / Settings — depth incomplete on main)
-
----
-
-## Docs vs code (after this sync)
-
-| Item | Status |
-|------|--------|
-| ARCHITECTURE tree / composition (no goals) | fixed |
-| SEQUENCE reviews/priorities use projects | fixed |
-| OpenAPI spheres endpoints | fixed |
-| ADR-002/009 outdated examples / JWT note | fixed |
-| Roadmap/backlog Goals epic + JWT P3 | fixed |
-| Agent roles Frontend + Telegram + Architect | added |
-
----
-
-## Unmerged / WIP (not on main — plan carefully)
-
-| Branch (remote) | Theme |
-|-----------------|--------|
-| `cursor/miniapp-ux-ui-plan-10dc` | Mini App Phase B/C screens, frontend prompts |
-| `cursor/task-core-lifecycle-65c7` | Task duration/tags/lifecycle |
-| `cursor/telegram-transport-agent-prompt-b841` | Telegram agent prompt (merged conceptually into `TELEGRAM.md`) |
+TASK-001 DONE (backend) — free-audit bugfix in-zone; see `docs/agents/reports/backend/TASK-001.md`.
+TASK-001 for frontend / telegram — track their inbox/reports.
+See `docs/agents/inbox/*/TASK-001-bugfix-audit.md`.

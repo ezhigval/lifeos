@@ -1,7 +1,7 @@
 # TASK-001: Bugfix free-audit (zone only)
 
 - **Agent:** backend
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P0
 - **Stage:** bugfix
 - **Owner ACK:** 2026-07-14 — no dogfood list; free audit; WIP merges in progress on orchestrator branch
@@ -24,6 +24,6 @@
 
 ## Acceptance
 
-- [ ] P0 в зоне закрыты или BLOCKED с причиной + cross-zone ask
-- [ ] Touched package tests green
-- [ ] Report: `docs/agents/reports/backend/TASK-001.md`
+- [x] P0 в зоне закрыты или BLOCKED с причиной + cross-zone ask
+- [x] Touched package tests green
+- [x] Report: `docs/agents/reports/backend/TASK-001.md`
