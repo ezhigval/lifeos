@@ -8,4 +8,4 @@
 | [DOMAIN_MODEL.md](DOMAIN_MODEL.md) | Domain entities |
 | [../diagrams/ER.md](../diagrams/ER.md) | Схема БД |
 | [../roadmap/ROADMAP.md](../roadmap/ROADMAP.md) | Roadmap |
-| [../agents/BACKEND.md](../agents/BACKEND.md) | Роль backend-агента (промпт + границы) |
+| [../agents/](../agents/) | Оркестрация: Architect + Backend + Frontend + Telegram |

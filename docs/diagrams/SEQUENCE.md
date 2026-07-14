@@ -1,6 +1,6 @@
 # Sequence Diagrams
 
-**Version:** 0.3  
+**Version:** 0.4  
 **See also:** [ARCHITECTURE.md](../architecture/ARCHITECTURE.md)
 
 ---
@@ -72,9 +72,10 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant SCH as Scheduler
+    participant DB as PostgreSQL
     participant MR as MorningReview (query/)
     participant TR as TaskRepository
-    participant GR as GoalRepository
+    participant PR as ProjectRepository
     participant AS as Assistant (template)
     participant NS as TelegramNotifier
     participant TG as Telegram API
@@ -83,8 +84,8 @@ sequenceDiagram
     SCH->>DB: SELECT scheduled_jobs (job_type=morning_review)
     SCH->>MR: Execute(ctx, userID)
     MR->>TR: ListToday(userID)
-    MR->>GR: ListActive(userID)
-    MR->>AS: Summarize(tasks, goals)
+    MR->>PR: ListActive(userID)
+    MR->>AS: Summarize(tasks, projects)
     AS-->>MR: "Топ-3: ..."
     MR-->>SCH: ReviewMessage
     SCH->>NS: Send(userID, message)
@@ -110,7 +111,7 @@ sequenceDiagram
     IR-->>H: ResolvedIntent{query.priorities}
     H->>QP: Execute
     QP->>DB: SELECT tasks (urgent/high, due today or overdue)
-    QP->>DB: SELECT goals (active, low progress)
+    QP->>DB: SELECT projects (active, low progress)
     QP->>QP: Rank by algorithm
     QP-->>H: PriorityList
     H->>TG: Formatted response (HTML)
@@ -163,7 +164,7 @@ sequenceDiagram
     Main->>PG: Close
 ```
 
-## 7. Future REST API (same use cases)
+## 7. REST API (same use cases)
 
 ```mermaid
 sequenceDiagram
@@ -183,4 +184,25 @@ sequenceDiagram
     H-->>Client: 201 JSON
 ```
 
-> Phase 3 only. MVP has no REST endpoints.
+REST `/api/v1` + JWT уже в коде (Mini App и API key → token). Те же use cases, что и Telegram transport.
+
+## 8. Mini App auth (initData → JWT)
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Mini as Mini App (React)
+    participant API as POST /auth/telegram-webapp
+    participant Auth as platform/auth
+    participant ID as identity EnsureUser
+    participant DB as PostgreSQL
+
+    User->>Mini: Open WebApp
+    Mini->>Mini: Freeze initData from hash
+    Mini->>API: { init_data }
+    API->>Auth: Validate HMAC + auth_date TTL
+    Auth->>ID: EnsureUserByTelegram
+    ID->>DB: upsert user
+    API-->>Mini: { access_token, expires_in }
+    Mini->>Mini: Persist session (localStorage)
+```

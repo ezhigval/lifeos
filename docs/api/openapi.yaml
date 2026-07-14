@@ -1,7 +1,10 @@
 openapi: 3.1.0
 info:
   title: LifeOS API
-  version: 0.1.0
+  version: 0.2.0
+  description: |
+    REST surface for LifeOS. Auth: JWT Bearer after API key or Telegram Mini App initData.
+    Source of truth for route list: `internal/transport/http/api/router.go`.
 paths:
   /api/v1/auth/token:
     post:
@@ -767,6 +770,99 @@ paths:
       responses:
         '200':
           description: Settings
+  /api/v1/settings/spheres:
+    get:
+      summary: List life spheres
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Sphere list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  spheres:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Sphere'
+    post:
+      summary: Create life sphere
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                sort_order:
+                  type: integer
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sphere'
+        '400':
+          description: Invalid name
+  /api/v1/settings/spheres/{id}:
+    put:
+      summary: Update life sphere
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, sort_order]
+              properties:
+                name:
+                  type: string
+                sort_order:
+                  type: integer
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sphere'
+        '400':
+          description: Invalid input
+        '404':
+          description: Not found
+    delete:
+      summary: Delete life sphere
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
   /api/v1/settings/morning-review:
     put:
       summary: Update morning review time
@@ -845,6 +941,20 @@ components:
         token_type:
           type: string
           example: Bearer
+    Sphere:
+      type: object
+      required: [id, name, sort_order, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sort_order:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
   securitySchemes:
     bearerAuth:
       type: http

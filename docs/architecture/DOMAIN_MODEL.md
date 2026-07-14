@@ -1,6 +1,6 @@
 # Domain Model
 
-**Version:** 0.3  
+**Version:** 0.4  
 **See also:** [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ---

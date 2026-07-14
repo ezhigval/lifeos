@@ -1,7 +1,7 @@
 # Milestones
 
-**Version:** 0.3  
-**See also:** [ROADMAP.md](ROADMAP.md)
+**Version:** 0.4  
+**See also:** [ROADMAP.md](ROADMAP.md) · [agents/CURRENT_STATE.md](../agents/CURRENT_STATE.md)
 
 ---
 
@@ -38,6 +38,8 @@
 - [x] Rule-based intent resolver + golden tests
 - [x] HTML formatting (RU)
 - [x] E2E smoke tests
+- [x] Reply keyboard + screen/dashboard model
+- [x] FSM drafts (spheres/projects), `/clear`, `/delete`
 
 ---
 
@@ -62,6 +64,8 @@
 
 - [x] Transactions, categories, debts
 - [x] NL capture via intents
+- [x] REST finance endpoints
+- [x] Mini App finance card + sheet (client)
 
 ---
 
@@ -69,7 +73,7 @@
 
 - [x] Habits + streaks
 - [x] Calendar events
-- [x] Projects + spheres (goals migrated)
+- [x] Projects + spheres (goals migrated 00022–00024)
 - [x] task_projects M:N
 
 ---
@@ -81,13 +85,18 @@
 
 ---
 
-## M9–M10: Intelligence & API
+## M9: API + Mini App (current)
 
 | Item | Status |
 |------|--------|
 | REST `/api/v1` + JWT | ✅ |
-| OpenAPI spec | ✅ (partial sync) |
+| `POST /auth/telegram-webapp` | ✅ |
+| OpenAPI sync | 🚧 improved; keep in parity with router |
 | Ollama LLM resolver | 🚧 optional |
-| Mini App UI | 🚧 scaffold |
+| Mini App | 🚧 Home + Spheres + Finance; Habits/Calendar/Settings depth — WIP / unmerged |
 
-See [ROADMAP.md](ROADMAP.md) for Phase 3–4.
+---
+
+## M10+: Next (после совместного планирования)
+
+Bugfix stage → Intelligence polish → Mini App depth → multi-client later.

@@ -1,9 +1,11 @@
 # Sprint Plan
 
-**Version:** 0.3  
-**See also:** [ROADMAP.md](ROADMAP.md)
+**Version:** 0.4 (archive)  
+**See also:** [ROADMAP.md](ROADMAP.md) · [../agents/inbox/](../agents/inbox/)
 
-> Sprints 0–6 выполнены. Актуальный статус — [MILESTONES.md](MILESTONES.md).
+> **Archive.** Sprints 0–6 выполнены. Новые задания агентам — в `docs/agents/inbox/`.  
+> Актуальный статус продукта — [MILESTONES.md](MILESTONES.md).  
+> Sprint 3 исторически про Goals; в коде цели → **projects** (00022–00024).
 
 ---
 

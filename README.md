@@ -52,6 +52,7 @@ make docker-up       # пересоздать app с новым LIFEOS_MINIAPP_U
 | ADR (001–009) | [docs/adr/](docs/adr/) |
 | Roadmap | [docs/roadmap/ROADMAP.md](docs/roadmap/ROADMAP.md) |
 | OpenAPI | [docs/api/openapi.yaml](docs/api/openapi.yaml) |
+| Агенты (Architect / Backend / Frontend / Telegram) | [docs/agents/](docs/agents/) |
 
 ## Деплой
 
