@@ -58,7 +58,7 @@
 - [x] OpenTelemetry hooks
 - [x] Observability compose profile
 - [x] Backup scripts
-- [ ] 14-day dogfooding gate
+- [ ] 14-day dogfooding gate — [DOGFOOD.md](DOGFOOD.md)
 
 ---
 

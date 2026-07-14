@@ -49,7 +49,7 @@ Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST +
 
 - [ ] OpenAPI ↔ router parity CI
 - [ ] Test / observability budget (~20%)
-- [ ] 14-day dogfood gate (G2→G3)
+- [ ] 14-day dogfood gate (G2→G3) — checklist: [DOGFOOD.md](DOGFOOD.md)
 
 ## Icebox
 
@@ -64,7 +64,7 @@ Mini App UX plan (detail): [docs/miniapp/UX_UI_PLAN.md](../miniapp/UX_UI_PLAN.md
 |------|----------|--------|
 | G0 → G1 | Runnable + CI | ✅ |
 | G1 → G2 | M1–M4 | ✅ |
-| G2 → G3 | 14-day dogfood | 🚧 |
+| G2 → G3 | 14-day dogfood ([DOGFOOD.md](DOGFOOD.md)) | 🚧 |
 | G3 → G4 | Phase 2 domains | ✅ |
 | Stage1 → Stage2 | WIP merged + P0 bugs closed | ✅ |
 | Stage2 → Stage3 | Mini App depth + contracts | ✅ |
