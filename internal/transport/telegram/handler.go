@@ -520,7 +520,13 @@ func (h *MessageHandler) settingsView(ctx context.Context, userID ids.UserID) (d
 	return dispatchResult{text: text, inline: inline}, nil
 }
 
-const replyKBSetKey = "reply_kb_set"
+const (
+	replyKBSetKey     = "reply_kb_set"
+	replyKBVersionKey = "reply_kb_ver"
+	// Bump when MainReplyKeyboard layout changes or keyboard attach strategy changes,
+	// so existing sessions reinstall the reply keyboard.
+	replyKBVersion = 2
+)
 
 func (h *MessageHandler) ensureReplyKeyboard(ctx context.Context, userID ids.UserID, chatID int64) {
 	sess, err := h.sessions.Get(ctx, userID)
@@ -530,7 +536,7 @@ func (h *MessageHandler) ensureReplyKeyboard(ctx context.Context, userID ids.Use
 	if sess.StatePayload == nil {
 		sess.StatePayload = map[string]any{}
 	}
-	if sess.StatePayload[replyKBSetKey] == true {
+	if replyKeyboardInstalled(sess.StatePayload) {
 		return
 	}
 	if err := h.client.SetReplyKeyboard(ctx, chatID, MainReplyKeyboard()); err != nil {
@@ -538,8 +544,19 @@ func (h *MessageHandler) ensureReplyKeyboard(ctx context.Context, userID ids.Use
 		return
 	}
 	sess.StatePayload[replyKBSetKey] = true
+	sess.StatePayload[replyKBVersionKey] = float64(replyKBVersion)
 	sess.ChatID = chatID
-	_ = h.sessions.Save(ctx, sess)
+	if err := h.sessions.Save(ctx, sess); err != nil {
+		h.log.Warn("save reply keyboard flag failed", "user_id", userID.String(), "error", err)
+	}
+}
+
+func replyKeyboardInstalled(payload map[string]any) bool {
+	if payload == nil || payload[replyKBSetKey] != true {
+		return false
+	}
+	ver, ok := payloadInt64(payload, replyKBVersionKey)
+	return ok && ver == replyKBVersion
 }
 
 func (h *MessageHandler) resetReplyKeyboardFlag(ctx context.Context, userID ids.UserID) error {
@@ -551,6 +568,7 @@ func (h *MessageHandler) resetReplyKeyboardFlag(ctx context.Context, userID ids.
 		return nil
 	}
 	delete(sess.StatePayload, replyKBSetKey)
+	delete(sess.StatePayload, replyKBVersionKey)
 	return h.sessions.Save(ctx, sess)
 }
 

@@ -12,8 +12,8 @@ import (
 	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
 	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
 	spheresdomain "github.com/valentinezhov/lifeos/internal/spheres/domain"
-	taskdomain "github.com/valentinezhov/lifeos/internal/tasks/domain"
 	tasksapp "github.com/valentinezhov/lifeos/internal/tasks/app"
+	taskdomain "github.com/valentinezhov/lifeos/internal/tasks/domain"
 	tginfra "github.com/valentinezhov/lifeos/internal/transport/telegram/infra"
 )
 
@@ -25,6 +25,9 @@ func (h *MessageHandler) basePayload(ctx context.Context, userID ids.UserID) map
 	out := map[string]any{}
 	if v, ok := sess.StatePayload[replyKBSetKey]; ok {
 		out[replyKBSetKey] = v
+	}
+	if v, ok := sess.StatePayload[replyKBVersionKey]; ok {
+		out[replyKBVersionKey] = v
 	}
 	if v, ok := sess.StatePayload["view_project_id"]; ok {
 		out["view_project_id"] = v

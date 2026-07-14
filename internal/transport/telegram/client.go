@@ -173,23 +173,33 @@ func (c *Client) EditScreen(ctx context.Context, chatID, messageID int64, text s
 
 func (c *Client) SetReplyKeyboard(ctx context.Context, chatID int64, keyboard [][]string) error {
 	payload := sendMessageRequest{
-		ChatID:    chatID,
-		Text:      "Разделы — кнопками ниже",
-		ParseMode: "HTML",
-		ReplyMarkup: map[string]any{
-			"keyboard":          keyboard,
-			"resize_keyboard":   true,
-			"is_persistent":     true,
-			"one_time_keyboard": false,
-		},
+		ChatID:      chatID,
+		Text:        "⌨️",
+		ParseMode:   "HTML",
+		ReplyMarkup: replyKeyboardMarkup(keyboard),
 	}
-	id, err := c.postMessage(ctx, payload)
-	if err != nil {
-		return err
+	// Keep the carrier message: deleting it often removes the reply keyboard
+	// from the chat while our session still thinks it was installed.
+	_, err := c.postMessage(ctx, payload)
+	return err
+}
+
+func replyKeyboardMarkup(rows [][]string) map[string]any {
+	kb := make([][]map[string]string, 0, len(rows))
+	for _, row := range rows {
+		buttons := make([]map[string]string, 0, len(row))
+		for _, text := range row {
+			buttons = append(buttons, map[string]string{"text": text})
+		}
+		kb = append(kb, buttons)
 	}
-	// Reply keyboard stays attached to the chat after the toast is removed.
-	_ = c.DeleteMessage(ctx, chatID, id)
-	return nil
+	return map[string]any{
+		"keyboard":                kb,
+		"resize_keyboard":         true,
+		"is_persistent":           true,
+		"one_time_keyboard":       false,
+		"input_field_placeholder": "Раздел, команда или текст…",
+	}
 }
 
 // DeleteMessage removes a chat message. Best-effort: callers may ignore errors
