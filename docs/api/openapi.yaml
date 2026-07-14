@@ -1,0 +1,802 @@
+openapi: 3.1.0
+info:
+  title: LifeOS API
+  version: 0.1.0
+paths:
+  /api/v1/auth/token:
+    post:
+      summary: Issue JWT by Telegram ID
+      parameters:
+        - in: header
+          name: X-API-Key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [telegram_id]
+              properties:
+                telegram_id:
+                  type: integer
+                  format: int64
+      responses:
+        '200':
+          description: Access token
+  /api/v1/tasks/today:
+    get:
+      summary: List tasks for today
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Task list
+  /api/v1/tasks:
+    post:
+      summary: Create task
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                priority:
+                  type: string
+                due_date:
+                  type: string
+                  format: date
+                project_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '201':
+          description: Created
+  /api/v1/tasks/{id}/complete:
+    post:
+      summary: Complete task
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Completed
+  /api/v1/projects/progress:
+    get:
+      summary: Project progress
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: project_id
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Progress
+  /api/v1/reviews/morning:
+    get:
+      summary: Morning review text
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Review
+  /api/v1/reviews/evening:
+    get:
+      summary: Evening review text
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Review
+  /api/v1/reviews/weekly:
+    get:
+      summary: Weekly review text
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Review
+  /api/v1/reviews/monthly:
+    get:
+      summary: Monthly review text
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: previous_month
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Review
+  /api/v1/priorities:
+    get:
+      summary: Top priorities for today
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Priority list
+  /api/v1/analytics/summary:
+    get:
+      summary: Productivity summary for current month
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Summary
+  /api/v1/finance/income:
+    post:
+      summary: Record income
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_cents]
+              properties:
+                amount_cents:
+                  type: integer
+                  format: int64
+                description:
+                  type: string
+                currency:
+                  type: string
+      responses:
+        '201':
+          description: Recorded
+  /api/v1/finance/expense:
+    post:
+      summary: Record expense
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_cents]
+              properties:
+                amount_cents:
+                  type: integer
+                  format: int64
+                category:
+                  type: string
+                currency:
+                  type: string
+      responses:
+        '201':
+          description: Recorded
+  /api/v1/finance/cash-flow:
+    get:
+      summary: Monthly cash flow
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Cash flow summary
+  /api/v1/finance/debts:
+    get:
+      summary: List open debts
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Debt list
+    post:
+      summary: Create debt
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [creditor, amount_cents]
+              properties:
+                creditor:
+                  type: string
+                amount_cents:
+                  type: integer
+                  format: int64
+                due_date:
+                  type: string
+                  format: date
+                  description: Optional repayment deadline (YYYY-MM-DD)
+      responses:
+        '201':
+          description: Created
+  /api/v1/finance/debts/{id}/pay:
+    post:
+      summary: Pay debt
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_cents]
+              properties:
+                amount_cents:
+                  type: integer
+                  format: int64
+      responses:
+        '200':
+          description: Updated debt
+  /api/v1/habits/today:
+    get:
+      summary: Habits for today
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Habit list
+  /api/v1/habits:
+    post:
+      summary: Create habit
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created
+  /api/v1/habits/{id}/track:
+    post:
+      summary: Track habit completion
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tracked
+  /api/v1/reminders:
+    get:
+      summary: List pending reminders
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Reminder list
+    post:
+      summary: Schedule reminder
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message, fire_at]
+              properties:
+                message:
+                  type: string
+                fire_at:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Scheduled
+  /api/v1/reminders/{id}:
+    delete:
+      summary: Cancel pending reminder
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Cancelled reminder
+        '404':
+          description: Not found
+  /api/v1/notes:
+    get:
+      summary: List or search notes
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+          description: Search notes by body substring (case-insensitive)
+        - in: query
+          name: tag
+          required: false
+          schema:
+            type: string
+          description: Filter notes by tag
+      responses:
+        '200':
+          description: Note list
+    post:
+      summary: Create note
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Created
+  /api/v1/notes/{id}:
+    delete:
+      summary: Delete note
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deleted note
+        '404':
+          description: Not found
+  /api/v1/career/contacts:
+    get:
+      summary: List or search career contacts
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Contact list
+    post:
+      summary: Create career contact
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                company:
+                  type: string
+                role:
+                  type: string
+                notes:
+                  type: string
+      responses:
+        '201':
+          description: Created
+  /api/v1/career/contacts/{id}:
+    delete:
+      summary: Delete career contact
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deleted
+        '404':
+          description: Not found
+  /api/v1/career/skills:
+    get:
+      summary: List or search career skills
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Skill list
+    post:
+      summary: Create career skill
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                level:
+                  type: string
+      responses:
+        '201':
+          description: Created
+  /api/v1/career/skills/{id}:
+    delete:
+      summary: Delete career skill
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deleted
+        '404':
+          description: Not found
+  /api/v1/health/weight:
+    get:
+      summary: List recent weight logs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Weight history
+    post:
+      summary: Record weight
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [weight_kg]
+              properties:
+                weight_kg:
+                  type: number
+                  format: double
+      responses:
+        '201':
+          description: Recorded
+  /api/v1/health/weight/latest:
+    get:
+      summary: Latest weight entry
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Latest weight
+        '404':
+          description: Not found
+  /api/v1/health/steps:
+    get:
+      summary: List recent step logs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Steps history
+    post:
+      summary: Record steps
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [steps]
+              properties:
+                steps:
+                  type: integer
+                  minimum: 1
+                  maximum: 200000
+      responses:
+        '201':
+          description: Recorded
+  /api/v1/health/steps/latest:
+    get:
+      summary: Latest steps entry
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Latest steps
+        '404':
+          description: Not found
+  /api/v1/health/sleep:
+    get:
+      summary: List recent sleep logs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Sleep history
+    post:
+      summary: Record sleep
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                duration_hours:
+                  type: number
+                  format: double
+                  minimum: 0
+                  exclusiveMinimum: true
+                  maximum: 24
+                duration_minutes:
+                  type: integer
+                  minimum: 1
+                  maximum: 1440
+      responses:
+        '201':
+          description: Recorded
+  /api/v1/health/sleep/latest:
+    get:
+      summary: Latest sleep entry
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Latest sleep
+        '404':
+          description: Not found
+  /api/v1/calendar/today:
+    get:
+      summary: Events for today
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Event list
+  /api/v1/calendar/events:
+    post:
+      summary: Create calendar event
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, starts_at]
+              properties:
+                title:
+                  type: string
+                starts_at:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Created
+  /api/v1/projects:
+    get:
+      summary: List active projects
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: sphere_id
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Project list
+    post:
+      summary: Create project
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, sphere_ids]
+              properties:
+                name:
+                  type: string
+                sphere_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                outcome:
+                  type: string
+                target_value:
+                  type: string
+                unit:
+                  type: string
+                target_date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Created
+  /api/v1/projects/{id}/tasks:
+    get:
+      summary: Tasks in project
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Task list
+  /api/v1/projects/{id}/archive:
+    post:
+      summary: Archive project
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Archived
+  /api/v1/settings:
+    get:
+      summary: User settings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Settings
+  /api/v1/settings/morning-review:
+    put:
+      summary: Update morning review time
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hour, minute]
+              properties:
+                hour:
+                  type: integer
+                minute:
+                  type: integer
+      responses:
+        '200':
+          description: Updated
+  /api/v1/settings/evening-review:
+    put:
+      summary: Update evening review time
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hour, minute]
+              properties:
+                hour:
+                  type: integer
+                minute:
+                  type: integer
+      responses:
+        '200':
+          description: Updated
+  /api/v1/settings/quiet-hours:
+    put:
+      summary: Update quiet hours
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [start_hour, start_minute, end_hour, end_minute]
+              properties:
+                start_hour:
+                  type: integer
+                start_minute:
+                  type: integer
+                end_hour:
+                  type: integer
+                end_minute:
+                  type: integer
+      responses:
+        '200':
+          description: Updated
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -1,0 +1,17 @@
+root = "."
+tmp_dir = "tmp"
+testdata_dir = "testdata"
+
+[build]
+  cmd = "go build -o ./tmp/lifeos ./cmd/lifeos"
+  bin = "./tmp/lifeos"
+  include_ext = ["go", "sql"]
+  exclude_dir = ["tmp", "bin", "backups", "deployments"]
+  delay = 300
+
+[run]
+  cmd = "./tmp/lifeos serve"
+  env_file = ".env"
+
+[log]
+  time = true

@@ -1,0 +1,53 @@
+# Binaries
+/bin/
+/dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+/vendor/
+*.test
+*.out
+coverage.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+credentials.json
+
+# Docker
+docker-data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Air
+tmp/
+
+# Logs
+*.log
+logs/
+
+# Local data
+/data/
+
+# Node
+node_modules/
+web/miniapp/dist/
+
+# Mini App
+web/miniapp/node_modules/
+web/miniapp/dist/

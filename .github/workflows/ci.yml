@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: lifeos
+          POSTGRES_PASSWORD: lifeos
+          POSTGRES_DB: lifeos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lifeos -d lifeos"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      LIFEOS_DATABASE_URL: postgres://lifeos:lifeos@localhost:5432/lifeos?sslmode=disable
+      LIFEOS_LOG_FORMAT: text
+      GOTOOLCHAIN: local
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+          cache: true
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.62.2
+
+      - name: Format check
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: |
+          go test ./... -count=1 -coverprofile=coverage.out
+          go tool cover -func=coverage.out | tee cover.txt
+          grep -E 'tasks/(domain|app)|projects/domain|ai/rulebased' cover.txt
+
+      - name: Integration test
+        run: go test ./internal/transport/http/api/... ./e2e/... -count=1 -tags=integration
+
+      - name: Migrate up
+        run: go run ./cmd/lifeos migrate up
+
+      - name: Integration test
+        run: go test ./internal/transport/http/api/... ./e2e/... -count=1 -tags=integration
+
+      - name: Build
+        run: go build -o bin/lifeos ./cmd/lifeos
+
+      - name: Migrate status
+        run: go run ./cmd/lifeos migrate status

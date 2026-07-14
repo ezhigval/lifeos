@@ -1,0 +1,37 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "targets": [
+        {
+          "expr": "sum(rate(promhttp_metric_handler_requests_total[5m]))",
+          "legendFormat": "metrics requests"
+        }
+      ],
+      "title": "HTTP metrics traffic",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "targets": [
+        {
+          "expr": "go_goroutines",
+          "legendFormat": "goroutines"
+        }
+      ],
+      "title": "Go runtime",
+      "type": "timeseries"
+    }
+  ],
+  "schemaVersion": 39,
+  "title": "LifeOS Overview",
+  "uid": "lifeos-overview",
+  "version": 1
+}
