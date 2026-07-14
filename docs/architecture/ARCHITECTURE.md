@@ -336,8 +336,11 @@ Webhook `/webhook/telegram` — optional (см. `LIFEOS_TELEGRAM_MODE=webhook`).
 ```bash
 docker compose up                                    # app + postgres
 docker compose --profile observability up            # + prometheus + grafana
+make observability-up                                # same profile: prometheus, grafana, jaeger
 docker compose --profile cache up                    # + redis (Phase 2)
 ```
+
+**Metrics:** Chi mounts `GET /metrics` (`promhttp`); Prometheus scrape target is `app:8080` in `deployments/prometheus/prometheus.yml`. Tracing via OTel is optional (`LIFEOS_OTEL_ENABLED`).
 
 ### Deferred from MVP default compose
 

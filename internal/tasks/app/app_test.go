@@ -112,7 +112,18 @@ func (s *fakeStore) Update(_ context.Context, task domain.Task) error {
 	return nil
 }
 
-func (s *fakeStore) FindOpenByTitle(_ context.Context, _ ids.UserID, _ string) (domain.Task, error) {
+func (s *fakeStore) FindOpenByTitle(_ context.Context, userID ids.UserID, title string) (domain.Task, error) {
+	for _, task := range s.tasks {
+		if task.UserID != userID || task.DeletedAt != nil {
+			continue
+		}
+		if task.Status != domain.StatusTodo && task.Status != domain.StatusInProgress {
+			continue
+		}
+		if task.Title == title {
+			return task, nil
+		}
+	}
 	return domain.Task{}, domain.ErrNotFound
 }
 

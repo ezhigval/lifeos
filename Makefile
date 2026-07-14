@@ -1,4 +1,4 @@
-.PHONY: dev dev-air build test lint openapi-check migrate-up migrate-down migrate-status docker-up docker-down tidy backup restore observability-up miniapp-dev miniapp-build tunnel stack-up verify-webapp-auth
+.PHONY: dev dev-air build test lint openapi-check coverage-check migrate-up migrate-down migrate-status docker-up docker-down tidy backup restore observability-up miniapp-dev miniapp-build tunnel stack-up verify-webapp-auth
 
 BINARY := lifeos
 MAIN := ./cmd/lifeos
@@ -19,6 +19,9 @@ build:
 test:
 	GOTOOLCHAIN=local go test ./... -count=1 -coverprofile=coverage.out
 	@GOTOOLCHAIN=local go tool cover -func=coverage.out | tail -1
+
+coverage-check:
+	./scripts/check-coverage.sh coverage.out
 
 test-integration:
 	GOTOOLCHAIN=local go test ./internal/transport/http/api/... ./e2e/... -count=1 -tags=integration
@@ -60,7 +63,7 @@ docker-down:
 tidy:
 	go mod tidy
 
-ci: tidy lint openapi-check test build
+ci: tidy lint openapi-check test coverage-check build
 
 miniapp-dev:
 	cd web/miniapp && npm run dev

@@ -65,7 +65,10 @@ Local Mac, Docker Compose: **app + postgres** (default).
 ```bash
 docker compose -f deployments/docker-compose.yml up
 docker compose -f deployments/docker-compose.yml --profile observability up   # + prometheus, grafana, jaeger
+# or: make observability-up
 ```
+
+`GET /metrics` exposes Prometheus metrics on the app (scraped by `deployments/prometheus/prometheus.yml` → `app:8080`). OTel tracing is off by default (`LIFEOS_OTEL_ENABLED=false`).
 
 Telegram: **long polling** по умолчанию; webhook — опционально.
 
@@ -83,8 +86,10 @@ Telegram: **long polling** по умолчанию; webhook — опционал
 |--------|----------|
 | `make dev` | Запуск сервера |
 | `make test` | Unit-тесты + coverage |
+| `make coverage-check` | Gate: critical domain/app packages vs minima |
 | `make test-integration` | HTTP API + e2e |
 | `make lint` | golangci-lint |
 | `make migrate-up` | Goose migrations |
 | `make docker-up` | Compose build + start |
-| `make ci` | tidy + lint + test + build |
+| `make observability-up` | Prometheus + Grafana + Jaeger (compose profile) |
+| `make ci` | tidy + lint + test + coverage-check + build |

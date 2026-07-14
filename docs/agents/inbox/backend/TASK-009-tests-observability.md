@@ -1,7 +1,7 @@
 # TASK-009: Test coverage + observability debt (~20%)
 
 - **Agent:** backend
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P1
 - **Stage:** debt
 
@@ -29,7 +29,7 @@
 
 ## Acceptance
 
-- [ ] Measurable coverage lift on low packages
-- [ ] CI gate fails if critical packages drop too low
-- [ ] Report `docs/agents/reports/backend/TASK-009.md`
-- [ ] Commit + push
+- [x] Measurable coverage lift on low packages
+- [x] CI gate fails if critical packages drop too low
+- [x] Report `docs/agents/reports/backend/TASK-009.md`
+- [x] Commit + push
