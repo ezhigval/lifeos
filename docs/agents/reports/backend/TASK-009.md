@@ -2,7 +2,7 @@
 
 - **Agent:** backend
 - **Status:** DONE
-- **Branch / commits:** `cursor/docs-sync-orchestration-fe85` (see git SHAs below)
+- **Branch / commits:** `cursor/docs-sync-orchestration-fe85` @ `bbcd467` (`bbcd467daffd99c53ff93dff858df9c65e9d5a74`)
 
 ## Summary
 
