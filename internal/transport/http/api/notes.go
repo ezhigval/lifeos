@@ -104,6 +104,69 @@ func (rt *Router) createNote(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, noteToJSON(dto))
 }
 
+func (rt *Router) getNote(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.GetNote == nil {
+		writeError(w, http.StatusNotImplemented, "get note is not configured")
+		return
+	}
+	noteID, err := ids.ParseNoteID(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid note id")
+		return
+	}
+	dto, err := rt.deps.GetNote.Execute(r.Context(), userID, noteID)
+	if errors.Is(err, knowledgeapp.ErrNoteNotFound) {
+		writeError(w, http.StatusNotFound, "note not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, noteToJSON(dto))
+}
+
+type updateNoteRequest struct {
+	Body string `json:"body"`
+}
+
+func (rt *Router) updateNote(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.UpdateNote == nil {
+		writeError(w, http.StatusNotImplemented, "update note is not configured")
+		return
+	}
+	noteID, err := ids.ParseNoteID(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid note id")
+		return
+	}
+	var req updateNoteRequest
+	if err := decodeJSON(r, &req); err != nil || strings.TrimSpace(req.Body) == "" {
+		writeError(w, http.StatusBadRequest, "body is required")
+		return
+	}
+	dto, err := rt.deps.UpdateNote.Execute(r.Context(), userID, noteID, req.Body)
+	if errors.Is(err, knowledgeapp.ErrNoteNotFound) {
+		writeError(w, http.StatusNotFound, "note not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, noteToJSON(dto))
+}
+
 func (rt *Router) deleteNote(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {

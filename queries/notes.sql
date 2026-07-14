@@ -2,6 +2,17 @@
 INSERT INTO notes (id, user_id, body, tags, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6);
 
+-- name: GetNoteByID :one
+SELECT id, user_id, body, tags, created_at, updated_at
+FROM notes
+WHERE id = $1 AND user_id = $2;
+
+-- name: UpdateNoteBody :one
+UPDATE notes
+SET body = $3, updated_at = $4
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, body, tags, created_at, updated_at;
+
 -- name: ListRecentNotesByUser :many
 SELECT id, user_id, body, tags, created_at, updated_at
 FROM notes

@@ -138,13 +138,26 @@ export const api = {
   completeTask: (id: string) =>
     request<{ id: string }>(`/api/v1/tasks/${id}/complete`, { method: 'POST' }),
 
+  reopenTask: (id: string) =>
+    request<import('@/api/types').Task>(`/api/v1/tasks/${id}/reopen`, { method: 'POST' }),
+
   getTask: (id: string) => request<import('@/api/types').Task>(`/api/v1/tasks/${id}`),
+
+  tasksDueBetween: (from: string, to: string) =>
+    request<{ tasks: import('@/api/types').Task[] }>(
+      `/api/v1/tasks?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    ),
 
   updateTask: (id: string, body: {
     title?: string
     priority?: string
+    kind?: 'task' | 'reminder' | 'meeting'
     due_date?: string
     clear_due_date?: boolean
+    address?: string
+    clear_address?: boolean
+    note_id?: string
+    clear_note_id?: boolean
     description?: string
     clear_description?: boolean
     duration_minutes?: number
@@ -166,7 +179,12 @@ export const api = {
   createTask: (body: {
     title: string
     priority?: string
+    kind?: 'task' | 'reminder' | 'meeting'
     due_date?: string
+    address?: string
+    note_id?: string
+    clear_address?: boolean
+    clear_note_id?: boolean
     project_ids?: string[]
   }) =>
     request<import('@/api/types').Task>('/api/v1/tasks', {
@@ -294,22 +312,59 @@ export const api = {
       body: JSON.stringify({ body, tags: tags ?? [] }),
     }),
 
+  getNote: (id: string) =>
+    request<import('@/api/types').Note>(`/api/v1/notes/${id}`),
+
+  updateNote: (id: string, body: { body?: string; tags?: string[] }) =>
+    request<import('@/api/types').Note>(`/api/v1/notes/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
   deleteNote: (id: string) =>
     request<import('@/api/types').Note>(`/api/v1/notes/${id}`, { method: 'DELETE' }),
 
   debts: () => request<{ debts: import('@/api/types').Debt[] }>('/api/v1/finance/debts'),
 
-  createDebt: (creditor: string, amount_cents: number, due_date?: string) =>
+  createDebt: (
+    creditor: string,
+    amount_cents: number,
+    due_date?: string,
+    opts?: {
+      installment_cents?: number
+      installment_interval?: 'none' | 'weekly' | 'monthly'
+      next_payment_date?: string
+    },
+  ) =>
     request<import('@/api/types').Debt>('/api/v1/finance/debts', {
       method: 'POST',
-      body: JSON.stringify({ creditor, amount_cents, due_date }),
+      body: JSON.stringify({ creditor, amount_cents, due_date, ...opts }),
     }),
 
-  payDebt: (id: string, amount_cents: number) =>
+  payDebt: (id: string, amount_cents: number, regular?: boolean) =>
     request(`/api/v1/finance/debts/${id}/pay`, {
       method: 'POST',
-      body: JSON.stringify({ amount_cents }),
+      body: JSON.stringify({ amount_cents, ...(regular != null ? { regular } : {}) }),
     }),
+
+  financePlan: () =>
+    request<import('@/api/types').FinancePlan>('/api/v1/finance/plan'),
+
+  createFinancePlan: (body: {
+    kind: 'income' | 'expense'
+    title: string
+    amount_cents: number
+    currency?: string
+    interval: string
+    next_date: string
+  }) =>
+    request<import('@/api/types').FinancePlanItem>('/api/v1/finance/plan', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  deleteFinancePlan: (id: string) =>
+    request<void>(`/api/v1/finance/plan/${id}`, { method: 'DELETE' }),
 
   reminders: () =>
     request<{ reminders: import('@/api/types').Reminder[] }>('/api/v1/reminders'),

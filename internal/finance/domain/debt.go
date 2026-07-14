@@ -28,14 +28,17 @@ func (s DebtStatus) Valid() bool {
 }
 
 type Debt struct {
-	ID          ids.DebtID
-	UserID      ids.UserID
-	Creditor    string
-	AmountCents int64
-	PaidCents   int64
-	DueDate     *time.Time
-	Status      DebtStatus
-	CreatedAt   time.Time
+	ID                   ids.DebtID
+	UserID               ids.UserID
+	Creditor             string
+	AmountCents          int64
+	PaidCents            int64
+	DueDate              *time.Time
+	InstallmentCents     int64
+	InstallmentInterval  string // none|weekly|monthly
+	NextPaymentDate      *time.Time
+	Status               DebtStatus
+	CreatedAt            time.Time
 }
 
 func (d Debt) RemainingCents() int64 {
@@ -50,14 +53,16 @@ func NewDebt(userID ids.UserID, creditor string, amountCents int64, dueDate *tim
 		return Debt{}, ErrInvalidAmount
 	}
 	return Debt{
-		ID:          ids.NewDebtID(),
-		UserID:      userID,
-		Creditor:    creditor,
-		AmountCents: amountCents,
-		PaidCents:   0,
-		DueDate:     dueDate,
-		Status:      DebtStatusOpen,
-		CreatedAt:   now.UTC(),
+		ID:                  ids.NewDebtID(),
+		UserID:              userID,
+		Creditor:            creditor,
+		AmountCents:         amountCents,
+		PaidCents:           0,
+		DueDate:             dueDate,
+		InstallmentCents:    0,
+		InstallmentInterval: "none",
+		Status:              DebtStatusOpen,
+		CreatedAt:           now.UTC(),
 	}, nil
 }
 
@@ -76,4 +81,21 @@ func (d *Debt) Pay(amountCents int64) error {
 		d.Status = DebtStatusPaid
 	}
 	return nil
+}
+
+// AdvanceInstallment moves next_payment_date forward after a regular payment.
+func (d *Debt) AdvanceInstallment(now time.Time) {
+	if d.NextPaymentDate == nil || d.InstallmentInterval == "none" || d.InstallmentCents <= 0 {
+		return
+	}
+	base := *d.NextPaymentDate
+	switch d.InstallmentInterval {
+	case "weekly":
+		n := base.AddDate(0, 0, 7)
+		d.NextPaymentDate = &n
+	case "monthly":
+		n := base.AddDate(0, 1, 0)
+		d.NextPaymentDate = &n
+	}
+	_ = now
 }

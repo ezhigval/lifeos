@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { ArrowDownLeft, ArrowUpRight, Plus } from 'lucide-react'
 import { api } from '@/api/client'
 import type { FinanceOverview } from '@/api/types'
 import { FinanceRing } from '@/components/finance/FinanceRing'
@@ -8,9 +9,12 @@ import { FinanceLegend } from '@/components/finance/FinanceLegend'
 import { PeriodPicker } from '@/components/finance/PeriodPicker'
 import { TransactionSheet } from '@/components/finance/TransactionSheet'
 import { Button } from '@/components/ui/Button'
+import { QueryError } from '@/components/ui/QueryError'
+import { Sheet } from '@/components/ui/Sheet'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { ruApiError } from '@/lib/apiError'
-import { formatMoneyPlain } from '@/lib/money'
+import { formatMoneyPlain, parseMoneyInput } from '@/lib/money'
+import { cn } from '@/lib/cn'
 import {
   currentPeriod,
   parsePeriodKey,
@@ -30,8 +34,19 @@ type Props = {
 
 export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Props) {
   const [sheet, setSheet] = useState<'income' | 'expense' | null>(null)
+  const [planSheet, setPlanSheet] = useState<'income' | 'expense' | null>(null)
+  const [planTitle, setPlanTitle] = useState('')
+  const [planAmount, setPlanAmount] = useState('')
+  const [planInterval, setPlanInterval] = useState('monthly')
+  const [planNextDate, setPlanNextDate] = useState(() => toDateKey(new Date()))
+  const [planError, setPlanError] = useState<string | null>(null)
   const [txError, setTxError] = useState<string | null>(null)
   const queryClient = useQueryClient()
+
+  const { data: plan, isLoading: planLoading, isError: planErrorQ, refetch: refetchPlan } = useQuery({
+    queryKey: ['finance-plan'],
+    queryFn: () => api.financePlan(),
+  })
 
   const mutation = useMutation({
     mutationFn: async (data: { type: 'income' | 'expense'; amount: number; extra?: string }) => {
@@ -56,6 +71,42 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
     setTxError(null)
     setSheet(type)
   }
+
+  const openPlanSheet = (type: 'income' | 'expense') => {
+    setPlanError(null)
+    setPlanTitle('')
+    setPlanAmount('')
+    setPlanInterval('monthly')
+    setPlanNextDate(toDateKey(new Date()))
+    setPlanSheet(type)
+  }
+
+  const createPlan = useMutation({
+    mutationFn: () => {
+      const cents = parseMoneyInput(planAmount)
+      if (!cents || !planSheet) throw new Error('amount required')
+      return api.createFinancePlan({
+        kind: planSheet,
+        title: planTitle.trim(),
+        amount_cents: cents,
+        currency: plan?.currency || overview?.currency || 'RUB',
+        interval: planInterval,
+        next_date: planNextDate,
+      })
+    },
+    onSuccess: () => {
+      hapticSuccess()
+      setPlanError(null)
+      void queryClient.invalidateQueries({ queryKey: ['finance-plan'] })
+      setPlanSheet(null)
+    },
+    onError: (err) => {
+      hapticError()
+      setPlanError(ruApiError(err, 'Не удалось добавить в план'))
+    },
+  })
+
+  const planItems = (plan?.items ?? []).slice(0, 4)
 
   return (
     <section className="rounded-3xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] p-4">
@@ -121,6 +172,16 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
               expenseCents={overview.expense_cents}
             />
           </div>
+
+          <FinancePlanBlock
+            plan={plan}
+            isLoading={planLoading}
+            isError={planErrorQ}
+            onRetry={() => void refetchPlan()}
+            items={planItems}
+            onAddIncome={() => openPlanSheet('income')}
+            onAddExpense={() => openPlanSheet('expense')}
+          />
         </>
       ) : null}
 
@@ -153,8 +214,189 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
           mutation.mutate({ type: sheet, amount, extra })
         }}
       />
+
+      <Sheet
+        open={planSheet !== null}
+        onClose={() => {
+          setPlanSheet(null)
+          setPlanError(null)
+        }}
+        title={planSheet === 'income' ? 'Плановый доход' : 'Плановый расход'}
+      >
+        <input
+          value={planTitle}
+          onChange={(e) => {
+            setPlanTitle(e.target.value)
+            if (planError) setPlanError(null)
+          }}
+          placeholder={planSheet === 'income' ? 'Зарплата' : 'Аренда'}
+          className="mb-3 w-full rounded-2xl bg-[var(--tg-theme-bg-color,#0f172a)] px-4 py-3 outline-none"
+        />
+        <input
+          value={planAmount}
+          onChange={(e) => {
+            setPlanAmount(e.target.value)
+            if (planError) setPlanError(null)
+          }}
+          inputMode="decimal"
+          placeholder="Сумма, ₽"
+          className="mb-3 w-full rounded-2xl bg-[var(--tg-theme-bg-color,#0f172a)] px-4 py-3 outline-none"
+        />
+        <p className="mb-2 text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">Интервал</p>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {['weekly', 'monthly', 'once'].map((iv) => (
+            <button
+              key={iv}
+              type="button"
+              onClick={() => setPlanInterval(iv)}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-sm',
+                planInterval === iv
+                  ? 'bg-[var(--tg-theme-button-color,#22c55e)] text-[var(--tg-theme-button-text-color,#fff)]'
+                  : 'bg-[var(--tg-theme-bg-color,#0f172a)] text-[var(--tg-theme-hint-color,#94a3b8)]',
+              )}
+            >
+              {iv === 'weekly' ? 'еженед.' : iv === 'monthly' ? 'ежемес.' : 'разово'}
+            </button>
+          ))}
+        </div>
+        <label className="mb-3 block text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">
+          Следующая дата
+          <input
+            type="date"
+            value={planNextDate}
+            onChange={(e) => setPlanNextDate(e.target.value)}
+            className="mt-1 w-full rounded-2xl bg-[var(--tg-theme-bg-color,#0f172a)] px-4 py-3 outline-none"
+          />
+        </label>
+        {planError && (
+          <p className="mb-3 text-sm text-rose-400" role="alert">
+            {planError}
+          </p>
+        )}
+        <Button
+          className="w-full"
+          disabled={!planTitle.trim() || !parseMoneyInput(planAmount) || createPlan.isPending}
+          onClick={() => createPlan.mutate()}
+        >
+          Добавить
+        </Button>
+      </Sheet>
     </section>
   )
+}
+
+function FinancePlanBlock({
+  plan,
+  isLoading,
+  isError,
+  onRetry,
+  items,
+  onAddIncome,
+  onAddExpense,
+}: {
+  plan: import('@/api/types').FinancePlan | undefined
+  isLoading: boolean
+  isError: boolean
+  onRetry: () => void
+  items: import('@/api/types').FinancePlanItem[]
+  onAddIncome: () => void
+  onAddExpense: () => void
+}) {
+  const currency = plan?.currency || 'RUB'
+
+  return (
+    <div className="mt-4 rounded-2xl bg-[var(--tg-theme-bg-color,#0f172a)]/40 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-medium">План</h3>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={onAddIncome}
+            className="rounded-full p-1.5 text-emerald-400"
+            aria-label="Добавить доход"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+      </div>
+
+      {isLoading && <Skeleton className="h-10 w-full" />}
+
+      {isError && (
+        <QueryError message="Не удалось загрузить план" onRetry={onRetry} />
+      )}
+
+      {!isLoading && !isError && plan && (
+        <>
+          <div className="mb-2 grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span className="text-emerald-400">+ </span>
+              {formatMoneyPlain(plan.planned_income, currency)}
+            </div>
+            <div>
+              <span className="text-rose-400">− </span>
+              {formatMoneyPlain(plan.planned_expense, currency)}
+            </div>
+          </div>
+
+          {items.length > 0 ? (
+            <ul className="space-y-1.5 text-sm">
+              {items.map((item) => (
+                <li key={item.id} className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate text-[var(--tg-theme-hint-color,#94a3b8)]">
+                    {item.title}
+                  </span>
+                  <span className="shrink-0 tabular-nums">
+                    <span className={item.kind === 'income' ? 'text-emerald-400' : 'text-rose-400'}>
+                      {item.kind === 'income' ? '+' : '−'}
+                      {formatMoneyPlain(item.amount_cents, item.currency || currency)}
+                    </span>
+                    <span className="ml-1 text-xs text-[var(--tg-theme-hint-color,#64748b)]">
+                      {formatPlanDate(item.next_date)}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">
+              Добавь плановый доход или расход
+            </p>
+          )}
+
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" variant="secondary" className="flex-1" onClick={onAddIncome}>
+              + Доход
+            </Button>
+            <Button size="sm" variant="secondary" className="flex-1" onClick={onAddExpense}>
+              − Расход
+            </Button>
+          </div>
+
+          <Link
+            to="/more/debts"
+            className="mt-2 block text-center text-xs text-[var(--tg-theme-link-color,#22c55e)]"
+          >
+            Платежи по долгам →
+          </Link>
+        </>
+      )}
+    </div>
+  )
+}
+
+function toDateKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function formatPlanDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
 }
 
 export function useFinancePeriod() {

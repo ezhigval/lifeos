@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -37,6 +38,50 @@ func (r *Repository) Save(ctx context.Context, note domain.Note) error {
 		CreatedAt: pgconv.TimestamptzValue(note.CreatedAt),
 		UpdatedAt: pgconv.TimestamptzValue(note.UpdatedAt),
 	})
+}
+
+func (r *Repository) GetByID(ctx context.Context, userID ids.UserID, noteID ids.NoteID) (domain.Note, error) {
+	row, err := r.queries(ctx).GetNoteByID(ctx, db.GetNoteByIDParams{
+		ID:     pgconv.NoteID(noteID),
+		UserID: pgconv.UserID(userID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Note{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.Note{}, fmt.Errorf("get note: %w", err)
+	}
+	return domain.Note{
+		ID:        pgconv.FromNoteID(row.ID),
+		UserID:    pgconv.FromUserID(row.UserID),
+		Body:      row.Body,
+		Tags:      row.Tags,
+		CreatedAt: row.CreatedAt.Time,
+		UpdatedAt: row.UpdatedAt.Time,
+	}, nil
+}
+
+func (r *Repository) UpdateBody(ctx context.Context, userID ids.UserID, noteID ids.NoteID, body string, now time.Time) (domain.Note, error) {
+	row, err := r.queries(ctx).UpdateNoteBody(ctx, db.UpdateNoteBodyParams{
+		ID:        pgconv.NoteID(noteID),
+		UserID:    pgconv.UserID(userID),
+		Body:      body,
+		UpdatedAt: pgconv.TimestamptzValue(now),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Note{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.Note{}, fmt.Errorf("update note: %w", err)
+	}
+	return domain.Note{
+		ID:        pgconv.FromNoteID(row.ID),
+		UserID:    pgconv.FromUserID(row.UserID),
+		Body:      row.Body,
+		Tags:      row.Tags,
+		CreatedAt: row.CreatedAt.Time,
+		UpdatedAt: row.UpdatedAt.Time,
+	}, nil
 }
 
 func (r *Repository) ListRecent(ctx context.Context, userID ids.UserID, limit int32) ([]domain.Note, error) {

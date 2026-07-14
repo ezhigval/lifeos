@@ -23,6 +23,12 @@ const PRIORITIES = [
   { value: 'low', label: 'Низкий' },
 ] as const
 
+const KINDS = [
+  { value: 'task' as const, label: 'Задача' },
+  { value: 'reminder' as const, label: 'Напоминание' },
+  { value: 'meeting' as const, label: 'Встреча' },
+]
+
 export function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>()
   const navigate = useNavigate()
@@ -35,20 +41,36 @@ export function TaskDetailPage() {
     enabled: Boolean(taskId),
   })
 
+  const { data: linkedNote } = useQuery({
+    queryKey: ['note', data?.note_id],
+    queryFn: () => api.getNote(data!.note_id!),
+    enabled: Boolean(data?.note_id),
+  })
+
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState('medium')
+  const [kind, setKind] = useState<'task' | 'reminder' | 'meeting'>('task')
   const [dueDate, setDueDate] = useState('')
+  const [address, setAddress] = useState('')
   const [description, setDescription] = useState('')
+  const [noteText, setNoteText] = useState('')
   const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
     if (!data) return
     setTitle(data.title)
     setPriority(data.priority || 'medium')
+    setKind(data.kind || 'task')
     setDueDate(data.due_date ?? '')
+    setAddress(data.address ?? '')
     setDescription(data.description ?? '')
+    setNoteText('')
     setDirty(false)
   }, [data])
+
+  useEffect(() => {
+    if (linkedNote) setNoteText(linkedNote.body)
+  }, [linkedNote])
 
   const invalidateLists = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -58,13 +80,29 @@ export function TaskDetailPage() {
   }
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const desc = description.trim()
-      // EditTask API: null fields are no-ops; clearing needs clear_* flags.
+      const addr = address.trim()
+      const note = noteText.trim()
+      let noteId = data?.note_id
+
+      if (note) {
+        if (noteId) {
+          await api.updateNote(noteId, { body: note })
+        } else {
+          const created = await api.createNote(note)
+          noteId = created.id
+        }
+      }
+
       return api.updateTask(taskId!, {
         title: title.trim(),
         priority,
+        kind,
         ...(dueDate ? { due_date: dueDate } : { clear_due_date: true }),
+        ...(addr ? { address: addr } : { clear_address: true }),
+        ...(note && noteId ? { note_id: noteId } : {}),
+        ...(!note && data?.note_id ? { clear_note_id: true } : {}),
         ...(desc ? { description: desc } : { clear_description: true }),
       })
     },
@@ -73,6 +111,9 @@ export function TaskDetailPage() {
       setDirty(false)
       setActionError(null)
       invalidateLists()
+      if (data?.note_id || noteText.trim()) {
+        queryClient.invalidateQueries({ queryKey: ['note'] })
+      }
     },
     onError: (err) => {
       hapticError()
@@ -91,6 +132,19 @@ export function TaskDetailPage() {
     onError: (err) => {
       hapticError()
       setActionError(ruApiError(err, 'Не удалось выполнить'))
+    },
+  })
+
+  const reopen = useMutation({
+    mutationFn: () => api.reopenTask(taskId!),
+    onSuccess: () => {
+      hapticSuccess()
+      setActionError(null)
+      invalidateLists()
+    },
+    onError: (err) => {
+      hapticError()
+      setActionError(ruApiError(err, 'Не удалось вернуть задачу'))
     },
   })
 
@@ -134,6 +188,11 @@ export function TaskDetailPage() {
     if (ok) remove.mutate()
   }
 
+  const markDirty = () => {
+    setDirty(true)
+    if (actionError) setActionError(null)
+  }
+
   if (isLoading) {
     return (
       <>
@@ -159,6 +218,7 @@ export function TaskDetailPage() {
 
   const done = data.status === 'done'
   const archived = data.status === 'cancelled'
+  const readOnly = done || archived
 
   return (
     <>
@@ -179,15 +239,44 @@ export function TaskDetailPage() {
           </span>
           <input
             value={title}
-            disabled={done || archived}
+            disabled={readOnly}
             onChange={(e) => {
               setTitle(e.target.value)
-              setDirty(true)
-              if (actionError) setActionError(null)
+              markDirty()
             }}
             className="w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none disabled:opacity-60"
           />
         </label>
+
+        <div>
+          <p className="mb-2 text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Тип</p>
+          <div className="flex flex-wrap gap-2">
+            {KINDS.map((k) => (
+              <button
+                key={k.value}
+                type="button"
+                disabled={readOnly}
+                onClick={() => {
+                  setKind(k.value)
+                  markDirty()
+                }}
+                className={cn(
+                  'rounded-full px-3 py-1.5 text-sm disabled:opacity-50',
+                  kind === k.value
+                    ? 'bg-[var(--tg-theme-button-color,#22c55e)] text-[var(--tg-theme-button-text-color,#fff)]'
+                    : 'bg-[var(--tg-theme-secondary-bg-color,#1e293b)] text-[var(--tg-theme-hint-color,#94a3b8)]',
+                )}
+              >
+                {k.label}
+              </button>
+            ))}
+          </div>
+          {kind === 'reminder' && (
+            <p className="mt-2 text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">
+              Напоминание — push-уведомление в указанное время
+            </p>
+          )}
+        </div>
 
         <div>
           <p className="mb-2 text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Приоритет</p>
@@ -196,11 +285,10 @@ export function TaskDetailPage() {
               <button
                 key={p.value}
                 type="button"
-                disabled={done || archived}
+                disabled={readOnly}
                 onClick={() => {
                   setPriority(p.value)
-                  setDirty(true)
-                  if (actionError) setActionError(null)
+                  markDirty()
                 }}
                 className={cn(
                   'rounded-full px-3 py-1.5 text-sm disabled:opacity-50',
@@ -222,12 +310,27 @@ export function TaskDetailPage() {
           <input
             type="date"
             value={dueDate}
-            disabled={done || archived}
+            disabled={readOnly}
             onChange={(e) => {
               setDueDate(e.target.value)
-              setDirty(true)
-              if (actionError) setActionError(null)
+              markDirty()
             }}
+            className="w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none disabled:opacity-60"
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1.5 block text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">
+            Адрес
+          </span>
+          <input
+            value={address}
+            disabled={readOnly}
+            onChange={(e) => {
+              setAddress(e.target.value)
+              markDirty()
+            }}
+            placeholder="Опционально"
             className="w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none disabled:opacity-60"
           />
         </label>
@@ -238,19 +341,35 @@ export function TaskDetailPage() {
           </span>
           <textarea
             value={description}
-            disabled={done || archived}
+            disabled={readOnly}
             rows={3}
             onChange={(e) => {
               setDescription(e.target.value)
-              setDirty(true)
-              if (actionError) setActionError(null)
+              markDirty()
             }}
             placeholder="Опционально"
             className="w-full resize-none rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none disabled:opacity-60"
           />
         </label>
 
-        {!done && !archived && (
+        <label className="block">
+          <span className="mb-1.5 block text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">
+            Заметка
+          </span>
+          <textarea
+            value={noteText}
+            disabled={readOnly}
+            rows={4}
+            onChange={(e) => {
+              setNoteText(e.target.value)
+              markDirty()
+            }}
+            placeholder="Текст заметки, привязанной к задаче"
+            className="w-full resize-none rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none disabled:opacity-60"
+          />
+        </label>
+
+        {!readOnly && (
           <div className="space-y-2">
             <Button
               className="w-full"
@@ -268,6 +387,17 @@ export function TaskDetailPage() {
               Выполнить
             </Button>
           </div>
+        )}
+
+        {done && (
+          <Button
+            className="w-full"
+            variant="secondary"
+            disabled={reopen.isPending}
+            onClick={() => reopen.mutate()}
+          >
+            Вернуть в активные
+          </Button>
         )}
 
         <div className="space-y-2 border-t border-white/5 pt-4">

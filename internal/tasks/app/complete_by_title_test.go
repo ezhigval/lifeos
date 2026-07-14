@@ -81,6 +81,10 @@ func (s *titleLookupStore) ListOpenDueOnOrBefore(context.Context, ids.UserID, ti
 	return nil, nil
 }
 
+func (s *titleLookupStore) ListOpenDueBetween(context.Context, ids.UserID, time.Time, time.Time) ([]domain.Task, error) {
+	return nil, nil
+}
+
 func (s *titleLookupStore) ListByTag(context.Context, ids.UserID, string) ([]domain.Task, error) {
 	return nil, nil
 }

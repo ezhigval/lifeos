@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FinanceCard, useFinancePeriod } from '@/components/finance/FinanceCard'
 import { Header } from '@/components/layout/Header'
 import { UpcomingTasks } from '@/components/tasks/UpcomingTasks'
+import { HomeHabits } from '@/components/habits/HomeHabits'
 import { QueryError } from '@/components/ui/QueryError'
 import { api, enrichFinanceCategories } from '@/api/client'
 import { periodKey } from '@/lib/periods'
@@ -39,6 +40,7 @@ export function HomePage() {
       />
       <div className="space-y-6 pb-4">
         <UpcomingTasks />
+        <HomeHabits />
         <div className="px-4">
           {isError ? (
             <QueryError message="Не удалось загрузить финансы" onRetry={() => void refetch()} />

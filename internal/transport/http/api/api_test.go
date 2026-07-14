@@ -104,6 +104,10 @@ func (s *fakeTaskStore) ListByDueDate(_ context.Context, userID ids.UserID, dueD
 	return out, nil
 }
 
+func (s *fakeTaskStore) ListOpenDueBetween(context.Context, ids.UserID, time.Time, time.Time) ([]taskdomain.Task, error) {
+	return nil, nil
+}
+
 func (s *fakeTaskStore) ListOpenDueOnOrBefore(_ context.Context, userID ids.UserID, dueDate time.Time) ([]taskdomain.Task, error) {
 	var out []taskdomain.Task
 	for _, task := range s.tasks {
@@ -260,6 +264,7 @@ func (s *fakeProjectStore) AllExist(_ context.Context, userID ids.UserID, projec
 
 type fakeDebtStore struct {
 	debts map[ids.DebtID]financedomain.Debt
+	plans map[ids.PlannedCashflowID]financedomain.PlannedCashflow
 }
 
 func newFakeDebtStore() *fakeDebtStore {
@@ -303,6 +308,33 @@ func (s *fakeDebtStore) UpdateDebt(_ context.Context, debt financedomain.Debt) e
 	return nil
 }
 
+func (s *fakeDebtStore) SavePlanned(_ context.Context, item financedomain.PlannedCashflow) error {
+	if s.plans == nil {
+		s.plans = make(map[ids.PlannedCashflowID]financedomain.PlannedCashflow)
+	}
+	s.plans[item.ID] = item
+	return nil
+}
+
+func (s *fakeDebtStore) ListPlanned(_ context.Context, userID ids.UserID) ([]financedomain.PlannedCashflow, error) {
+	var out []financedomain.PlannedCashflow
+	for _, p := range s.plans {
+		if p.UserID == userID {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
+func (s *fakeDebtStore) DeletePlanned(_ context.Context, userID ids.UserID, id ids.PlannedCashflowID) error {
+	p, ok := s.plans[id]
+	if !ok || p.UserID != userID {
+		return financedomain.ErrPlanNotFound
+	}
+	delete(s.plans, id)
+	return nil
+}
+
 type fakeNoteStore struct {
 	notes []knowledgedomain.Note
 }
@@ -310,6 +342,27 @@ type fakeNoteStore struct {
 func (s *fakeNoteStore) Save(_ context.Context, note knowledgedomain.Note) error {
 	s.notes = append(s.notes, note)
 	return nil
+}
+
+func (s *fakeNoteStore) GetByID(_ context.Context, userID ids.UserID, noteID ids.NoteID) (knowledgedomain.Note, error) {
+	for _, n := range s.notes {
+		if n.ID == noteID && n.UserID == userID {
+			return n, nil
+		}
+	}
+	return knowledgedomain.Note{}, knowledgedomain.ErrNotFound
+}
+
+func (s *fakeNoteStore) UpdateBody(_ context.Context, userID ids.UserID, noteID ids.NoteID, body string, now time.Time) (knowledgedomain.Note, error) {
+	for i, n := range s.notes {
+		if n.ID == noteID && n.UserID == userID {
+			n.Body = body
+			n.UpdatedAt = now
+			s.notes[i] = n
+			return n, nil
+		}
+	}
+	return knowledgedomain.Note{}, knowledgedomain.ErrNotFound
 }
 
 func (s *fakeNoteStore) ListRecent(_ context.Context, userID ids.UserID, limit int32) ([]knowledgedomain.Note, error) {
@@ -876,9 +929,14 @@ func newTestEnv(t *testing.T) testEnv {
 		CreateDebt:       financeapp.NewCreateDebt(debtStore, fakeEvents{}, fakeTx{}),
 		ListDebts:        financeapp.NewListDebts(debtStore),
 		PayDebt:          financeapp.NewPayDebt(debtStore, fakeEvents{}, fakeTx{}),
+		ListFinancePlan:  financeapp.NewListFinancePlan(debtStore, debtStore),
+		CreatePlanned:    financeapp.NewCreatePlannedCashflow(debtStore, fakeEvents{}, fakeTx{}),
+		DeletePlanned:    financeapp.NewDeletePlannedCashflow(debtStore),
 		CreateNote:       knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
 		ListNotes:        knowledgeapp.NewListNotes(noteStore),
 		SearchNotes:      knowledgeapp.NewSearchNotes(noteStore),
+		GetNote:          knowledgeapp.NewGetNote(noteStore),
+		UpdateNote:       knowledgeapp.NewUpdateNote(noteStore),
 		DeleteNote:       knowledgeapp.NewDeleteNote(noteStore, fakeEvents{}, fakeTx{}),
 		CreateContact:    careerapp.NewCreateContact(contactStore, fakeEvents{}, fakeTx{}),
 		ListContacts:     careerapp.NewListContacts(contactStore),

@@ -31,6 +31,9 @@ type CreateTaskInput struct {
 	Title           string
 	Description     *string
 	Priority        domain.Priority
+	Kind            domain.Kind
+	Address         *string
+	NoteID          *ids.NoteID
 	DueDate         *time.Time
 	DurationMinutes *int
 	Tags            []string
@@ -72,6 +75,22 @@ func (uc *CreateTask) Execute(ctx context.Context, in CreateTaskInput) (TaskDTO,
 		task.DurationMinutes = &mins
 	}
 	task.Tags = tags
+	if in.Kind != "" {
+		if !in.Kind.Valid() {
+			return TaskDTO{}, domain.ErrInvalidKind
+		}
+		task.Kind = in.Kind
+	}
+	if in.Address != nil {
+		addr := strings.TrimSpace(*in.Address)
+		if addr != "" {
+			task.Address = &addr
+		}
+	}
+	if in.NoteID != nil && !in.NoteID.IsZero() {
+		id := *in.NoteID
+		task.NoteID = &id
+	}
 	if len(in.ProjectIDs) > 0 && uc.projects != nil {
 		ok, err := uc.projects.AllExist(ctx, in.UserID, in.ProjectIDs)
 		if err != nil {

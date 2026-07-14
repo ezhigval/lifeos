@@ -12,7 +12,6 @@ import { NotesPage } from '@/pages/NotesPage'
 import { HealthPage } from '@/pages/HealthPage'
 import { CareerPage } from '@/pages/CareerPage'
 import { DebtsPage } from '@/pages/DebtsPage'
-import { RemindersPage } from '@/pages/RemindersPage'
 
 export default function App() {
   return (
@@ -32,7 +31,7 @@ export default function App() {
         <Route path="more/health" element={<HealthPage />} />
         <Route path="more/career" element={<CareerPage />} />
         <Route path="more/debts" element={<DebtsPage />} />
-        <Route path="more/reminders" element={<RemindersPage />} />
+        <Route path="more/reminders" element={<Navigate to="/more/calendar" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

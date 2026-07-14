@@ -37,6 +37,10 @@ func DebtID(id ids.DebtID) pgtype.UUID {
 	return UUID(id.UUID())
 }
 
+func PlannedCashflowID(id ids.PlannedCashflowID) pgtype.UUID {
+	return UUID(id.UUID())
+}
+
 func HabitID(id ids.HabitID) pgtype.UUID {
 	return UUID(id.UUID())
 }
@@ -51,6 +55,13 @@ func EventID(id ids.EventID) pgtype.UUID {
 
 func NoteID(id ids.NoteID) pgtype.UUID {
 	return UUID(id.UUID())
+}
+
+func NoteIDPtr(id *ids.NoteID) pgtype.UUID {
+	if id == nil || id.IsZero() {
+		return pgtype.UUID{}
+	}
+	return NoteID(*id)
 }
 
 func WeightLogID(id ids.WeightLogID) pgtype.UUID {
@@ -104,6 +115,25 @@ func FromDebtID(v pgtype.UUID) ids.DebtID {
 	return ids.DebtID(FromUUID(v))
 }
 
+func FromDebtIDPtr(v pgtype.UUID) *ids.DebtID {
+	if !v.Valid {
+		return nil
+	}
+	id := ids.DebtID(FromUUID(v))
+	return &id
+}
+
+func DebtIDPtr(id *ids.DebtID) pgtype.UUID {
+	if id == nil || id.IsZero() {
+		return pgtype.UUID{}
+	}
+	return DebtID(*id)
+}
+
+func FromPlannedCashflowID(v pgtype.UUID) ids.PlannedCashflowID {
+	return ids.PlannedCashflowID(FromUUID(v))
+}
+
 func FromHabitID(v pgtype.UUID) ids.HabitID {
 	return ids.HabitID(FromUUID(v))
 }
@@ -118,6 +148,14 @@ func FromEventID(v pgtype.UUID) ids.EventID {
 
 func FromNoteID(v pgtype.UUID) ids.NoteID {
 	return ids.NoteID(FromUUID(v))
+}
+
+func FromNoteIDPtr(v pgtype.UUID) *ids.NoteID {
+	if !v.Valid {
+		return nil
+	}
+	id := FromNoteID(v)
+	return &id
 }
 
 func FromWeightLogID(v pgtype.UUID) ids.WeightLogID {

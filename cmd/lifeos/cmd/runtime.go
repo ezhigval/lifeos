@@ -67,8 +67,10 @@ type runtime struct {
 	ensureUser     *identityapp.EnsureUserByTelegram
 
 	listToday        *tasksapp.ListTasksToday
+	listDueBetween   *tasksapp.ListTasksDueBetween
 	createTask       *tasksapp.CreateTask
 	completeTask     *tasksapp.CompleteTask
+	reopenTask       *tasksapp.ReopenTask
 	cancelTask       *tasksapp.CancelTask
 	editTask         *tasksapp.EditTask
 	rescheduleTask   *tasksapp.RescheduleTask
@@ -86,6 +88,9 @@ type runtime struct {
 	listDebts        *financeapp.ListDebts
 	createDebt       *financeapp.CreateDebt
 	payDebt          *financeapp.PayDebt
+	listFinancePlan  *financeapp.ListFinancePlan
+	createPlanned    *financeapp.CreatePlannedCashflow
+	deletePlanned    *financeapp.DeletePlannedCashflow
 	cashFlow         *financeapp.CashFlowSummary
 	financeOverview  *financeapp.FinanceOverview
 	listHabits       *habitsapp.ListHabitsToday
@@ -104,6 +109,8 @@ type runtime struct {
 	createNote       *knowledgeapp.CreateNote
 	listNotes        *knowledgeapp.ListNotes
 	searchNotes      *knowledgeapp.SearchNotes
+	getNote          *knowledgeapp.GetNote
+	updateNote       *knowledgeapp.UpdateNote
 	deleteNote       *knowledgeapp.DeleteNote
 	recordWeight     *healthapp.RecordWeight
 	latestWeight     *healthapp.GetLatestWeight
@@ -144,6 +151,8 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 
 	createTask := tasksapp.NewCreateTask(taskRepo, eventPub, transactor, projectsinfra.NewProjectReader(p))
 	completeTask := tasksapp.NewCompleteTask(taskRepo, eventPub, transactor)
+	reopenTask := tasksapp.NewReopenTask(taskRepo, eventPub, transactor)
+	listDueBetween := tasksapp.NewListTasksDueBetween(taskRepo)
 	cancelTask := tasksapp.NewCancelTask(taskRepo, eventPub, transactor)
 	editTask := tasksapp.NewEditTask(taskRepo, eventPub, transactor, projectsinfra.NewProjectReader(p))
 	rescheduleTask := tasksapp.NewRescheduleTask(taskRepo, eventPub, transactor)
@@ -163,6 +172,9 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	createDebt := financeapp.NewCreateDebt(financeRepo, eventPub, transactor)
 	listDebts := financeapp.NewListDebts(financeRepo)
 	payDebt := financeapp.NewPayDebt(financeRepo, eventPub, transactor)
+	listFinancePlan := financeapp.NewListFinancePlan(financeRepo, financeRepo)
+	createPlanned := financeapp.NewCreatePlannedCashflow(financeRepo, eventPub, transactor)
+	deletePlanned := financeapp.NewDeletePlannedCashflow(financeRepo)
 	cashFlow := financeapp.NewCashFlowSummary(financeRepo, tzReader)
 	financeOverview := financeapp.NewFinanceOverview(financeRepo, tzReader)
 	habitRepo := habitsinfra.NewRepository(p)
@@ -173,6 +185,8 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	createNote := knowledgeapp.NewCreateNote(noteRepo, eventPub, transactor)
 	listNotes := knowledgeapp.NewListNotes(noteRepo)
 	searchNotes := knowledgeapp.NewSearchNotes(noteRepo)
+	getNote := knowledgeapp.NewGetNote(noteRepo)
+	updateNote := knowledgeapp.NewUpdateNote(noteRepo)
 	deleteNote := knowledgeapp.NewDeleteNote(noteRepo, eventPub, transactor)
 	careerRepo := careerinfra.NewRepository(p)
 	createContact := careerapp.NewCreateContact(careerRepo, eventPub, transactor)
@@ -238,6 +252,8 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		listToday:        listToday,
 		createTask:       createTask,
 		completeTask:     completeTask,
+		reopenTask:       reopenTask,
+		listDueBetween:   listDueBetween,
 		cancelTask:       cancelTask,
 		editTask:         editTask,
 		rescheduleTask:   rescheduleTask,
@@ -255,6 +271,9 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		listDebts:        listDebts,
 		createDebt:       createDebt,
 		payDebt:          payDebt,
+		listFinancePlan:  listFinancePlan,
+		createPlanned:    createPlanned,
+		deletePlanned:    deletePlanned,
 		cashFlow:         cashFlow,
 		financeOverview:  financeOverview,
 		listHabits:       listHabits,
@@ -273,6 +292,8 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		createNote:       createNote,
 		listNotes:        listNotes,
 		searchNotes:      searchNotes,
+		getNote:          getNote,
+		updateNote:       updateNote,
 		deleteNote:       deleteNote,
 		recordWeight:     recordWeight,
 		latestWeight:     latestWeight,

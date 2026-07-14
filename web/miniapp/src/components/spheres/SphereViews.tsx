@@ -289,6 +289,7 @@ function ProjectNode({
                 key={t.id}
                 title={t.title}
                 priority={t.priority}
+                kind={t.kind}
                 done={t.status === 'done'}
                 onComplete={
                   t.status === 'done'
@@ -298,11 +299,7 @@ function ProjectNode({
                         complete.mutate(t.id)
                       }
                 }
-                onEdit={
-                  t.status === 'done' || t.status === 'cancelled'
-                    ? undefined
-                    : () => navigate(`/tasks/${t.id}`)
-                }
+                onOpen={() => navigate(`/tasks/${t.id}`)}
               />
             ))}
         </div>
@@ -574,6 +571,9 @@ export function ProjectDetailPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [priority, setPriority] = useState('medium')
+  const [kind, setKind] = useState<'task' | 'reminder' | 'meeting'>('task')
+  const [dueDate, setDueDate] = useState('')
+  const [address, setAddress] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
@@ -615,12 +615,29 @@ export function ProjectDetailPage() {
     },
   })
 
+  const reopen = useMutation({
+    mutationFn: (id: string) => api.reopenTask(id),
+    onSuccess: () => {
+      hapticSuccess()
+      setActionError(null)
+      queryClient.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    },
+    onError: (err) => {
+      hapticError()
+      setActionError(ruApiError(err, 'Не удалось вернуть задачу'))
+    },
+  })
+
   const createTask = useMutation({
     mutationFn: () =>
       api.createTask({
         title: newTitle.trim(),
         priority,
+        kind,
         project_ids: [projectId!],
+        ...(dueDate ? { due_date: dueDate } : {}),
+        ...(address.trim() ? { address: address.trim() } : {}),
       }),
     onSuccess: (task) => {
       hapticSuccess()
@@ -639,6 +656,9 @@ export function ProjectDetailPage() {
       setCreateOpen(false)
       setNewTitle('')
       setPriority('medium')
+      setKind('task')
+      setDueDate('')
+      setAddress('')
       setFormError(null)
     },
     onError: (err) => {
@@ -658,6 +678,9 @@ export function ProjectDetailPage() {
     setFormError(null)
     setNewTitle('')
     setPriority('medium')
+    setKind('task')
+    setDueDate('')
+    setAddress('')
     setCreateOpen(true)
   }
 
@@ -685,8 +708,9 @@ export function ProjectDetailPage() {
               key={t.id}
               title={t.title}
               priority={t.priority}
+              kind={t.kind}
               onComplete={() => complete.mutate(t.id)}
-              onEdit={() => navigate(`/tasks/${t.id}`)}
+              onOpen={() => navigate(`/tasks/${t.id}`)}
             />
           ))}
           {!isLoading && active.length === 0 && (
@@ -722,7 +746,23 @@ export function ProjectDetailPage() {
         {showDone && (
           <div className="space-y-2">
             {done.map((t) => (
-              <TaskCard key={t.id} title={t.title} done />
+              <div key={t.id} className="space-y-1">
+                <TaskCard
+                  title={t.title}
+                  kind={t.kind}
+                  done
+                  onOpen={() => navigate(`/tasks/${t.id}`)}
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="w-full"
+                  disabled={reopen.isPending}
+                  onClick={() => reopen.mutate(t.id)}
+                >
+                  Вернуть
+                </Button>
+              </div>
             ))}
           </div>
         )}
@@ -745,6 +785,24 @@ export function ProjectDetailPage() {
           placeholder="Название задачи"
           className="mb-3 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
         />
+        <p className="mb-2 text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Тип</p>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {(['task', 'reminder', 'meeting'] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setKind(k)}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-sm',
+                kind === k
+                  ? 'bg-[var(--tg-theme-button-color,#22c55e)] text-[var(--tg-theme-button-text-color,#fff)]'
+                  : 'bg-[var(--tg-theme-secondary-bg-color,#1e293b)] text-[var(--tg-theme-hint-color,#94a3b8)]',
+              )}
+            >
+              {kindLabel(k)}
+            </button>
+          ))}
+        </div>
         <p className="mb-2 text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Приоритет</p>
         <div className="mb-4 flex flex-wrap gap-2">
           {(['urgent', 'high', 'medium', 'low'] as const).map((p) => (
@@ -763,6 +821,21 @@ export function ProjectDetailPage() {
             </button>
           ))}
         </div>
+        <label className="mb-3 block text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">
+          Срок (опционально)
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="mt-1 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+          />
+        </label>
+        <input
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="Адрес (опционально)"
+          className="mb-4 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+        />
         {formError && (
           <p className="mb-3 text-sm text-rose-400" role="alert">
             {formError}
@@ -790,5 +863,16 @@ function priorityLabel(p: string) {
       return 'Низкий'
     default:
       return 'Средний'
+  }
+}
+
+function kindLabel(k: 'task' | 'reminder' | 'meeting') {
+  switch (k) {
+    case 'reminder':
+      return 'Напоминание'
+    case 'meeting':
+      return 'Встреча'
+    default:
+      return 'Задача'
   }
 }

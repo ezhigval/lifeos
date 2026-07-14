@@ -4,7 +4,10 @@ export type Task = {
   description?: string
   status: string
   priority: string
+  kind?: 'task' | 'reminder' | 'meeting'
   due_date?: string
+  address?: string
+  note_id?: string
   duration_minutes?: number
   tags?: string[]
   project_ids?: string[]
@@ -107,6 +110,28 @@ export type Debt = {
   remaining_cents: number
   currency: string
   due_date?: string
+  installment_cents?: number
+  installment_interval?: 'none' | 'weekly' | 'monthly'
+  next_payment_date?: string
+}
+
+export type FinancePlanItem = {
+  id: string
+  kind: 'income' | 'expense'
+  title: string
+  amount_cents: number
+  currency: string
+  interval: string
+  next_date: string
+  source: string
+  debt_id?: string
+}
+
+export type FinancePlan = {
+  items: FinancePlanItem[]
+  planned_income: number
+  planned_expense: number
+  currency: string
 }
 
 export type Reminder = {

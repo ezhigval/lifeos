@@ -15,6 +15,7 @@ type TaskStore interface {
 	GetByID(ctx context.Context, userID ids.UserID, taskID ids.TaskID) (domain.Task, error)
 	ListByDueDate(ctx context.Context, userID ids.UserID, dueDate time.Time) ([]domain.Task, error)
 	ListOpenDueOnOrBefore(ctx context.Context, userID ids.UserID, dueDate time.Time) ([]domain.Task, error)
+	ListOpenDueBetween(ctx context.Context, userID ids.UserID, from, to time.Time) ([]domain.Task, error)
 	ListByTag(ctx context.Context, userID ids.UserID, tag string) ([]domain.Task, error)
 	ListByProject(ctx context.Context, userID ids.UserID, projectID ids.ProjectID) ([]domain.Task, error)
 	FindOpenByTitle(ctx context.Context, userID ids.UserID, title string) (domain.Task, error)
@@ -35,6 +36,9 @@ type TaskDTO struct {
 	Description     *string
 	Status          domain.Status
 	Priority        domain.Priority
+	Kind            domain.Kind
+	Address         *string
+	NoteID          *ids.NoteID
 	DueDate         *time.Time
 	DurationMinutes *int
 	Tags            []string
@@ -48,6 +52,7 @@ func ToDTO(task domain.Task) TaskDTO {
 	return TaskDTO{
 		ID: task.ID, Title: task.Title, Description: task.Description,
 		Status: task.Status, Priority: task.Priority,
+		Kind: task.KindOrDefault(), Address: task.Address, NoteID: task.NoteID,
 		DueDate: task.DueDate, DurationMinutes: task.DurationMinutes, Tags: tagsCopy,
 		ProjectIDs: idsCopy, CreatedAt: task.CreatedAt,
 	}

@@ -92,8 +92,6 @@ func (q *Queries) SetTelegramState(ctx context.Context, arg SetTelegramStatePara
 }
 
 const upsertTelegramSession = `-- name: UpsertTelegramSession :exec
--- Always write dashboard_message_id (including NULL). Callers load-modify-save;
--- COALESCE made ClearDashboard(/start keyboard reset) a no-op.
 INSERT INTO telegram_sessions (user_id, chat_id, dashboard_message_id, state, state_payload, updated_at)
 VALUES ($1, $2, $3, $4, $5, now())
 ON CONFLICT (user_id) DO UPDATE
@@ -112,6 +110,8 @@ type UpsertTelegramSessionParams struct {
 	StatePayload       []byte
 }
 
+// Always write dashboard_message_id (including NULL). Callers load-modify-save;
+// COALESCE made ClearDashboard(/start keyboard reset) a no-op.
 func (q *Queries) UpsertTelegramSession(ctx context.Context, arg UpsertTelegramSessionParams) error {
 	_, err := q.db.Exec(ctx, upsertTelegramSession,
 		arg.UserID,

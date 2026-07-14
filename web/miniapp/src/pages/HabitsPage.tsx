@@ -93,7 +93,7 @@ export function HabitsPage() {
         subtitle={
           habits.length
             ? `Сегодня ${doneCount}/${habits.length}`
-            : 'Трекинг на сегодня'
+            : 'Трекер привычек'
         }
       />
       <div className="space-y-4 px-4 pb-4">

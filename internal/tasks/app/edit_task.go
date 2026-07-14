@@ -38,6 +38,11 @@ type EditTaskInput struct {
 	DurationMinutes  *int
 	ClearDuration    bool
 	Tags             *[]string
+	Kind             *domain.Kind
+	Address          *string
+	ClearAddress     bool
+	NoteID           *ids.NoteID
+	ClearNoteID      bool
 	ProjectIDs       *[]ids.ProjectID
 	Source           events.Source
 }
@@ -67,6 +72,11 @@ func (uc *EditTask) Execute(ctx context.Context, in EditTaskInput) (TaskDTO, err
 			DurationMinutes:  in.DurationMinutes,
 			ClearDuration:    in.ClearDuration,
 			Tags:             in.Tags,
+			Kind:             in.Kind,
+			Address:          in.Address,
+			ClearAddress:     in.ClearAddress,
+			NoteID:           in.NoteID,
+			ClearNoteID:      in.ClearNoteID,
 		}, now); err != nil {
 			return err
 		}

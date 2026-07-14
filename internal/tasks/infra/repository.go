@@ -42,6 +42,9 @@ func (r *Repository) Save(ctx context.Context, task domain.Task) error {
 		DueDate:         pgconv.DatePtr(task.DueDate),
 		DurationMinutes: pgconv.Int4Ptr(task.DurationMinutes),
 		Tags:            tags,
+		Kind:            string(task.KindOrDefault()),
+		Address:         pgconv.Text(task.Address),
+		NoteID:          pgconv.NoteIDPtr(task.NoteID),
 		CreatedAt:       pgconv.TimestamptzValue(task.CreatedAt),
 	})
 	if err != nil {
@@ -177,6 +180,9 @@ func (r *Repository) Update(ctx context.Context, task domain.Task) error {
 		DueDate:         pgconv.DatePtr(task.DueDate),
 		DurationMinutes: pgconv.Int4Ptr(task.DurationMinutes),
 		Tags:            tags,
+		Kind:            string(task.KindOrDefault()),
+		Address:         pgconv.Text(task.Address),
+		NoteID:          pgconv.NoteIDPtr(task.NoteID),
 		CompletedAt:     pgconv.Timestamptz(task.CompletedAt),
 		DeletedAt:       pgconv.Timestamptz(task.DeletedAt),
 	})
@@ -201,10 +207,26 @@ func (r *Repository) mapTasks(ctx context.Context, rows []db.Task) ([]domain.Tas
 	return out, nil
 }
 
+func (r *Repository) ListOpenDueBetween(ctx context.Context, userID ids.UserID, from, to time.Time) ([]domain.Task, error) {
+	rows, err := r.queries(ctx).ListOpenTasksDueBetween(ctx, db.ListOpenTasksDueBetweenParams{
+		UserID:   pgconv.UserID(userID),
+		FromDate: pgconv.Date(from),
+		ToDate:   pgconv.Date(to),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list open tasks due between: %w", err)
+	}
+	return r.mapTasks(ctx, rows)
+}
+
 func mapTask(row db.Task) domain.Task {
 	tags := row.Tags
 	if tags == nil {
 		tags = []string{}
+	}
+	kind := domain.Kind(row.Kind)
+	if kind == "" {
+		kind = domain.KindTask
 	}
 	return domain.Task{
 		ID:              pgconv.FromTaskID(row.ID),
@@ -213,6 +235,9 @@ func mapTask(row db.Task) domain.Task {
 		Description:     pgconv.FromText(row.Description),
 		Status:          domain.Status(row.Status),
 		Priority:        domain.Priority(row.Priority),
+		Kind:            kind,
+		Address:         pgconv.FromText(row.Address),
+		NoteID:          pgconv.FromNoteIDPtr(row.NoteID),
 		DueDate:         pgconv.FromDate(row.DueDate),
 		DurationMinutes: pgconv.FromInt4Ptr(row.DurationMinutes),
 		Tags:            tags,

@@ -11,7 +11,10 @@ import { Sheet } from '@/components/ui/Sheet'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { ruApiError } from '@/lib/apiError'
 import { formatMoneyPlain, parseMoneyInput } from '@/lib/money'
+import { cn } from '@/lib/cn'
 import { hapticError, hapticSuccess } from '@/lib/telegram'
+
+type InstallmentInterval = 'none' | 'weekly' | 'monthly'
 
 export function DebtsPage() {
   const queryClient = useQueryClient()
@@ -20,9 +23,18 @@ export function DebtsPage() {
   const [creditor, setCreditor] = useState('')
   const [amount, setAmount] = useState('')
   const [due, setDue] = useState('')
+  const [installmentAmount, setInstallmentAmount] = useState('')
+  const [installmentInterval, setInstallmentInterval] = useState<InstallmentInterval>('none')
+  const [nextPaymentDate, setNextPaymentDate] = useState('')
   const [payAmount, setPayAmount] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [payError, setPayError] = useState<string | null>(null)
+
+  const invalidateFinance = () => {
+    void queryClient.invalidateQueries({ queryKey: ['debts'] })
+    void queryClient.invalidateQueries({ queryKey: ['finance'] })
+    void queryClient.invalidateQueries({ queryKey: ['finance-plan'] })
+  }
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['debts'],
@@ -39,16 +51,24 @@ export function DebtsPage() {
     mutationFn: () => {
       const cents = parseMoneyInput(amount)
       if (!cents) throw new Error('amount_cents is required')
-      return api.createDebt(creditor.trim(), cents, due || undefined)
+      const instCents = parseMoneyInput(installmentAmount)
+      return api.createDebt(creditor.trim(), cents, due || undefined, {
+        ...(instCents ? { installment_cents: instCents } : {}),
+        installment_interval: installmentInterval,
+        ...(nextPaymentDate ? { next_payment_date: nextPaymentDate } : {}),
+      })
     },
     onSuccess: (debt) => {
       hapticSuccess()
       queryClient.setQueryData<Debt[]>(['debts'], (old) => [debt, ...(old ?? [])])
-      void queryClient.invalidateQueries({ queryKey: ['debts'] })
+      invalidateFinance()
       setCreateOpen(false)
       setCreditor('')
       setAmount('')
       setDue('')
+      setInstallmentAmount('')
+      setInstallmentInterval('none')
+      setNextPaymentDate('')
       setFormError(null)
     },
     onError: (err) => {
@@ -58,18 +78,16 @@ export function DebtsPage() {
   })
 
   const pay = useMutation({
-    mutationFn: () => {
-      const cents = parseMoneyInput(payAmount)
-      if (!cents || !payId) throw new Error('amount_cents is required')
+    mutationFn: ({ cents, regular }: { cents: number; regular: boolean }) => {
+      if (!payId) throw new Error('debt id required')
       const remaining = payingDebt?.remaining_cents
       if (remaining != null && cents > remaining) {
         throw new Error('payment exceeds remaining debt')
       }
-      return api.payDebt(payId, cents)
+      return api.payDebt(payId, cents, regular)
     },
-    onMutate: async () => {
-      const cents = parseMoneyInput(payAmount)
-      if (!cents || !payId) return { prev: undefined }
+    onMutate: async ({ cents }) => {
+      if (!payId) return { prev: undefined }
       await queryClient.cancelQueries({ queryKey: ['debts'] })
       const prev = queryClient.getQueryData<Debt[]>(['debts'])
       queryClient.setQueryData<Debt[]>(['debts'], (old) =>
@@ -84,7 +102,7 @@ export function DebtsPage() {
     },
     onSuccess: () => {
       hapticSuccess()
-      void queryClient.invalidateQueries({ queryKey: ['debts'] })
+      invalidateFinance()
       setPayId(null)
       setPayAmount('')
       setPayError(null)
@@ -101,12 +119,20 @@ export function DebtsPage() {
     setCreditor('')
     setAmount('')
     setDue('')
+    setInstallmentAmount('')
+    setInstallmentInterval('none')
+    setNextPaymentDate('')
     setCreateOpen(true)
   }
 
   const openPay = (id: string) => {
+    const debt = debts.find((d) => d.id === id)
     setPayError(null)
-    setPayAmount('')
+    setPayAmount(
+      debt?.installment_cents
+        ? String(debt.installment_cents / 100)
+        : '',
+    )
     setPayId(id)
   }
 
@@ -162,6 +188,13 @@ export function DebtsPage() {
                       Остаток {formatMoneyPlain(d.remaining_cents, d.currency)}
                       {d.due_date ? ` · до ${formatDue(d.due_date)}` : ''}
                     </p>
+                    {d.installment_cents && d.installment_interval && d.installment_interval !== 'none' && (
+                      <p className="mt-1 text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">
+                        Платёж {formatMoneyPlain(d.installment_cents, d.currency)} ·{' '}
+                        {intervalLabel(d.installment_interval)}
+                        {d.next_payment_date ? ` · след. ${formatDue(d.next_payment_date)}` : ''}
+                      </p>
+                    )}
                     {d.remaining_cents <= 0 && (
                       <p className="mt-1 text-xs text-emerald-400">Закрыт</p>
                     )}
@@ -215,6 +248,40 @@ export function DebtsPage() {
           onChange={(e) => setDue(e.target.value)}
           className="mb-3 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
         />
+        <input
+          value={installmentAmount}
+          onChange={(e) => setInstallmentAmount(e.target.value)}
+          inputMode="decimal"
+          placeholder="Сумма платежа, ₽"
+          className="mb-3 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+        />
+        <p className="mb-2 text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">Интервал платежа</p>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {(['none', 'weekly', 'monthly'] as const).map((iv) => (
+            <button
+              key={iv}
+              type="button"
+              onClick={() => setInstallmentInterval(iv)}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-sm',
+                installmentInterval === iv
+                  ? 'bg-[var(--tg-theme-button-color,#22c55e)] text-[var(--tg-theme-button-text-color,#fff)]'
+                  : 'bg-[var(--tg-theme-secondary-bg-color,#1e293b)] text-[var(--tg-theme-hint-color,#94a3b8)]',
+              )}
+            >
+              {intervalLabel(iv)}
+            </button>
+          ))}
+        </div>
+        <label className="mb-1 block text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">
+          Следующий платёж (опционально)
+        </label>
+        <input
+          type="date"
+          value={nextPaymentDate}
+          onChange={(e) => setNextPaymentDate(e.target.value)}
+          className="mb-3 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+        />
         {formError && (
           <p className="mb-3 text-sm text-rose-400" role="alert">
             {formError}
@@ -258,13 +325,29 @@ export function DebtsPage() {
             {payError}
           </p>
         )}
-        <Button
-          className="w-full"
-          disabled={!parseMoneyInput(payAmount) || pay.isPending}
-          onClick={() => pay.mutate()}
-        >
-          Записать платёж
-        </Button>
+        <div className="space-y-2">
+          <Button
+            className="w-full"
+            disabled={!parseMoneyInput(payAmount) || pay.isPending}
+            onClick={() => {
+              const cents = parseMoneyInput(payAmount)
+              if (cents) pay.mutate({ cents, regular: true })
+            }}
+          >
+            Регулярный платёж
+          </Button>
+          <Button
+            className="w-full"
+            variant="secondary"
+            disabled={!parseMoneyInput(payAmount) || pay.isPending}
+            onClick={() => {
+              const cents = parseMoneyInput(payAmount)
+              if (cents) pay.mutate({ cents, regular: false })
+            }}
+          >
+            Досрочный
+          </Button>
+        </div>
       </Sheet>
     </>
   )
@@ -274,4 +357,15 @@ function formatDue(isoDate: string): string {
   const d = new Date(`${isoDate}T00:00:00`)
   if (Number.isNaN(d.getTime())) return isoDate
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function intervalLabel(iv: InstallmentInterval): string {
+  switch (iv) {
+    case 'weekly':
+      return 'еженедельно'
+    case 'monthly':
+      return 'ежемесячно'
+    default:
+      return 'без графика'
+  }
 }

@@ -40,10 +40,12 @@ type Deps struct {
 	ListToday        *tasksapp.ListTasksToday
 	CreateTask       *tasksapp.CreateTask
 	Complete         *tasksapp.CompleteTask
+	ReopenTask       *tasksapp.ReopenTask
 	CancelTask       *tasksapp.CancelTask
 	EditTask         *tasksapp.EditTask
 	RescheduleTask   *tasksapp.RescheduleTask
 	ListByTag        *tasksapp.ListTasksByTag
+	ListDueBetween   *tasksapp.ListTasksDueBetween
 	GetTask          *tasksapp.GetTask
 	UpdateTask       *tasksapp.UpdateTask
 	ArchiveTask      *tasksapp.ArchiveTask
@@ -57,6 +59,9 @@ type Deps struct {
 	ListDebts        *financeapp.ListDebts
 	CreateDebt       *financeapp.CreateDebt
 	PayDebt          *financeapp.PayDebt
+	ListFinancePlan  *financeapp.ListFinancePlan
+	CreatePlanned    *financeapp.CreatePlannedCashflow
+	DeletePlanned    *financeapp.DeletePlannedCashflow
 	CashFlow         *financeapp.CashFlowSummary
 	FinanceOverview  *financeapp.FinanceOverview
 	ListHabits       *habitsapp.ListHabitsToday
@@ -68,6 +73,8 @@ type Deps struct {
 	CreateNote       *knowledgeapp.CreateNote
 	ListNotes        *knowledgeapp.ListNotes
 	SearchNotes      *knowledgeapp.SearchNotes
+	GetNote          *knowledgeapp.GetNote
+	UpdateNote       *knowledgeapp.UpdateNote
 	DeleteNote       *knowledgeapp.DeleteNote
 	CreateContact    *careerapp.CreateContact
 	ListContacts     *careerapp.ListContacts
@@ -123,6 +130,7 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Patch("/tasks/{id}", rt.editTask)
 			r.Delete("/tasks/{id}", rt.deleteTask)
 			r.Post("/tasks/{id}/complete", rt.completeTask)
+			r.Post("/tasks/{id}/reopen", rt.reopenTask)
 			r.Post("/tasks/{id}/cancel", rt.cancelTask)
 			r.Post("/tasks/{id}/archive", rt.archiveTask)
 			r.Post("/tasks/{id}/reschedule", rt.rescheduleTask)
@@ -140,6 +148,9 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Get("/finance/debts", rt.listDebts)
 			r.Post("/finance/debts", rt.createDebt)
 			r.Post("/finance/debts/{id}/pay", rt.payDebt)
+			r.Get("/finance/plan", rt.listFinancePlan)
+			r.Post("/finance/plan", rt.createPlannedCashflow)
+			r.Delete("/finance/plan/{id}", rt.deletePlannedCashflow)
 			r.Get("/habits/today", rt.listHabitsToday)
 			r.Post("/habits", rt.createHabit)
 			r.Post("/habits/{id}/track", rt.trackHabit)
@@ -148,6 +159,8 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Delete("/reminders/{id}", rt.cancelReminder)
 			r.Get("/notes", rt.listNotes)
 			r.Post("/notes", rt.createNote)
+			r.Get("/notes/{id}", rt.getNote)
+			r.Patch("/notes/{id}", rt.updateNote)
 			r.Delete("/notes/{id}", rt.deleteNote)
 			r.Get("/career/contacts", rt.listContacts)
 			r.Post("/career/contacts", rt.createContact)
@@ -260,16 +273,19 @@ func timeUntil(exp time.Time) int {
 }
 
 type taskJSON struct {
-	ID              string   `json:"id"`
-	Title           string   `json:"title"`
-	Description     *string  `json:"description,omitempty"`
-	Status          string   `json:"status"`
-	Priority        string   `json:"priority"`
-	DueDate         *string  `json:"due_date,omitempty"`
-	DurationMinutes *int     `json:"duration_minutes,omitempty"`
+	ID              string  `json:"id"`
+	Title           string  `json:"title"`
+	Description     *string `json:"description,omitempty"`
+	Status          string  `json:"status"`
+	Priority        string  `json:"priority"`
+	Kind            string  `json:"kind"`
+	Address         *string `json:"address,omitempty"`
+	NoteID          *string `json:"note_id,omitempty"`
+	DueDate         *string `json:"due_date,omitempty"`
+	DurationMinutes *int    `json:"duration_minutes,omitempty"`
 	Tags            []string `json:"tags,omitempty"`
 	ProjectIDs      []string `json:"project_ids,omitempty"`
-	CreatedAt       string   `json:"created_at"`
+	CreatedAt       string  `json:"created_at"`
 }
 
 func taskToJSON(dto tasksapp.TaskDTO) taskJSON {
@@ -279,10 +295,19 @@ func taskToJSON(dto tasksapp.TaskDTO) taskJSON {
 		Description:     dto.Description,
 		Status:          string(dto.Status),
 		Priority:        string(dto.Priority),
+		Kind:            string(dto.Kind),
+		Address:         dto.Address,
 		DurationMinutes: dto.DurationMinutes,
 		Tags:            dto.Tags,
 		ProjectIDs:      projectIDsToStrings(dto.ProjectIDs),
 		CreatedAt:       dto.CreatedAt.UTC().Format(time.RFC3339),
+	}
+	if out.Kind == "" {
+		out.Kind = string(taskdomain.KindTask)
+	}
+	if dto.NoteID != nil {
+		s := dto.NoteID.String()
+		out.NoteID = &s
 	}
 	if dto.DueDate != nil {
 		s := dto.DueDate.Format("2006-01-02")
@@ -324,6 +349,9 @@ type createTaskRequest struct {
 	Title           string   `json:"title"`
 	Description     *string  `json:"description"`
 	Priority        string   `json:"priority"`
+	Kind            string   `json:"kind"`
+	Address         *string  `json:"address"`
+	NoteID          *string  `json:"note_id"`
 	DueDate         *string  `json:"due_date"`
 	DurationMinutes *int     `json:"duration_minutes"`
 	Tags            []string `json:"tags"`
@@ -362,11 +390,34 @@ func (rt *Router) createTask(w http.ResponseWriter, r *http.Request) {
 			desc = &trimmed
 		}
 	}
+	var addr *string
+	if req.Address != nil {
+		trimmed := strings.TrimSpace(*req.Address)
+		if trimmed != "" {
+			addr = &trimmed
+		}
+	}
+	var noteID *ids.NoteID
+	if req.NoteID != nil && strings.TrimSpace(*req.NoteID) != "" {
+		parsed, err := ids.ParseNoteID(strings.TrimSpace(*req.NoteID))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid note_id")
+			return
+		}
+		noteID = &parsed
+	}
+	kind := taskdomain.Kind(strings.TrimSpace(req.Kind))
+	if kind == "" {
+		kind = taskdomain.KindTask
+	}
 	dto, err := rt.deps.CreateTask.Execute(r.Context(), tasksapp.CreateTaskInput{
 		UserID:          userID,
 		Title:           strings.TrimSpace(req.Title),
 		Description:     desc,
 		Priority:        taskdomain.Priority(req.Priority),
+		Kind:            kind,
+		Address:         addr,
+		NoteID:          noteID,
 		DueDate:         due,
 		DurationMinutes: req.DurationMinutes,
 		Tags:            req.Tags,
@@ -386,9 +437,42 @@ func (rt *Router) listTasks(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	fromQ := strings.TrimSpace(r.URL.Query().Get("from"))
+	toQ := strings.TrimSpace(r.URL.Query().Get("to"))
+	if fromQ != "" || toQ != "" {
+		if fromQ == "" || toQ == "" {
+			writeError(w, http.StatusBadRequest, "from and to query params are required together (YYYY-MM-DD)")
+			return
+		}
+		if rt.deps.ListDueBetween == nil {
+			writeError(w, http.StatusNotImplemented, "list by due range is not configured")
+			return
+		}
+		from, err := time.Parse("2006-01-02", fromQ)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid from")
+			return
+		}
+		to, err := time.Parse("2006-01-02", toQ)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid to")
+			return
+		}
+		items, err := rt.deps.ListDueBetween.Execute(r.Context(), userID, from, to)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		out := make([]taskJSON, 0, len(items))
+		for _, item := range items {
+			out = append(out, taskToJSON(item))
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"tasks": out})
+		return
+	}
 	tag := strings.TrimSpace(r.URL.Query().Get("tag"))
 	if tag == "" {
-		writeError(w, http.StatusBadRequest, "tag query param is required")
+		writeError(w, http.StatusBadRequest, "tag query param is required (or from+to)")
 		return
 	}
 	if rt.deps.ListByTag == nil {
@@ -417,6 +501,11 @@ type editTaskRequest struct {
 	DurationMinutes  *int            `json:"duration_minutes"`
 	ClearDuration    bool            `json:"clear_duration"`
 	Tags             *[]string       `json:"tags"`
+	Kind             *string         `json:"kind"`
+	Address          nullableString  `json:"address"`
+	ClearAddress     bool            `json:"clear_address"`
+	NoteID           nullableString  `json:"note_id"`
+	ClearNoteID      bool            `json:"clear_note_id"`
 	ProjectIDs       *[]string       `json:"project_ids"`
 }
 
@@ -486,6 +575,35 @@ func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
 		trimmed := strings.TrimSpace(*req.Title)
 		title = &trimmed
 	}
+	var kind *taskdomain.Kind
+	if req.Kind != nil {
+		k := taskdomain.Kind(strings.TrimSpace(*req.Kind))
+		kind = &k
+	}
+	clearAddress := req.ClearAddress
+	var address *string
+	if req.Address.Set {
+		if req.Address.Value == nil || strings.TrimSpace(*req.Address.Value) == "" {
+			clearAddress = true
+		} else {
+			trimmed := strings.TrimSpace(*req.Address.Value)
+			address = &trimmed
+		}
+	}
+	clearNoteID := req.ClearNoteID
+	var noteID *ids.NoteID
+	if req.NoteID.Set {
+		if req.NoteID.Value == nil || strings.TrimSpace(*req.NoteID.Value) == "" {
+			clearNoteID = true
+		} else {
+			parsed, err := ids.ParseNoteID(strings.TrimSpace(*req.NoteID.Value))
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid note_id")
+				return
+			}
+			noteID = &parsed
+		}
+	}
 	dto, err := rt.deps.EditTask.Execute(r.Context(), tasksapp.EditTaskInput{
 		UserID:           userID,
 		TaskID:           taskID,
@@ -498,6 +616,11 @@ func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
 		DurationMinutes:  req.DurationMinutes,
 		ClearDuration:    req.ClearDuration,
 		Tags:             req.Tags,
+		Kind:             kind,
+		Address:          address,
+		ClearAddress:     clearAddress,
+		NoteID:           noteID,
+		ClearNoteID:      clearNoteID,
 		ProjectIDs:       projectIDs,
 		Source:           events.SourceHTTP,
 	})
@@ -524,6 +647,35 @@ func (rt *Router) completeTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dto, err := rt.deps.Complete.Execute(r.Context(), tasksapp.CompleteTaskInput{
+		UserID: userID, TaskID: taskID, Source: events.SourceHTTP,
+	})
+	if err != nil {
+		if errors.Is(err, tasksapp.ErrTaskNotFound) {
+			writeError(w, http.StatusNotFound, "task not found")
+			return
+		}
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, taskToJSON(dto))
+}
+
+func (rt *Router) reopenTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.ReopenTask == nil {
+		writeError(w, http.StatusNotImplemented, "reopen task is not configured")
+		return
+	}
+	taskID, err := ids.ParseTaskID(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid task id")
+		return
+	}
+	dto, err := rt.deps.ReopenTask.Execute(r.Context(), tasksapp.ReopenTaskInput{
 		UserID: userID, TaskID: taskID, Source: events.SourceHTTP,
 	})
 	if err != nil {

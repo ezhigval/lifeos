@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
 import {
-  AlarmClock,
   BarChart3,
   Briefcase,
   Calendar,
@@ -21,20 +20,14 @@ const sections = [
       {
         to: '/more/habits',
         title: 'Привычки',
-        subtitle: 'Отметить за сегодня',
+        subtitle: 'Трекер привычек',
         icon: <Sparkles size={20} />,
       },
       {
         to: '/more/calendar',
         title: 'Календарь',
-        subtitle: 'События на сегодня',
+        subtitle: 'Задачи по датам',
         icon: <Calendar size={20} />,
-      },
-      {
-        to: '/more/reminders',
-        title: 'Напоминания',
-        subtitle: 'Отложенные пуши',
-        icon: <AlarmClock size={20} />,
       },
       {
         to: '/more/settings',
@@ -62,7 +55,7 @@ const sections = [
       {
         to: '/more/debts',
         title: 'Долги',
-        subtitle: 'Кредиторы и платежи',
+        subtitle: 'Платежи и план',
         icon: <Wallet size={20} />,
       },
     ],

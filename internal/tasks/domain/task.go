@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
@@ -21,6 +22,8 @@ var (
 	ErrInvalidDuration    = errors.New("duration_minutes must be positive")
 	ErrCannotArchiveDone  = errors.New("done task cannot be archived")
 	ErrAlreadyDeleted     = errors.New("task is already deleted")
+	ErrInvalidKind        = errors.New("invalid task kind")
+	ErrCannotReopen       = errors.New("only done tasks can be reopened")
 )
 
 type Status string
@@ -41,6 +44,14 @@ const (
 	PriorityUrgent Priority = "urgent"
 )
 
+type Kind string
+
+const (
+	KindTask     Kind = "task"
+	KindReminder Kind = "reminder"
+	KindMeeting  Kind = "meeting"
+)
+
 type Task struct {
 	ID              ids.TaskID
 	UserID          ids.UserID
@@ -48,7 +59,10 @@ type Task struct {
 	Description     *string
 	Status          Status
 	Priority        Priority
-	DueDate         *time.Time // дата реализации
+	Kind            Kind
+	Address         *string
+	NoteID          *ids.NoteID
+	DueDate         *time.Time // дата реализации / встречи / пуша
 	DurationMinutes *int       // оценка длительности в минутах
 	Tags            []string   // хештеги без '#'
 	ProjectIDs      []ids.ProjectID
@@ -72,6 +86,7 @@ func NewTask(userID ids.UserID, title string, priority Priority, dueDate *time.T
 		Title:      title,
 		Status:     StatusTodo,
 		Priority:   priority,
+		Kind:       KindTask,
 		DueDate:    dueDate,
 		Tags:       []string{},
 		ProjectIDs: []ids.ProjectID{},
@@ -98,6 +113,22 @@ func (p Priority) Valid() bool {
 	}
 }
 
+func (k Kind) Valid() bool {
+	switch k {
+	case KindTask, KindReminder, KindMeeting:
+		return true
+	default:
+		return false
+	}
+}
+
+func (t Task) KindOrDefault() Kind {
+	if t.Kind == "" {
+		return KindTask
+	}
+	return t.Kind
+}
+
 func (t *Task) Complete(now time.Time) error {
 	if t.Status == StatusCancelled {
 		return ErrCannotComplete
@@ -110,6 +141,17 @@ func (t *Task) Complete(now time.Time) error {
 	t.Status = StatusDone
 	t.CompletedAt = &completed
 	t.UpdatedAt = completed
+	return nil
+}
+
+// Reopen returns a done task to the active queue.
+func (t *Task) Reopen(now time.Time) error {
+	if t.Status != StatusDone {
+		return ErrCannotReopen
+	}
+	t.Status = StatusTodo
+	t.CompletedAt = nil
+	t.UpdatedAt = now.UTC()
 	return nil
 }
 
@@ -181,6 +223,11 @@ type EditFields struct {
 	DurationMinutes  *int
 	ClearDuration    bool
 	Tags             *[]string
+	Kind             *Kind
+	Address          *string
+	ClearAddress     bool
+	NoteID           *ids.NoteID
+	ClearNoteID      bool
 }
 
 func (t *Task) Edit(fields EditFields, now time.Time) error {
@@ -223,6 +270,28 @@ func (t *Task) Edit(fields EditFields, now time.Time) error {
 	if fields.Tags != nil {
 		t.Tags = NormalizeTags(*fields.Tags)
 	}
+	if fields.Kind != nil {
+		if !fields.Kind.Valid() {
+			return ErrInvalidKind
+		}
+		t.Kind = *fields.Kind
+	}
+	if fields.ClearAddress {
+		t.Address = nil
+	} else if fields.Address != nil {
+		addr := strings.TrimSpace(*fields.Address)
+		if addr == "" {
+			t.Address = nil
+		} else {
+			t.Address = &addr
+		}
+	}
+	if fields.ClearNoteID {
+		t.NoteID = nil
+	} else if fields.NoteID != nil {
+		id := *fields.NoteID
+		t.NoteID = &id
+	}
 	t.UpdatedAt = now.UTC()
 	return nil
 }
@@ -247,6 +316,11 @@ func (t Task) Validate() error {
 	}
 	if !t.Priority.Valid() {
 		return ErrInvalidPriority
+	}
+	if t.Kind == "" {
+		// legacy rows / in-memory defaults before Kind was set
+	} else if !t.Kind.Valid() {
+		return ErrInvalidKind
 	}
 	if t.Status == StatusDone && t.CompletedAt == nil {
 		return ErrCompletedAtNeeded

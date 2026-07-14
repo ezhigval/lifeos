@@ -12,7 +12,8 @@ import (
 )
 
 const findOpenDebtByCreditor = `-- name: FindOpenDebtByCreditor :one
-SELECT id, user_id, creditor, amount_cents, paid_cents, due_date, status, created_at
+SELECT id, user_id, creditor, amount_cents, paid_cents, due_date, status, created_at,
+       installment_cents, installment_interval, next_payment_date
 FROM debts
 WHERE user_id = $1 AND status = 'open' AND creditor ILIKE '%' || $2 || '%'
 ORDER BY
@@ -38,12 +39,16 @@ func (q *Queries) FindOpenDebtByCreditor(ctx context.Context, arg FindOpenDebtBy
 		&i.DueDate,
 		&i.Status,
 		&i.CreatedAt,
+		&i.InstallmentCents,
+		&i.InstallmentInterval,
+		&i.NextPaymentDate,
 	)
 	return i, err
 }
 
 const getDebtByID = `-- name: GetDebtByID :one
-SELECT id, user_id, creditor, amount_cents, paid_cents, due_date, status, created_at
+SELECT id, user_id, creditor, amount_cents, paid_cents, due_date, status, created_at,
+       installment_cents, installment_interval, next_payment_date
 FROM debts
 WHERE id = $1 AND user_id = $2
 `
@@ -65,24 +70,33 @@ func (q *Queries) GetDebtByID(ctx context.Context, arg GetDebtByIDParams) (Debt,
 		&i.DueDate,
 		&i.Status,
 		&i.CreatedAt,
+		&i.InstallmentCents,
+		&i.InstallmentInterval,
+		&i.NextPaymentDate,
 	)
 	return i, err
 }
 
 const insertDebt = `-- name: InsertDebt :exec
-INSERT INTO debts (id, user_id, creditor, amount_cents, paid_cents, due_date, status, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO debts (
+    id, user_id, creditor, amount_cents, paid_cents, due_date, status, created_at,
+    installment_cents, installment_interval, next_payment_date
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 `
 
 type InsertDebtParams struct {
-	ID          pgtype.UUID
-	UserID      pgtype.UUID
-	Creditor    string
-	AmountCents int64
-	PaidCents   int64
-	DueDate     pgtype.Date
-	Status      string
-	CreatedAt   pgtype.Timestamptz
+	ID                  pgtype.UUID
+	UserID              pgtype.UUID
+	Creditor            string
+	AmountCents         int64
+	PaidCents           int64
+	DueDate             pgtype.Date
+	Status              string
+	CreatedAt           pgtype.Timestamptz
+	InstallmentCents    int64
+	InstallmentInterval string
+	NextPaymentDate     pgtype.Date
 }
 
 func (q *Queries) InsertDebt(ctx context.Context, arg InsertDebtParams) error {
@@ -95,15 +109,19 @@ func (q *Queries) InsertDebt(ctx context.Context, arg InsertDebtParams) error {
 		arg.DueDate,
 		arg.Status,
 		arg.CreatedAt,
+		arg.InstallmentCents,
+		arg.InstallmentInterval,
+		arg.NextPaymentDate,
 	)
 	return err
 }
 
 const listOpenDebts = `-- name: ListOpenDebts :many
-SELECT id, user_id, creditor, amount_cents, paid_cents, due_date, status, created_at
+SELECT id, user_id, creditor, amount_cents, paid_cents, due_date, status, created_at,
+       installment_cents, installment_interval, next_payment_date
 FROM debts
 WHERE user_id = $1 AND status = 'open'
-LIMIT 1
+ORDER BY created_at ASC
 `
 
 func (q *Queries) ListOpenDebts(ctx context.Context, userID pgtype.UUID) ([]Debt, error) {
@@ -124,6 +142,59 @@ func (q *Queries) ListOpenDebts(ctx context.Context, userID pgtype.UUID) ([]Debt
 			&i.DueDate,
 			&i.Status,
 			&i.CreatedAt,
+			&i.InstallmentCents,
+			&i.InstallmentInterval,
+			&i.NextPaymentDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlannedDebtPayments = `-- name: ListPlannedDebtPayments :many
+SELECT id, user_id, creditor, amount_cents, paid_cents, due_date, status, created_at,
+       installment_cents, installment_interval, next_payment_date
+FROM debts
+WHERE user_id = $1
+  AND status = 'open'
+  AND installment_cents > 0
+  AND installment_interval <> 'none'
+  AND next_payment_date IS NOT NULL
+  AND next_payment_date <= $2
+ORDER BY next_payment_date ASC
+`
+
+type ListPlannedDebtPaymentsParams struct {
+	UserID    pgtype.UUID
+	UntilDate pgtype.Date
+}
+
+func (q *Queries) ListPlannedDebtPayments(ctx context.Context, arg ListPlannedDebtPaymentsParams) ([]Debt, error) {
+	rows, err := q.db.Query(ctx, listPlannedDebtPayments, arg.UserID, arg.UntilDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Debt{}
+	for rows.Next() {
+		var i Debt
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Creditor,
+			&i.AmountCents,
+			&i.PaidCents,
+			&i.DueDate,
+			&i.Status,
+			&i.CreatedAt,
+			&i.InstallmentCents,
+			&i.InstallmentInterval,
+			&i.NextPaymentDate,
 		); err != nil {
 			return nil, err
 		}
@@ -137,15 +208,22 @@ func (q *Queries) ListOpenDebts(ctx context.Context, userID pgtype.UUID) ([]Debt
 
 const updateDebt = `-- name: UpdateDebt :exec
 UPDATE debts
-SET paid_cents = $3, status = $4
+SET paid_cents = $3,
+    status = $4,
+    installment_cents = $5,
+    installment_interval = $6,
+    next_payment_date = $7
 WHERE id = $1 AND user_id = $2
 `
 
 type UpdateDebtParams struct {
-	ID        pgtype.UUID
-	UserID    pgtype.UUID
-	PaidCents int64
-	Status    string
+	ID                  pgtype.UUID
+	UserID              pgtype.UUID
+	PaidCents           int64
+	Status              string
+	InstallmentCents    int64
+	InstallmentInterval string
+	NextPaymentDate     pgtype.Date
 }
 
 func (q *Queries) UpdateDebt(ctx context.Context, arg UpdateDebtParams) error {
@@ -154,6 +232,9 @@ func (q *Queries) UpdateDebt(ctx context.Context, arg UpdateDebtParams) error {
 		arg.UserID,
 		arg.PaidCents,
 		arg.Status,
+		arg.InstallmentCents,
+		arg.InstallmentInterval,
+		arg.NextPaymentDate,
 	)
 	return err
 }

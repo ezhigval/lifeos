@@ -12,7 +12,7 @@ import (
 )
 
 const findOpenTaskByTitle = `-- name: FindOpenTaskByTitle :one
-SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags
+SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags, kind, address, note_id
 FROM tasks
 WHERE user_id = $1
   AND deleted_at IS NULL
@@ -47,12 +47,15 @@ func (q *Queries) FindOpenTaskByTitle(ctx context.Context, arg FindOpenTaskByTit
 		&i.UpdatedAt,
 		&i.DurationMinutes,
 		&i.Tags,
+		&i.Kind,
+		&i.Address,
+		&i.NoteID,
 	)
 	return i, err
 }
 
 const getTaskByID = `-- name: GetTaskByID :one
-SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags
+SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags, kind, address, note_id
 FROM tasks
 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
 `
@@ -79,17 +82,20 @@ func (q *Queries) GetTaskByID(ctx context.Context, arg GetTaskByIDParams) (Task,
 		&i.UpdatedAt,
 		&i.DurationMinutes,
 		&i.Tags,
+		&i.Kind,
+		&i.Address,
+		&i.NoteID,
 	)
 	return i, err
 }
 
 const insertTask = `-- name: InsertTask :one
 INSERT INTO tasks (
-    id, user_id, title, description, status, priority, due_date, duration_minutes, tags, created_at, updated_at
+    id, user_id, title, description, status, priority, due_date, duration_minutes, tags, kind, address, note_id, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13
 )
-RETURNING id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags
+RETURNING id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags, kind, address, note_id
 `
 
 type InsertTaskParams struct {
@@ -102,6 +108,9 @@ type InsertTaskParams struct {
 	DueDate         pgtype.Date
 	DurationMinutes pgtype.Int4
 	Tags            []string
+	Kind            string
+	Address         pgtype.Text
+	NoteID          pgtype.UUID
 	CreatedAt       pgtype.Timestamptz
 }
 
@@ -116,6 +125,9 @@ func (q *Queries) InsertTask(ctx context.Context, arg InsertTaskParams) (Task, e
 		arg.DueDate,
 		arg.DurationMinutes,
 		arg.Tags,
+		arg.Kind,
+		arg.Address,
+		arg.NoteID,
 		arg.CreatedAt,
 	)
 	var i Task
@@ -133,12 +145,70 @@ func (q *Queries) InsertTask(ctx context.Context, arg InsertTaskParams) (Task, e
 		&i.UpdatedAt,
 		&i.DurationMinutes,
 		&i.Tags,
+		&i.Kind,
+		&i.Address,
+		&i.NoteID,
 	)
 	return i, err
 }
 
+const listOpenTasksDueBetween = `-- name: ListOpenTasksDueBetween :many
+SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags, kind, address, note_id
+FROM tasks
+WHERE user_id = $1
+  AND deleted_at IS NULL
+  AND status IN ('todo', 'in_progress')
+  AND due_date IS NOT NULL
+  AND due_date >= $2
+  AND due_date <= $3
+ORDER BY due_date ASC, created_at ASC
+`
+
+type ListOpenTasksDueBetweenParams struct {
+	UserID   pgtype.UUID
+	FromDate pgtype.Date
+	ToDate   pgtype.Date
+}
+
+func (q *Queries) ListOpenTasksDueBetween(ctx context.Context, arg ListOpenTasksDueBetweenParams) ([]Task, error) {
+	rows, err := q.db.Query(ctx, listOpenTasksDueBetween, arg.UserID, arg.FromDate, arg.ToDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Task{}
+	for rows.Next() {
+		var i Task
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Title,
+			&i.Description,
+			&i.Status,
+			&i.Priority,
+			&i.DueDate,
+			&i.CompletedAt,
+			&i.DeletedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DurationMinutes,
+			&i.Tags,
+			&i.Kind,
+			&i.Address,
+			&i.NoteID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpenTasksDueOnOrBefore = `-- name: ListOpenTasksDueOnOrBefore :many
-SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags
+SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags, kind, address, note_id
 FROM tasks
 WHERE user_id = $1
   AND deleted_at IS NULL
@@ -176,6 +246,9 @@ func (q *Queries) ListOpenTasksDueOnOrBefore(ctx context.Context, arg ListOpenTa
 			&i.UpdatedAt,
 			&i.DurationMinutes,
 			&i.Tags,
+			&i.Kind,
+			&i.Address,
+			&i.NoteID,
 		); err != nil {
 			return nil, err
 		}
@@ -188,7 +261,7 @@ func (q *Queries) ListOpenTasksDueOnOrBefore(ctx context.Context, arg ListOpenTa
 }
 
 const listTasksByDueDate = `-- name: ListTasksByDueDate :many
-SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags
+SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags, kind, address, note_id
 FROM tasks
 WHERE user_id = $1
   AND due_date = $2
@@ -231,6 +304,9 @@ func (q *Queries) ListTasksByDueDate(ctx context.Context, arg ListTasksByDueDate
 			&i.UpdatedAt,
 			&i.DurationMinutes,
 			&i.Tags,
+			&i.Kind,
+			&i.Address,
+			&i.NoteID,
 		); err != nil {
 			return nil, err
 		}
@@ -243,7 +319,7 @@ func (q *Queries) ListTasksByDueDate(ctx context.Context, arg ListTasksByDueDate
 }
 
 const listTasksByTag = `-- name: ListTasksByTag :many
-SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags
+SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags, kind, address, note_id
 FROM tasks
 WHERE user_id = $1
   AND deleted_at IS NULL
@@ -280,6 +356,9 @@ func (q *Queries) ListTasksByTag(ctx context.Context, arg ListTasksByTagParams) 
 			&i.UpdatedAt,
 			&i.DurationMinutes,
 			&i.Tags,
+			&i.Kind,
+			&i.Address,
+			&i.NoteID,
 		); err != nil {
 			return nil, err
 		}
@@ -300,11 +379,14 @@ SET title = $3,
     due_date = $7,
     duration_minutes = $8,
     tags = $9,
-    completed_at = $10,
-    deleted_at = $11,
+    kind = $10,
+    address = $11,
+    note_id = $12,
+    completed_at = $13,
+    deleted_at = $14,
     updated_at = now()
 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
-RETURNING id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags
+RETURNING id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags, kind, address, note_id
 `
 
 type UpdateTaskParams struct {
@@ -317,6 +399,9 @@ type UpdateTaskParams struct {
 	DueDate         pgtype.Date
 	DurationMinutes pgtype.Int4
 	Tags            []string
+	Kind            string
+	Address         pgtype.Text
+	NoteID          pgtype.UUID
 	CompletedAt     pgtype.Timestamptz
 	DeletedAt       pgtype.Timestamptz
 }
@@ -332,6 +417,9 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, e
 		arg.DueDate,
 		arg.DurationMinutes,
 		arg.Tags,
+		arg.Kind,
+		arg.Address,
+		arg.NoteID,
 		arg.CompletedAt,
 		arg.DeletedAt,
 	)
@@ -350,6 +438,9 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, e
 		&i.UpdatedAt,
 		&i.DurationMinutes,
 		&i.Tags,
+		&i.Kind,
+		&i.Address,
+		&i.NoteID,
 	)
 	return i, err
 }
