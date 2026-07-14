@@ -40,7 +40,8 @@ func (s *Screen) Show(
 
 	// When reply keyboard must be (re)installed, force a new dashboard message:
 	// editMessage* cannot attach ReplyKeyboardMarkup.
-	forceNew := len(replyKB) > 0 && !replyKeyboardInstalled(sess.StatePayload)
+	wantMiniApp := replyKeyboardHasMiniApp(replyKB)
+	forceNew := len(replyKB) > 0 && !replyKeyboardInstalled(sess.StatePayload, wantMiniApp)
 
 	if sess.DashboardMessageID > 0 && !forceNew {
 		if err := s.client.EditScreen(ctx, chatID, sess.DashboardMessageID, text, inline); err == nil {
@@ -63,6 +64,7 @@ func (s *Screen) Show(
 		}
 		sess.StatePayload[replyKBSetKey] = true
 		sess.StatePayload[replyKBVersionKey] = float64(replyKBVersion)
+		sess.StatePayload[replyKBMiniAppKey] = wantMiniApp
 	}
 	return s.sessions.Save(ctx, sess)
 }

@@ -21,7 +21,14 @@ import (
 )
 
 func FormatTaskCreated(dto taskapp.TaskDTO) string {
-	return fmt.Sprintf("✅ Задача создана: <b>%s</b>", html.EscapeString(dto.Title))
+	out := fmt.Sprintf("✅ Задача создана: <b>%s</b>", html.EscapeString(dto.Title))
+	if dto.DurationMinutes != nil {
+		out += fmt.Sprintf(" · %dм", *dto.DurationMinutes)
+	}
+	if len(dto.Tags) > 0 {
+		out += " · " + html.EscapeString(formatTaskTags(dto.Tags))
+	}
+	return out
 }
 
 func FormatTasksToday(items []taskapp.TaskDTO) string {

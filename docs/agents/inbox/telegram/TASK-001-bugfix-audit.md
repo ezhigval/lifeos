@@ -1,7 +1,7 @@
 # TASK-001: Bugfix free-audit (zone only)
 
 - **Agent:** telegram
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P0
 - **Stage:** bugfix
 - **Owner ACK:** 2026-07-14 — no dogfood list; free audit; task-lifecycle merge touch TG handler
@@ -24,6 +24,6 @@
 
 ## Acceptance
 
-- [ ] P0 в зоне закрыты / BLOCKED с asks к Backend
-- [ ] Package tests green
-- [ ] Report: `docs/agents/reports/telegram/TASK-001.md`
+- [x] P0 в зоне закрыты / BLOCKED с asks к Backend
+- [x] Package tests green
+- [x] Report: `docs/agents/reports/telegram/TASK-001.md`

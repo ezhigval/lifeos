@@ -29,6 +29,9 @@ func (h *MessageHandler) basePayload(ctx context.Context, userID ids.UserID) map
 	if v, ok := sess.StatePayload[replyKBVersionKey]; ok {
 		out[replyKBVersionKey] = v
 	}
+	if v, ok := sess.StatePayload[replyKBMiniAppKey]; ok {
+		out[replyKBMiniAppKey] = v
+	}
 	if v, ok := sess.StatePayload["view_project_id"]; ok {
 		out["view_project_id"] = v
 	}

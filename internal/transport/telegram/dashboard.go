@@ -91,20 +91,8 @@ func projectListButtons(items []projectsapp.ProjectDTO) [][]InlineButton {
 
 func FormatProjectTasksWithActions(projectName string, items []taskapp.TaskDTO) (string, [][]InlineButton) {
 	text := FormatProjectTasks(projectName, items)
-	if len(items) == 0 {
-		return text, nil
-	}
-	var rows [][]InlineButton
-	for _, item := range items {
-		if item.Status == taskdomain.StatusDone {
-			continue
-		}
-		rows = append(rows, []InlineButton{{
-			Text:         "✓ " + truncate(item.Title, 28),
-			CallbackData: CBTaskDone + item.ID.String(),
-		}})
-	}
-	return text, rows
+	content := taskDoneButtons(items)
+	return text, content
 }
 
 func truncate(s string, max int) string {

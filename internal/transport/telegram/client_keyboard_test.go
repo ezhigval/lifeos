@@ -50,22 +50,48 @@ func TestReplyKeyboardMarkupShape(t *testing.T) {
 
 func TestReplyKeyboardInstalled(t *testing.T) {
 	t.Parallel()
-	if replyKeyboardInstalled(nil) {
+	if replyKeyboardInstalled(nil, false) {
 		t.Fatal("nil")
 	}
-	if replyKeyboardInstalled(map[string]any{replyKBSetKey: true}) {
+	if replyKeyboardInstalled(map[string]any{replyKBSetKey: true}, false) {
 		t.Fatal("missing version must reinstall")
 	}
 	if !replyKeyboardInstalled(map[string]any{
 		replyKBSetKey:     true,
 		replyKBVersionKey: float64(replyKBVersion),
-	}) {
-		t.Fatal("expected installed")
+		replyKBMiniAppKey: false,
+	}, false) {
+		t.Fatal("expected installed without mini app")
+	}
+	if replyKeyboardInstalled(map[string]any{
+		replyKBSetKey:     true,
+		replyKBVersionKey: float64(replyKBVersion),
+		replyKBMiniAppKey: false,
+	}, true) {
+		t.Fatal("mini app presence mismatch must reinstall")
+	}
+	if !replyKeyboardInstalled(map[string]any{
+		replyKBSetKey:     true,
+		replyKBVersionKey: float64(replyKBVersion),
+		replyKBMiniAppKey: true,
+	}, true) {
+		t.Fatal("expected installed with mini app")
 	}
 	if replyKeyboardInstalled(map[string]any{
 		replyKBSetKey:     true,
 		replyKBVersionKey: float64(1),
-	}) {
+		replyKBMiniAppKey: false,
+	}, false) {
 		t.Fatal("old version must reinstall")
+	}
+}
+
+func TestReplyKeyboardHasMiniApp(t *testing.T) {
+	t.Parallel()
+	if replyKeyboardHasMiniApp(MainReplyKeyboard("")) {
+		t.Fatal("empty URL must omit web_app")
+	}
+	if !replyKeyboardHasMiniApp(MainReplyKeyboard("https://example.com/app/")) {
+		t.Fatal("URL must add web_app row")
 	}
 }

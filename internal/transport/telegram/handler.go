@@ -358,7 +358,11 @@ func (h *MessageHandler) handleFreeText(
 		}
 	}
 
-	if isCancelText(text) && sess.State != tginfra.StateIdle {
+	if isCancelText(text) {
+		if sess.State == tginfra.StateIdle {
+			// Idle cancel must not fall through to the intent resolver ("отмена" ≠ task cancel).
+			return dispatchResult{text: "Нечего отменять."}, nil
+		}
 		if err := h.sessions.SetState(ctx, user.ID, tginfra.StateIdle, h.basePayload(ctx, user.ID)); err != nil {
 			return dispatchResult{}, err
 		}
@@ -542,16 +546,32 @@ func (h *MessageHandler) settingsView(ctx context.Context, userID ids.UserID) (d
 const (
 	replyKBSetKey     = "reply_kb_set"
 	replyKBVersionKey = "reply_kb_ver"
+	replyKBMiniAppKey = "reply_kb_miniapp"
 	// Bump when MainReplyKeyboard layout or attach strategy changes.
-	replyKBVersion = 4
+	replyKBVersion = 5
 )
 
-func replyKeyboardInstalled(payload map[string]any) bool {
+func replyKeyboardHasMiniApp(rows [][]ReplyButton) bool {
+	for _, row := range rows {
+		for _, btn := range row {
+			if btn.WebApp != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func replyKeyboardInstalled(payload map[string]any, wantMiniApp bool) bool {
 	if payload == nil || payload[replyKBSetKey] != true {
 		return false
 	}
 	ver, ok := payloadInt64(payload, replyKBVersionKey)
-	return ok && ver == replyKBVersion
+	if !ok || ver != replyKBVersion {
+		return false
+	}
+	hadMiniApp, _ := payload[replyKBMiniAppKey].(bool)
+	return hadMiniApp == wantMiniApp
 }
 
 func (h *MessageHandler) resetReplyKeyboardFlag(ctx context.Context, userID ids.UserID) error {
@@ -560,10 +580,11 @@ func (h *MessageHandler) resetReplyKeyboardFlag(ctx context.Context, userID ids.
 		return err
 	}
 	if sess.StatePayload == nil {
-		return nil
+		sess.StatePayload = map[string]any{}
 	}
 	delete(sess.StatePayload, replyKBSetKey)
 	delete(sess.StatePayload, replyKBVersionKey)
+	delete(sess.StatePayload, replyKBMiniAppKey)
 	// Clear dashboard so /start resends a message that re-attaches the reply keyboard.
 	sess.DashboardMessageID = 0
 	return h.sessions.Save(ctx, sess)
@@ -770,6 +791,17 @@ func (h *MessageHandler) cancelTaskByID(ctx context.Context, userID ids.UserID, 
 	})
 	if err != nil {
 		return dispatchResult{}, err
+	}
+	if view, ok := h.viewProjectID(ctx, userID); ok {
+		project, err := h.findProjectByID(ctx, userID, view)
+		if err != nil {
+			return dispatchResult{text: FormatTaskCancelled(dto)}, nil
+		}
+		tasks, err := h.projectTasksView(ctx, userID, view, project.Name)
+		if err != nil {
+			return dispatchResult{text: FormatTaskCancelled(dto)}, nil
+		}
+		return dispatchResult{text: FormatTaskCancelled(dto) + "\n\n" + tasks.text, inline: tasks.inline}, nil
 	}
 	today, err := h.tasksTodayView(ctx, userID)
 	if err != nil {
