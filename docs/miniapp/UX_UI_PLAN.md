@@ -4,7 +4,8 @@
 **Status:** Draft  
 **Scope:** Telegram Mini App (`web/miniapp/`)  
 **Related:** [ROADMAP.md](../roadmap/ROADMAP.md) · [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) · [BACKLOG.md](../roadmap/BACKLOG.md)  
-**Backend этап (отдельный промпт):** [BACKEND_PROMPT.md](BACKEND_PROMPT.md) — auth, overview API, HTTPS / static IP / ngrok. Фронт и бэкенд вести раздельно.
+**Backend этап (отдельный промпт):** [BACKEND_PROMPT.md](BACKEND_PROMPT.md) — auth, overview API, HTTPS / static IP / ngrok. Фронт и бэкенд вести раздельно.  
+**Frontend lead (self-prompt):** [FRONTEND_LEAD_PROMPT.md](FRONTEND_LEAD_PROMPT.md) — зона клиента, анти-бэкенд boundary.
 
 ---
 

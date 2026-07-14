@@ -36,6 +36,7 @@ cd web/miniapp && npm install && npm run dev
 | Roadmap | [docs/roadmap/ROADMAP.md](docs/roadmap/ROADMAP.md) |
 | Mini App UX/UI | [docs/miniapp/UX_UI_PLAN.md](docs/miniapp/UX_UI_PLAN.md) |
 | Mini App local | [docs/miniapp/LOCAL_DEV.md](docs/miniapp/LOCAL_DEV.md) |
+| Mini App Frontend lead | [docs/miniapp/FRONTEND_LEAD_PROMPT.md](docs/miniapp/FRONTEND_LEAD_PROMPT.md) |
 | Mini App Backend | [docs/miniapp/BACKEND_PROMPT.md](docs/miniapp/BACKEND_PROMPT.md) |
 | OpenAPI | [docs/api/openapi.yaml](docs/api/openapi.yaml) |
 
