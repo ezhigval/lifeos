@@ -211,6 +211,10 @@ func (rt *Router) listDebts(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if rt.deps.ListDebts == nil {
+		writeError(w, http.StatusNotImplemented, "list debts is not configured")
+		return
+	}
 	items, err := rt.deps.ListDebts.Execute(r.Context(), userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -233,6 +237,10 @@ func (rt *Router) createDebt(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.CreateDebt == nil {
+		writeError(w, http.StatusNotImplemented, "create debt is not configured")
 		return
 	}
 	var req createDebtRequest
@@ -271,6 +279,10 @@ func (rt *Router) payDebt(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.PayDebt == nil {
+		writeError(w, http.StatusNotImplemented, "pay debt is not configured")
 		return
 	}
 	debtID, err := ids.ParseDebtID(chi.URLParam(r, "id"))

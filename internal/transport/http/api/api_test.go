@@ -15,22 +15,29 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	calendarapp "github.com/valentinezhov/lifeos/internal/calendar/app"
 	calendardomain "github.com/valentinezhov/lifeos/internal/calendar/domain"
+	careerapp "github.com/valentinezhov/lifeos/internal/career/app"
+	careerdomain "github.com/valentinezhov/lifeos/internal/career/domain"
 	financeapp "github.com/valentinezhov/lifeos/internal/finance/app"
 	financedomain "github.com/valentinezhov/lifeos/internal/finance/domain"
 	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
 	habitsdomain "github.com/valentinezhov/lifeos/internal/habits/domain"
+	healthapp "github.com/valentinezhov/lifeos/internal/health/app"
+	healthdomain "github.com/valentinezhov/lifeos/internal/health/domain"
 	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
 	"github.com/valentinezhov/lifeos/internal/identity/domain"
 	knowledgeapp "github.com/valentinezhov/lifeos/internal/knowledge/app"
 	knowledgedomain "github.com/valentinezhov/lifeos/internal/knowledge/domain"
+	notifapp "github.com/valentinezhov/lifeos/internal/notifications/app"
 	"github.com/valentinezhov/lifeos/internal/platform/auth"
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
 	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
 	projectsdomain "github.com/valentinezhov/lifeos/internal/projects/domain"
+	"github.com/valentinezhov/lifeos/internal/query"
 	settingsapp "github.com/valentinezhov/lifeos/internal/settings/app"
 	settingsdomain "github.com/valentinezhov/lifeos/internal/settings/domain"
 	settingsinfra "github.com/valentinezhov/lifeos/internal/settings/infra"
@@ -274,6 +281,28 @@ func (s *fakeDebtStore) ListOpen(_ context.Context, userID ids.UserID) ([]financ
 	return out, nil
 }
 
+func (s *fakeDebtStore) GetByID(_ context.Context, userID ids.UserID, debtID ids.DebtID) (financedomain.Debt, error) {
+	d, ok := s.debts[debtID]
+	if !ok || d.UserID != userID {
+		return financedomain.Debt{}, financedomain.ErrDebtNotFound
+	}
+	return d, nil
+}
+
+func (s *fakeDebtStore) FindOpenByCreditor(_ context.Context, userID ids.UserID, creditor string) (financedomain.Debt, error) {
+	for _, d := range s.debts {
+		if d.UserID == userID && d.Status == financedomain.DebtStatusOpen && d.Creditor == creditor {
+			return d, nil
+		}
+	}
+	return financedomain.Debt{}, financedomain.ErrDebtNotFound
+}
+
+func (s *fakeDebtStore) UpdateDebt(_ context.Context, debt financedomain.Debt) error {
+	s.debts[debt.ID] = debt
+	return nil
+}
+
 type fakeNoteStore struct {
 	notes []knowledgedomain.Note
 }
@@ -331,6 +360,232 @@ func (s *fakeNoteStore) Delete(_ context.Context, userID ids.UserID, noteID ids.
 		}
 	}
 	return knowledgedomain.Note{}, knowledgedomain.ErrNotFound
+}
+
+type fakeContactStore struct {
+	contacts []careerdomain.Contact
+}
+
+func (s *fakeContactStore) Save(_ context.Context, contact careerdomain.Contact) error {
+	s.contacts = append(s.contacts, contact)
+	return nil
+}
+
+func (s *fakeContactStore) ListRecent(_ context.Context, userID ids.UserID, limit int32) ([]careerdomain.Contact, error) {
+	var out []careerdomain.Contact
+	for i := len(s.contacts) - 1; i >= 0 && int32(len(out)) < limit; i-- {
+		if s.contacts[i].UserID == userID {
+			out = append(out, s.contacts[i])
+		}
+	}
+	return out, nil
+}
+
+func (s *fakeContactStore) Search(_ context.Context, userID ids.UserID, query string, limit int32) ([]careerdomain.Contact, error) {
+	needle := strings.ToLower(query)
+	var out []careerdomain.Contact
+	for i := len(s.contacts) - 1; i >= 0 && int32(len(out)) < limit; i-- {
+		c := s.contacts[i]
+		if c.UserID != userID {
+			continue
+		}
+		hay := strings.ToLower(c.Name + " " + c.Company + " " + c.Role)
+		if strings.Contains(hay, needle) {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+func (s *fakeContactStore) Delete(_ context.Context, userID ids.UserID, contactID ids.ContactID) (careerdomain.Contact, error) {
+	for i, c := range s.contacts {
+		if c.ID == contactID && c.UserID == userID {
+			s.contacts = append(s.contacts[:i], s.contacts[i+1:]...)
+			return c, nil
+		}
+	}
+	return careerdomain.Contact{}, careerdomain.ErrNotFound
+}
+
+type fakeSkillStore struct {
+	skills []careerdomain.Skill
+}
+
+func (s *fakeSkillStore) SaveSkill(_ context.Context, skill careerdomain.Skill) error {
+	s.skills = append(s.skills, skill)
+	return nil
+}
+
+func (s *fakeSkillStore) ListRecentSkills(_ context.Context, userID ids.UserID, limit int32) ([]careerdomain.Skill, error) {
+	var out []careerdomain.Skill
+	for i := len(s.skills) - 1; i >= 0 && int32(len(out)) < limit; i-- {
+		if s.skills[i].UserID == userID {
+			out = append(out, s.skills[i])
+		}
+	}
+	return out, nil
+}
+
+func (s *fakeSkillStore) SearchSkills(_ context.Context, userID ids.UserID, query string, limit int32) ([]careerdomain.Skill, error) {
+	needle := strings.ToLower(query)
+	var out []careerdomain.Skill
+	for i := len(s.skills) - 1; i >= 0 && int32(len(out)) < limit; i-- {
+		sk := s.skills[i]
+		if sk.UserID == userID && strings.Contains(strings.ToLower(sk.Name), needle) {
+			out = append(out, sk)
+		}
+	}
+	return out, nil
+}
+
+func (s *fakeSkillStore) DeleteSkill(_ context.Context, userID ids.UserID, skillID ids.SkillID) (careerdomain.Skill, error) {
+	for i, sk := range s.skills {
+		if sk.ID == skillID && sk.UserID == userID {
+			s.skills = append(s.skills[:i], s.skills[i+1:]...)
+			return sk, nil
+		}
+	}
+	return careerdomain.Skill{}, careerdomain.ErrSkillNotFound
+}
+
+type fakeHealthStore struct {
+	weights []healthdomain.WeightLog
+	steps   []healthdomain.StepLog
+	sleep   []healthdomain.SleepLog
+}
+
+func (s *fakeHealthStore) Save(_ context.Context, log healthdomain.WeightLog) error {
+	s.weights = append(s.weights, log)
+	return nil
+}
+
+func (s *fakeHealthStore) GetLatest(_ context.Context, userID ids.UserID) (healthdomain.WeightLog, error) {
+	for i := len(s.weights) - 1; i >= 0; i-- {
+		if s.weights[i].UserID == userID {
+			return s.weights[i], nil
+		}
+	}
+	return healthdomain.WeightLog{}, healthdomain.ErrNotFound
+}
+
+func (s *fakeHealthStore) ListRecent(_ context.Context, userID ids.UserID, limit int32) ([]healthdomain.WeightLog, error) {
+	var out []healthdomain.WeightLog
+	for i := len(s.weights) - 1; i >= 0 && int32(len(out)) < limit; i-- {
+		if s.weights[i].UserID == userID {
+			out = append(out, s.weights[i])
+		}
+	}
+	return out, nil
+}
+
+func (s *fakeHealthStore) SaveSteps(_ context.Context, log healthdomain.StepLog) error {
+	s.steps = append(s.steps, log)
+	return nil
+}
+
+func (s *fakeHealthStore) GetLatestSteps(_ context.Context, userID ids.UserID) (healthdomain.StepLog, error) {
+	for i := len(s.steps) - 1; i >= 0; i-- {
+		if s.steps[i].UserID == userID {
+			return s.steps[i], nil
+		}
+	}
+	return healthdomain.StepLog{}, healthdomain.ErrNotFound
+}
+
+func (s *fakeHealthStore) ListRecentSteps(_ context.Context, userID ids.UserID, limit int32) ([]healthdomain.StepLog, error) {
+	var out []healthdomain.StepLog
+	for i := len(s.steps) - 1; i >= 0 && int32(len(out)) < limit; i-- {
+		if s.steps[i].UserID == userID {
+			out = append(out, s.steps[i])
+		}
+	}
+	return out, nil
+}
+
+func (s *fakeHealthStore) SaveSleep(_ context.Context, log healthdomain.SleepLog) error {
+	s.sleep = append(s.sleep, log)
+	return nil
+}
+
+func (s *fakeHealthStore) GetLatestSleep(_ context.Context, userID ids.UserID) (healthdomain.SleepLog, error) {
+	for i := len(s.sleep) - 1; i >= 0; i-- {
+		if s.sleep[i].UserID == userID {
+			return s.sleep[i], nil
+		}
+	}
+	return healthdomain.SleepLog{}, healthdomain.ErrNotFound
+}
+
+func (s *fakeHealthStore) ListRecentSleep(_ context.Context, userID ids.UserID, limit int32) ([]healthdomain.SleepLog, error) {
+	var out []healthdomain.SleepLog
+	for i := len(s.sleep) - 1; i >= 0 && int32(len(out)) < limit; i-- {
+		if s.sleep[i].UserID == userID {
+			out = append(out, s.sleep[i])
+		}
+	}
+	return out, nil
+}
+
+type fakeReminderSvc struct {
+	items []notifapp.ReminderDTO
+}
+
+func (s *fakeReminderSvc) ExecuteSchedule(_ context.Context, in notifapp.ScheduleReminderInput) error {
+	s.items = append(s.items, notifapp.ReminderDTO{
+		ID:      uuid.Must(uuid.NewV7()).String(),
+		Message: in.Message,
+		FireAt:  in.FireAt,
+		Status:  "pending",
+	})
+	return nil
+}
+
+type scheduleReminderAdapter struct{ *fakeReminderSvc }
+
+func (a scheduleReminderAdapter) Execute(ctx context.Context, in notifapp.ScheduleReminderInput) error {
+	return a.ExecuteSchedule(ctx, in)
+}
+
+func (s *fakeReminderSvc) ExecuteList(_ context.Context, _ ids.UserID) ([]notifapp.ReminderDTO, error) {
+	out := make([]notifapp.ReminderDTO, 0, len(s.items))
+	for _, item := range s.items {
+		if item.Status == "pending" {
+			out = append(out, item)
+		}
+	}
+	return out, nil
+}
+
+type listReminderAdapter struct{ *fakeReminderSvc }
+
+func (a listReminderAdapter) Execute(ctx context.Context, userID ids.UserID) ([]notifapp.ReminderDTO, error) {
+	return a.ExecuteList(ctx, userID)
+}
+
+func (s *fakeReminderSvc) ExecuteCancel(_ context.Context, in notifapp.CancelReminderInput) (notifapp.ReminderDTO, error) {
+	id := in.ReminderID.String()
+	for i, item := range s.items {
+		if item.ID == id && item.Status == "pending" {
+			item.Status = "cancelled"
+			s.items[i] = item
+			return item, nil
+		}
+	}
+	return notifapp.ReminderDTO{}, notifapp.ErrReminderNotFound
+}
+
+type cancelReminderAdapter struct{ *fakeReminderSvc }
+
+func (a cancelReminderAdapter) Execute(ctx context.Context, in notifapp.CancelReminderInput) (notifapp.ReminderDTO, error) {
+	return a.ExecuteCancel(ctx, in)
+}
+
+type fakeAnalytics struct {
+	summary query.ProductivitySummary
+}
+
+func (f fakeAnalytics) Execute(context.Context, ids.UserID) (query.ProductivitySummary, error) {
+	return f.summary, nil
 }
 
 type fakeHabitStore struct {
@@ -572,6 +827,10 @@ func newTestEnv(t *testing.T) testEnv {
 	sphereStore := newFakeSphereStore()
 	debtStore := newFakeDebtStore()
 	noteStore := &fakeNoteStore{}
+	contactStore := &fakeContactStore{}
+	skillStore := &fakeSkillStore{}
+	healthStore := &fakeHealthStore{}
+	reminderSvc := &fakeReminderSvc{}
 	users := &stubUserRepo{user: user}
 	tzFn := func(context.Context, ids.UserID) (string, error) { return "UTC", nil }
 
@@ -608,17 +867,51 @@ func newTestEnv(t *testing.T) testEnv {
 		UpdateEvening: settingsapp.NewUpdateEveningReview(
 			settingsStore, noopReviewRescheduler{}, tzFn, settingsinfra.ReviewAt,
 		),
-		UpdateQuiet:  settingsapp.NewUpdateQuietHours(settingsStore),
-		CreateSphere: spheresapp.NewCreateSphere(sphereStore, fakeEvents{}, fakeTx{}),
-		ListSpheres:  spheresapp.NewListSpheres(sphereStore),
-		UpdateSphere: spheresapp.NewUpdateSphere(sphereStore, fakeEvents{}, fakeTx{}),
-		DeleteSphere: spheresapp.NewDeleteSphere(sphereStore, fakeEvents{}, fakeTx{}),
-		CreateDebt:   financeapp.NewCreateDebt(debtStore, fakeEvents{}, fakeTx{}),
-		ListDebts:    financeapp.NewListDebts(debtStore),
-		CreateNote:   knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
-		ListNotes:    knowledgeapp.NewListNotes(noteStore),
-		SearchNotes:  knowledgeapp.NewSearchNotes(noteStore),
-		DeleteNote:   knowledgeapp.NewDeleteNote(noteStore, fakeEvents{}, fakeTx{}),
+		UpdateQuiet:      settingsapp.NewUpdateQuietHours(settingsStore),
+		CreateSphere:     spheresapp.NewCreateSphere(sphereStore, fakeEvents{}, fakeTx{}),
+		ListSpheres:      spheresapp.NewListSpheres(sphereStore),
+		UpdateSphere:     spheresapp.NewUpdateSphere(sphereStore, fakeEvents{}, fakeTx{}),
+		DeleteSphere:     spheresapp.NewDeleteSphere(sphereStore, fakeEvents{}, fakeTx{}),
+		CreateDebt:       financeapp.NewCreateDebt(debtStore, fakeEvents{}, fakeTx{}),
+		ListDebts:        financeapp.NewListDebts(debtStore),
+		PayDebt:          financeapp.NewPayDebt(debtStore, fakeEvents{}, fakeTx{}),
+		CreateNote:       knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
+		ListNotes:        knowledgeapp.NewListNotes(noteStore),
+		SearchNotes:      knowledgeapp.NewSearchNotes(noteStore),
+		DeleteNote:       knowledgeapp.NewDeleteNote(noteStore, fakeEvents{}, fakeTx{}),
+		CreateContact:    careerapp.NewCreateContact(contactStore, fakeEvents{}, fakeTx{}),
+		ListContacts:     careerapp.NewListContacts(contactStore),
+		SearchContacts:   careerapp.NewSearchContacts(contactStore),
+		DeleteContact:    careerapp.NewDeleteContact(contactStore, fakeEvents{}, fakeTx{}),
+		CreateSkill:      careerapp.NewCreateSkill(skillStore, fakeEvents{}, fakeTx{}),
+		ListSkills:       careerapp.NewListSkills(skillStore),
+		SearchSkills:     careerapp.NewSearchSkills(skillStore),
+		DeleteSkill:      careerapp.NewDeleteSkill(skillStore, fakeEvents{}, fakeTx{}),
+		RecordWeight:     healthapp.NewRecordWeight(healthStore, fakeEvents{}, fakeTx{}),
+		GetLatestWeight:  healthapp.NewGetLatestWeight(healthStore),
+		ListWeights:      healthapp.NewListWeights(healthStore),
+		RecordSteps:      healthapp.NewRecordSteps(healthStore, fakeEvents{}, fakeTx{}),
+		GetLatestSteps:   healthapp.NewGetLatestSteps(healthStore),
+		ListSteps:        healthapp.NewListSteps(healthStore),
+		RecordSleep:      healthapp.NewRecordSleep(healthStore, fakeEvents{}, fakeTx{}),
+		GetLatestSleep:   healthapp.NewGetLatestSleep(healthStore),
+		ListSleep:        healthapp.NewListSleep(healthStore),
+		ScheduleReminder: scheduleReminderAdapter{reminderSvc},
+		ListReminders:    listReminderAdapter{reminderSvc},
+		CancelReminder:   cancelReminderAdapter{reminderSvc},
+		Analytics: fakeAnalytics{summary: query.ProductivitySummary{
+			PeriodLabel:      "июль 2026",
+			TasksCreated:     10,
+			TasksCompleted:   7,
+			CompletionRate:   70,
+			OpenTasks:        3,
+			HabitConsistency: 80,
+			HabitCompletions: 16,
+			HabitCount:       2,
+			Projects: []query.ProjectKPI{
+				{Title: "LifeOS", Percent: "42%"},
+			},
+		}},
 	})
 	r := chi.NewRouter()
 	rt.Mount(r)
@@ -1476,4 +1769,357 @@ func TestNoteHTTPFlow(t *testing.T) {
 	if len(after.Notes) != 0 {
 		t.Fatalf("notes after delete=%d", len(after.Notes))
 	}
+
+	missing := doJSON(t, env.router, http.MethodDelete, "/api/v1/notes/"+created.ID, auth, nil)
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("delete missing status=%d", missing.Code)
+	}
+	badID := doJSON(t, env.router, http.MethodDelete, "/api/v1/notes/not-a-uuid", auth, nil)
+	if badID.Code != http.StatusBadRequest {
+		t.Fatalf("delete bad id status=%d", badID.Code)
+	}
+}
+
+func TestDebtPayHTTPContract(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	token := issueToken(t, env)
+	auth := map[string]string{"Authorization": "Bearer " + token}
+
+	createRec := doJSON(t, env.router, http.MethodPost, "/api/v1/finance/debts", auth, map[string]any{
+		"creditor":     "банку",
+		"amount_cents": int64(1_000_000),
+	})
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s", createRec.Code, createRec.Body.String())
+	}
+	var created struct {
+		ID             string `json:"id"`
+		AmountCents    int64  `json:"amount_cents"`
+		PaidCents      int64  `json:"paid_cents"`
+		RemainingCents int64  `json:"remaining_cents"`
+		Currency       string `json:"currency"`
+	}
+	if err := json.Unmarshal(createRec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.Currency != "RUB" || created.RemainingCents != 1_000_000 {
+		t.Fatalf("created=%+v", created)
+	}
+
+	payRec := doJSON(t, env.router, http.MethodPost, "/api/v1/finance/debts/"+created.ID+"/pay", auth, map[string]any{
+		"amount_cents": int64(250_000),
+	})
+	if payRec.Code != http.StatusOK {
+		t.Fatalf("pay status=%d body=%s", payRec.Code, payRec.Body.String())
+	}
+	var paid struct {
+		PaidCents      int64 `json:"paid_cents"`
+		RemainingCents int64 `json:"remaining_cents"`
+	}
+	if err := json.Unmarshal(payRec.Body.Bytes(), &paid); err != nil {
+		t.Fatal(err)
+	}
+	if paid.PaidCents != 250_000 || paid.RemainingCents != 750_000 {
+		t.Fatalf("paid=%+v", paid)
+	}
+
+	missing := doJSON(t, env.router, http.MethodPost, "/api/v1/finance/debts/"+uuid.Must(uuid.NewV7()).String()+"/pay", auth, map[string]any{
+		"amount_cents": int64(1),
+	})
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("missing debt status=%d", missing.Code)
+	}
+	badAmt := doJSON(t, env.router, http.MethodPost, "/api/v1/finance/debts/"+created.ID+"/pay", auth, map[string]any{
+		"amount_cents": int64(0),
+	})
+	if badAmt.Code != http.StatusBadRequest {
+		t.Fatalf("bad amount status=%d", badAmt.Code)
+	}
+}
+
+func TestCareerHTTPContract(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	token := issueToken(t, env)
+	auth := map[string]string{"Authorization": "Bearer " + token}
+
+	cRec := doJSON(t, env.router, http.MethodPost, "/api/v1/career/contacts", auth, map[string]any{
+		"name": "Ada", "company": "Analytical", "role": "Engineer", "notes": "hi",
+	})
+	if cRec.Code != http.StatusCreated {
+		t.Fatalf("create contact status=%d body=%s", cRec.Code, cRec.Body.String())
+	}
+	var contact struct {
+		ID        string `json:"id"`
+		Name      string `json:"name"`
+		Company   string `json:"company"`
+		Role      string `json:"role"`
+		Notes     string `json:"notes"`
+		CreatedAt string `json:"created_at"`
+	}
+	if err := json.Unmarshal(cRec.Body.Bytes(), &contact); err != nil {
+		t.Fatal(err)
+	}
+	if contact.Name != "Ada" || contact.Company != "Analytical" || contact.CreatedAt == "" {
+		t.Fatalf("contact=%+v", contact)
+	}
+
+	listC := doJSON(t, env.router, http.MethodGet, "/api/v1/career/contacts", auth, nil)
+	if listC.Code != http.StatusOK {
+		t.Fatalf("list contacts status=%d", listC.Code)
+	}
+	var listedC struct {
+		Contacts []struct {
+			Name string `json:"name"`
+		} `json:"contacts"`
+	}
+	if err := json.Unmarshal(listC.Body.Bytes(), &listedC); err != nil {
+		t.Fatal(err)
+	}
+	if len(listedC.Contacts) != 1 {
+		t.Fatalf("contacts=%+v", listedC.Contacts)
+	}
+
+	delC := doJSON(t, env.router, http.MethodDelete, "/api/v1/career/contacts/"+contact.ID, auth, nil)
+	if delC.Code != http.StatusOK {
+		t.Fatalf("delete contact status=%d", delC.Code)
+	}
+	missingC := doJSON(t, env.router, http.MethodDelete, "/api/v1/career/contacts/"+contact.ID, auth, nil)
+	if missingC.Code != http.StatusNotFound {
+		t.Fatalf("missing contact status=%d", missingC.Code)
+	}
+
+	sRec := doJSON(t, env.router, http.MethodPost, "/api/v1/career/skills", auth, map[string]any{
+		"name": "Go", "level": "advanced",
+	})
+	if sRec.Code != http.StatusCreated {
+		t.Fatalf("create skill status=%d body=%s", sRec.Code, sRec.Body.String())
+	}
+	var skill struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Level string `json:"level"`
+	}
+	if err := json.Unmarshal(sRec.Body.Bytes(), &skill); err != nil {
+		t.Fatal(err)
+	}
+	if skill.Name != "Go" || skill.Level != "advanced" {
+		t.Fatalf("skill=%+v", skill)
+	}
+	listS := doJSON(t, env.router, http.MethodGet, "/api/v1/career/skills?q=go", auth, nil)
+	if listS.Code != http.StatusOK {
+		t.Fatalf("search skills status=%d", listS.Code)
+	}
+	delS := doJSON(t, env.router, http.MethodDelete, "/api/v1/career/skills/"+skill.ID, auth, nil)
+	if delS.Code != http.StatusOK {
+		t.Fatalf("delete skill status=%d", delS.Code)
+	}
+	missingS := doJSON(t, env.router, http.MethodDelete, "/api/v1/career/skills/"+skill.ID, auth, nil)
+	if missingS.Code != http.StatusNotFound {
+		t.Fatalf("missing skill status=%d", missingS.Code)
+	}
+}
+
+func TestHealthHTTPContract(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	token := issueToken(t, env)
+	auth := map[string]string{"Authorization": "Bearer " + token}
+
+	emptyW := doJSON(t, env.router, http.MethodGet, "/api/v1/health/weight/latest", auth, nil)
+	if emptyW.Code != http.StatusNotFound {
+		t.Fatalf("empty weight status=%d", emptyW.Code)
+	}
+	emptyS := doJSON(t, env.router, http.MethodGet, "/api/v1/health/steps/latest", auth, nil)
+	if emptyS.Code != http.StatusNotFound {
+		t.Fatalf("empty steps status=%d", emptyS.Code)
+	}
+	emptySleep := doJSON(t, env.router, http.MethodGet, "/api/v1/health/sleep/latest", auth, nil)
+	if emptySleep.Code != http.StatusNotFound {
+		t.Fatalf("empty sleep status=%d", emptySleep.Code)
+	}
+
+	wRec := doJSON(t, env.router, http.MethodPost, "/api/v1/health/weight", auth, map[string]any{
+		"weight_kg": 72.5,
+	})
+	if wRec.Code != http.StatusCreated {
+		t.Fatalf("record weight status=%d body=%s", wRec.Code, wRec.Body.String())
+	}
+	var weight struct {
+		ID       string  `json:"id"`
+		WeightKg float64 `json:"weight_kg"`
+		LoggedAt string  `json:"logged_at"`
+	}
+	if err := json.Unmarshal(wRec.Body.Bytes(), &weight); err != nil {
+		t.Fatal(err)
+	}
+	if weight.WeightKg != 72.5 || weight.LoggedAt == "" {
+		t.Fatalf("weight=%+v", weight)
+	}
+	latestW := doJSON(t, env.router, http.MethodGet, "/api/v1/health/weight/latest", auth, nil)
+	if latestW.Code != http.StatusOK {
+		t.Fatalf("latest weight status=%d", latestW.Code)
+	}
+
+	stRec := doJSON(t, env.router, http.MethodPost, "/api/v1/health/steps", auth, map[string]any{
+		"steps": 8000,
+	})
+	if stRec.Code != http.StatusCreated {
+		t.Fatalf("record steps status=%d body=%s", stRec.Code, stRec.Body.String())
+	}
+	var steps struct {
+		Steps int32 `json:"steps"`
+	}
+	if err := json.Unmarshal(stRec.Body.Bytes(), &steps); err != nil {
+		t.Fatal(err)
+	}
+	if steps.Steps != 8000 {
+		t.Fatalf("steps=%+v", steps)
+	}
+
+	slRec := doJSON(t, env.router, http.MethodPost, "/api/v1/health/sleep", auth, map[string]any{
+		"duration_hours": 7.5,
+	})
+	if slRec.Code != http.StatusCreated {
+		t.Fatalf("record sleep status=%d body=%s", slRec.Code, slRec.Body.String())
+	}
+	var sleep struct {
+		DurationMinutes int32   `json:"duration_minutes"`
+		DurationHours   float64 `json:"duration_hours"`
+	}
+	if err := json.Unmarshal(slRec.Body.Bytes(), &sleep); err != nil {
+		t.Fatal(err)
+	}
+	if sleep.DurationMinutes != 450 || sleep.DurationHours != 7.5 {
+		t.Fatalf("sleep=%+v", sleep)
+	}
+
+	badW := doJSON(t, env.router, http.MethodPost, "/api/v1/health/weight", auth, map[string]any{
+		"weight_kg": 0,
+	})
+	if badW.Code != http.StatusBadRequest {
+		t.Fatalf("bad weight status=%d", badW.Code)
+	}
+}
+
+func TestRemindersHTTPContract(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	token := issueToken(t, env)
+	auth := map[string]string{"Authorization": "Bearer " + token}
+
+	fireAt := time.Now().UTC().Add(2 * time.Hour).Format(time.RFC3339)
+	createRec := doJSON(t, env.router, http.MethodPost, "/api/v1/reminders", auth, map[string]any{
+		"message": "pill",
+		"fire_at": fireAt,
+	})
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s", createRec.Code, createRec.Body.String())
+	}
+
+	listRec := doJSON(t, env.router, http.MethodGet, "/api/v1/reminders", auth, nil)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("list status=%d", listRec.Code)
+	}
+	var listed struct {
+		Reminders []struct {
+			ID      string `json:"id"`
+			Message string `json:"message"`
+			FireAt  string `json:"fire_at"`
+			Status  string `json:"status"`
+		} `json:"reminders"`
+	}
+	if err := json.Unmarshal(listRec.Body.Bytes(), &listed); err != nil {
+		t.Fatal(err)
+	}
+	if len(listed.Reminders) != 1 || listed.Reminders[0].Message != "pill" || listed.Reminders[0].Status != "pending" {
+		t.Fatalf("listed=%+v", listed.Reminders)
+	}
+
+	delRec := doJSON(t, env.router, http.MethodDelete, "/api/v1/reminders/"+listed.Reminders[0].ID, auth, nil)
+	if delRec.Code != http.StatusOK {
+		t.Fatalf("cancel status=%d body=%s", delRec.Code, delRec.Body.String())
+	}
+	missing := doJSON(t, env.router, http.MethodDelete, "/api/v1/reminders/"+listed.Reminders[0].ID, auth, nil)
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("missing cancel status=%d", missing.Code)
+	}
+
+	past := doJSON(t, env.router, http.MethodPost, "/api/v1/reminders", auth, map[string]any{
+		"message": "late",
+		"fire_at": time.Now().UTC().Add(-time.Hour).Format(time.RFC3339),
+	})
+	if past.Code != http.StatusBadRequest {
+		t.Fatalf("past fire_at status=%d", past.Code)
+	}
+}
+
+func TestAnalyticsSummaryHTTPContract(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	token := issueToken(t, env)
+	auth := map[string]string{"Authorization": "Bearer " + token}
+
+	rec := doJSON(t, env.router, http.MethodGet, "/api/v1/analytics/summary", auth, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		PeriodLabel      string `json:"period_label"`
+		TasksCreated     int64  `json:"tasks_created"`
+		TasksCompleted   int64  `json:"tasks_completed"`
+		CompletionRate   int    `json:"completion_rate"`
+		OpenTasks        int64  `json:"open_tasks"`
+		HabitConsistency int    `json:"habit_consistency"`
+		HabitCompletions int64  `json:"habit_completions"`
+		HabitCount       int64  `json:"habit_count"`
+		Projects         []struct {
+			Title   string `json:"title"`
+			Percent string `json:"percent"`
+		} `json:"projects"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.CompletionRate != 70 || body.HabitConsistency != 80 {
+		t.Fatalf("percents=%d/%d want ints 70/80", body.CompletionRate, body.HabitConsistency)
+	}
+	if len(body.Projects) != 1 || body.Projects[0].Title != "LifeOS" || body.Projects[0].Percent != "42%" {
+		t.Fatalf("projects=%+v (expect lowercase title/percent)", body.Projects)
+	}
+
+	// Empty projects must serialize as [] not null.
+	rt := api.NewRouter(api.Deps{
+		Log:     slog.Default(),
+		APIKey:  testAPIKey,
+		Tokens:  mustTokens(t),
+		GetUser: identityapp.NewGetUserByTelegram(&stubUserRepo{user: env.user}),
+		Analytics: fakeAnalytics{summary: query.ProductivitySummary{
+			PeriodLabel: "июль 2026",
+			Projects:    nil,
+		}},
+	})
+	r := chi.NewRouter()
+	rt.Mount(r)
+	token2 := issueToken(t, testEnv{user: env.user, router: r})
+	emptyRec := doJSON(t, r, http.MethodGet, "/api/v1/analytics/summary", map[string]string{
+		"Authorization": "Bearer " + token2,
+	}, nil)
+	if emptyRec.Code != http.StatusOK {
+		t.Fatalf("empty projects status=%d", emptyRec.Code)
+	}
+	raw := emptyRec.Body.String()
+	if !strings.Contains(raw, `"projects":[]`) {
+		t.Fatalf("projects must be empty array, body=%s", raw)
+	}
+}
+
+func mustTokens(t *testing.T) *auth.TokenService {
+	t.Helper()
+	tokens, err := auth.NewTokenService(testJWTSecret, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tokens
 }

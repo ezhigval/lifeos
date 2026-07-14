@@ -1,7 +1,7 @@
 # TASK-004: Stage 2.2 — API contracts for More domains
 
 - **Agent:** backend
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P1
 - **Stage:** miniapp-depth (Stage 2.2)
 
@@ -23,16 +23,16 @@
 
 ## Checklist vs client
 
-- notes list/create/delete
-- health weight/steps/sleep latest + record (404 on empty latest is OK if client handles)
-- career contacts/skills CRUD
-- reminders list/create/delete
-- finance debts list/create/pay
-- analytics/summary percent fields 0–100 ints
+- [x] notes list/create/delete
+- [x] health weight/steps/sleep latest + record (404 on empty latest is OK if client handles)
+- [x] career contacts/skills CRUD
+- [x] reminders list/create/delete
+- [x] finance debts list/create/pay
+- [x] analytics/summary percent fields 0–100 ints
 
 ## Acceptance
 
-- [ ] Contracts aligned or mismatches documented for Frontend
-- [ ] Tests green
-- [ ] Report: `docs/agents/reports/backend/TASK-004.md`
-- [ ] Commit + push
+- [x] Contracts aligned or mismatches documented for Frontend
+- [x] Tests green
+- [x] Report: `docs/agents/reports/backend/TASK-004.md`
+- [x] Commit + push

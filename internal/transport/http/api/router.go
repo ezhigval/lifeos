@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -50,7 +51,7 @@ type Deps struct {
 	ProjectProg      *projectsapp.GetProjectProgress
 	Review           *query.Review
 	Priorities       *query.GetTopPriorities
-	Analytics        *query.GetProductivitySummary
+	Analytics        ProductivitySummarizer
 	RecordIncome     *financeapp.RecordIncome
 	RecordExpense    *financeapp.RecordExpense
 	ListDebts        *financeapp.ListDebts
@@ -61,9 +62,9 @@ type Deps struct {
 	ListHabits       *habitsapp.ListHabitsToday
 	CreateHabit      *habitsapp.CreateHabit
 	TrackHabit       *habitsapp.TrackHabit
-	ScheduleReminder *notifapp.ScheduleReminder
-	ListReminders    *notifapp.ListReminders
-	CancelReminder   *notifapp.CancelReminder
+	ScheduleReminder ReminderScheduler
+	ListReminders    ReminderLister
+	CancelReminder   ReminderCanceller
 	CreateNote       *knowledgeapp.CreateNote
 	ListNotes        *knowledgeapp.ListNotes
 	SearchNotes      *knowledgeapp.SearchNotes
@@ -608,10 +609,34 @@ func (rt *Router) rescheduleTask(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, taskToJSON(dto))
 }
 
+// ProductivitySummarizer is implemented by *query.GetProductivitySummary.
+type ProductivitySummarizer interface {
+	Execute(ctx context.Context, userID ids.UserID) (query.ProductivitySummary, error)
+}
+
+// ReminderScheduler is implemented by *notifapp.ScheduleReminder.
+type ReminderScheduler interface {
+	Execute(ctx context.Context, in notifapp.ScheduleReminderInput) error
+}
+
+// ReminderLister is implemented by *notifapp.ListReminders.
+type ReminderLister interface {
+	Execute(ctx context.Context, userID ids.UserID) ([]notifapp.ReminderDTO, error)
+}
+
+// ReminderCanceller is implemented by *notifapp.CancelReminder.
+type ReminderCanceller interface {
+	Execute(ctx context.Context, in notifapp.CancelReminderInput) (notifapp.ReminderDTO, error)
+}
+
 func (rt *Router) analyticsSummary(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.Analytics == nil {
+		writeError(w, http.StatusNotImplemented, "analytics is not configured")
 		return
 	}
 	summary, err := rt.deps.Analytics.Execute(r.Context(), userID)
@@ -619,16 +644,20 @@ func (rt *Router) analyticsSummary(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	projects := summary.Projects
+	if projects == nil {
+		projects = []query.ProjectKPI{}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"period_label":      summary.PeriodLabel,
 		"tasks_created":     summary.TasksCreated,
 		"tasks_completed":   summary.TasksCompleted,
-		"completion_rate":   summary.CompletionRate,
+		"completion_rate":   summary.CompletionRate,   // int 0–100
 		"open_tasks":        summary.OpenTasks,
-		"habit_consistency": summary.HabitConsistency,
+		"habit_consistency": summary.HabitConsistency, // int 0–100
 		"habit_completions": summary.HabitCompletions,
 		"habit_count":       summary.HabitCount,
-		"projects":          summary.Projects,
+		"projects":          projects,
 	})
 }
 

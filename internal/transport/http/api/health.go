@@ -30,6 +30,10 @@ func (rt *Router) listWeights(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if rt.deps.ListWeights == nil {
+		writeError(w, http.StatusNotImplemented, "list weights is not configured")
+		return
+	}
 	items, err := rt.deps.ListWeights.Execute(r.Context(), userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -46,6 +50,10 @@ func (rt *Router) latestWeight(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.GetLatestWeight == nil {
+		writeError(w, http.StatusNotImplemented, "latest weight is not configured")
 		return
 	}
 	dto, err := rt.deps.GetLatestWeight.Execute(r.Context(), userID)
@@ -68,6 +76,10 @@ func (rt *Router) recordWeight(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.RecordWeight == nil {
+		writeError(w, http.StatusNotImplemented, "record weight is not configured")
 		return
 	}
 	var req recordWeightRequest
@@ -105,6 +117,10 @@ func (rt *Router) listSteps(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if rt.deps.ListSteps == nil {
+		writeError(w, http.StatusNotImplemented, "list steps is not configured")
+		return
+	}
 	items, err := rt.deps.ListSteps.Execute(r.Context(), userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -121,6 +137,10 @@ func (rt *Router) latestSteps(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.GetLatestSteps == nil {
+		writeError(w, http.StatusNotImplemented, "latest steps is not configured")
 		return
 	}
 	dto, err := rt.deps.GetLatestSteps.Execute(r.Context(), userID)
@@ -143,6 +163,10 @@ func (rt *Router) recordSteps(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.RecordSteps == nil {
+		writeError(w, http.StatusNotImplemented, "record steps is not configured")
 		return
 	}
 	var req recordStepsRequest
@@ -182,6 +206,10 @@ func (rt *Router) listSleep(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if rt.deps.ListSleep == nil {
+		writeError(w, http.StatusNotImplemented, "list sleep is not configured")
+		return
+	}
 	items, err := rt.deps.ListSleep.Execute(r.Context(), userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -198,6 +226,10 @@ func (rt *Router) latestSleep(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.GetLatestSleep == nil {
+		writeError(w, http.StatusNotImplemented, "latest sleep is not configured")
 		return
 	}
 	dto, err := rt.deps.GetLatestSleep.Execute(r.Context(), userID)
@@ -221,6 +253,10 @@ func (rt *Router) recordSleep(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.RecordSleep == nil {
+		writeError(w, http.StatusNotImplemented, "record sleep is not configured")
 		return
 	}
 	var req recordSleepRequest

@@ -44,10 +44,18 @@ func (rt *Router) listNotes(w http.ResponseWriter, r *http.Request) {
 	var items []knowledgeapp.NoteDTO
 	var err error
 	if query != "" {
+		if rt.deps.SearchNotes == nil {
+			writeError(w, http.StatusNotImplemented, "search notes is not configured")
+			return
+		}
 		items, err = rt.deps.SearchNotes.Execute(r.Context(), knowledgeapp.SearchNotesInput{
 			UserID: userID, Query: query,
 		})
 	} else {
+		if rt.deps.ListNotes == nil {
+			writeError(w, http.StatusNotImplemented, "list notes is not configured")
+			return
+		}
 		items, err = rt.deps.ListNotes.Execute(r.Context(), knowledgeapp.ListNotesInput{
 			UserID: userID, Tag: tag,
 		})
@@ -74,6 +82,10 @@ func (rt *Router) createNote(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	if rt.deps.CreateNote == nil {
+		writeError(w, http.StatusNotImplemented, "create note is not configured")
+		return
+	}
 	var req createNoteRequest
 	if err := decodeJSON(r, &req); err != nil || strings.TrimSpace(req.Body) == "" {
 		writeError(w, http.StatusBadRequest, "body is required")
@@ -96,6 +108,10 @@ func (rt *Router) deleteNote(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.DeleteNote == nil {
+		writeError(w, http.StatusNotImplemented, "delete note is not configured")
 		return
 	}
 	noteID, err := ids.ParseNoteID(chi.URLParam(r, "id"))

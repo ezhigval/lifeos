@@ -17,8 +17,8 @@ import (
 )
 
 type ProjectKPI struct {
-	Title   string
-	Percent string
+	Title   string `json:"title"`
+	Percent string `json:"percent"`
 }
 
 type ProductivitySummary struct {
