@@ -4,6 +4,9 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -15,13 +18,17 @@ import (
 	"github.com/valentinezhov/lifeos/internal/transport/http/api"
 )
 
+type Options struct {
+	StaticDir string
+}
+
 type Server struct {
 	log  *slog.Logger
 	addr string
 	srv  *http.Server
 }
 
-func New(log *slog.Logger, addr string, db *postgres.Pool, traceHTTP bool, apiRouter *api.Router, tgWebhook http.Handler) *Server {
+func New(log *slog.Logger, addr string, db *postgres.Pool, traceHTTP bool, apiRouter *api.Router, tgWebhook http.Handler, opts Options) *Server {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
@@ -63,6 +70,15 @@ func New(log *slog.Logger, addr string, db *postgres.Pool, traceHTTP bool, apiRo
 		log.Info("telegram webhook enabled", "path", "/webhook/telegram")
 	}
 
+	if dir := strings.TrimSpace(opts.StaticDir); dir != "" {
+		if st, err := os.Stat(dir); err == nil && st.IsDir() {
+			mountMiniApp(r, dir)
+			log.Info("mini app static enabled", "path", "/app/", "dir", dir)
+		} else {
+			log.Warn("mini app static dir missing", "dir", dir)
+		}
+	}
+
 	return &Server{
 		log:  log,
 		addr: addr,
@@ -72,6 +88,23 @@ func New(log *slog.Logger, addr string, db *postgres.Pool, traceHTTP bool, apiRo
 			ReadHeaderTimeout: 5 * time.Second,
 		},
 	}
+}
+
+func mountMiniApp(r chi.Router, dir string) {
+	fileServer := http.FileServer(http.Dir(dir))
+	r.Get("/app", func(w http.ResponseWriter, req *http.Request) {
+		http.Redirect(w, req, "/app/", http.StatusFound)
+	})
+	r.Handle("/app/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// Strip /app prefix so dist/index.html is served at /app/.
+		path := strings.TrimPrefix(req.URL.Path, "/app")
+		if path == "" || path == "/" {
+			http.ServeFile(w, req, filepath.Join(dir, "index.html"))
+			return
+		}
+		req.URL.Path = path
+		fileServer.ServeHTTP(w, req)
+	}))
 }
 
 func (s *Server) Start() error {

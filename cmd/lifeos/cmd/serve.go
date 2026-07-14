@@ -80,7 +80,17 @@ func runServe() error {
 		tgWebhook = tg.NewWebhook(rt.handler, cfg.TelegramWebhookSecret, log)
 	}
 
-	httpSrv := httptransport.New(log, cfg.HTTPAddr, pool, cfg.OtelEnabled, apiRouter, tgWebhook)
+	httpSrv := httptransport.New(log, cfg.HTTPAddr, pool, cfg.OtelEnabled, apiRouter, tgWebhook, httptransport.Options{
+		StaticDir: cfg.StaticDir,
+	})
+
+	if rt.tgClient != nil && cfg.MiniAppURL != "" {
+		if err := rt.tgClient.SetChatMenuButton(ctx, "Mini App", cfg.MiniAppURL); err != nil {
+			log.Warn("set chat menu button failed", "error", err, "url", cfg.MiniAppURL)
+		} else {
+			log.Info("telegram mini app menu button set", "url", cfg.MiniAppURL)
+		}
+	}
 
 	if rt.tgClient != nil && cfg.TelegramMode == "webhook" {
 		if err := tg.RegisterWebhook(ctx, rt.tgClient, cfg.TelegramWebhookURL, cfg.TelegramWebhookSecret); err != nil {

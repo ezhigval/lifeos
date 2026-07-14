@@ -21,12 +21,20 @@ func TestTextToAction(t *testing.T) {
 
 func TestMainReplyKeyboardSections(t *testing.T) {
 	t.Parallel()
-	kb := telegram.MainReplyKeyboard()
+	kb := telegram.MainReplyKeyboard("")
 	if len(kb) != 4 {
 		t.Fatalf("rows=%d want 4", len(kb))
 	}
-	if kb[3][0] != telegram.MenuSettings {
+	if kb[3][0].Text != telegram.MenuSettings {
 		t.Fatalf("last row=%v", kb[3])
+	}
+	kbApp := telegram.MainReplyKeyboard("https://example.com/app/")
+	if len(kbApp) != 5 {
+		t.Fatalf("rows=%d want 5 with mini app", len(kbApp))
+	}
+	last := kbApp[4][0]
+	if last.Text != telegram.MenuMiniApp || last.WebApp != "https://example.com/app/" {
+		t.Fatalf("mini app button=%+v", last)
 	}
 }
 

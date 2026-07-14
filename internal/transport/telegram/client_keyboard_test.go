@@ -7,7 +7,10 @@ import (
 
 func TestReplyKeyboardMarkupShape(t *testing.T) {
 	t.Parallel()
-	m := replyKeyboardMarkup([][]string{{"A", "B"}, {"C"}})
+	m := replyKeyboardMarkup([][]ReplyButton{
+		{{Text: "A"}, {Text: "B"}},
+		{{Text: "C", WebApp: "https://example.com/app/"}},
+	})
 	raw, err := json.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
@@ -27,6 +30,18 @@ func TestReplyKeyboardMarkupShape(t *testing.T) {
 	btn, ok := row0[0].(map[string]any)
 	if !ok || btn["text"] != "A" {
 		t.Fatalf("button should be {text: A}, got %#v", row0[0])
+	}
+	row1, ok := kb[1].([]any)
+	if !ok || len(row1) != 1 {
+		t.Fatalf("row1: %#v", kb[1])
+	}
+	webBtn, ok := row1[0].(map[string]any)
+	if !ok {
+		t.Fatalf("web button: %#v", row1[0])
+	}
+	webApp, ok := webBtn["web_app"].(map[string]any)
+	if !ok || webApp["url"] != "https://example.com/app/" {
+		t.Fatalf("web_app=%#v", webBtn["web_app"])
 	}
 	if decoded["is_persistent"] != true || decoded["resize_keyboard"] != true {
 		t.Fatalf("flags: %#v", decoded)

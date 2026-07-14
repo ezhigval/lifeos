@@ -1,7 +1,11 @@
-.PHONY: dev dev-air build test lint migrate-up migrate-down migrate-status docker-up docker-down tidy backup restore observability-up miniapp-dev miniapp-build
+.PHONY: dev dev-air build test lint migrate-up migrate-down migrate-status docker-up docker-down tidy backup restore observability-up miniapp-dev miniapp-build tunnel stack-up
 
 BINARY := lifeos
 MAIN := ./cmd/lifeos
+COMPOSE := docker compose -f deployments/docker-compose.yml
+ifneq (,$(wildcard deployments/docker-compose.override.yml))
+COMPOSE += -f deployments/docker-compose.override.yml
+endif
 
 dev:
 	GOTOOLCHAIN=local go run $(MAIN) serve
@@ -45,10 +49,10 @@ sqlc:
 	sqlc generate
 
 docker-up:
-	docker compose -f deployments/docker-compose.yml up -d --build
+	$(COMPOSE) up -d --build
 
 docker-down:
-	docker compose -f deployments/docker-compose.yml down
+	$(COMPOSE) down
 
 tidy:
 	go mod tidy
@@ -60,3 +64,13 @@ miniapp-dev:
 
 miniapp-build:
 	cd web/miniapp && npm ci && npm run build
+
+tunnel:
+	./scripts/https-tunnel.sh 8080
+
+# Build Mini App, raise HTTPS tunnel, rebuild and restart full stack.
+stack-up: miniapp-build
+	$(COMPOSE) up -d --build
+	./scripts/https-tunnel.sh 8080
+	$(COMPOSE) up -d --build app
+	@echo "Open Telegram → reply keyboard «📱 Mini App» (or menu button)"

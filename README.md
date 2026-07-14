@@ -25,6 +25,23 @@ Mini App (dev):
 cd web/miniapp && npm install && npm run dev
 ```
 
+Mini App через Telegram (нужен публичный HTTPS):
+
+```bash
+make stack-up
+# поднимает backend+frontend в Docker и HTTPS-туннель (cloudflared)
+# URL пишется в LIFEOS_MINIAPP_URL; в боте появляется кнопка «📱 Mini App»
+```
+
+Либо вручную:
+
+```bash
+make miniapp-build
+make docker-up
+make tunnel          # scripts/https-tunnel.sh → обновляет .env
+make docker-up       # пересоздать app с новым LIFEOS_MINIAPP_URL
+```
+
 ## Документация
 
 | Раздел | Путь |

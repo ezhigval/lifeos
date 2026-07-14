@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	tginfra "github.com/valentinezhov/lifeos/internal/transport/telegram/infra"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
+	tginfra "github.com/valentinezhov/lifeos/internal/transport/telegram/infra"
 )
 
 type Screen struct {
@@ -73,6 +73,8 @@ func menuActionLabel(action string) (string, bool) {
 		return MenuAnalytics, true
 	case ActionSettings:
 		return MenuSettings, true
+	case ActionMiniApp:
+		return MenuMiniApp, true
 	default:
 		return "", false
 	}
@@ -86,13 +88,14 @@ func TextToAction(text string) (string, bool) {
 func textToAction(text string) (string, bool) {
 	text = strings.TrimSpace(text)
 	labels := map[string]string{
-		MenuHome:            ActionHome,
-		MenuTasksToday:      ActionTasksToday,
-		MenuProjects:        ActionProjects,
-		MenuHabits:          ActionHabits,
-		MenuCalendar:        ActionCalendar,
-		MenuAnalytics:       ActionAnalytics,
-		MenuSettings:        ActionSettings,
+		MenuHome:       ActionHome,
+		MenuTasksToday: ActionTasksToday,
+		MenuProjects:   ActionProjects,
+		MenuHabits:     ActionHabits,
+		MenuCalendar:   ActionCalendar,
+		MenuAnalytics:  ActionAnalytics,
+		MenuSettings:   ActionSettings,
+		MenuMiniApp:    ActionMiniApp,
 		// Старые reply-кнопки (до реорганизации) — на случай если клавиатура не обновилась.
 		MenuAddTask:         ActionAddTask,
 		MenuPriorities:      ActionPriorities,

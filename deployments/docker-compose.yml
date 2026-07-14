@@ -25,6 +25,7 @@ services:
     environment:
       LIFEOS_DATABASE_URL: postgres://lifeos:lifeos@postgres:5432/lifeos?sslmode=disable
       LIFEOS_HTTP_ADDR: ":8080"
+      LIFEOS_STATIC_DIR: /app/web
     ports:
       - "8080:8080"
     depends_on:

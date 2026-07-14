@@ -345,6 +345,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 			TZReader:         tzReader,
 			DeleteUser:       identityapp.NewDeleteUser(userRepo),
 			AdminTelegramID:  cfg.SeedTelegramID,
+			MiniAppURL:       cfg.MiniAppURL,
 		})
 		rt.poller = tg.NewPoller(client, rt.handler, log)
 	}

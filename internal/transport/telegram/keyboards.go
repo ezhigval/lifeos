@@ -1,6 +1,6 @@
 package telegram
 
-// Reply menu — основная навигация (разделы + настройки).
+// Reply menu — основная навигация (разделы + настройки + Mini App).
 const (
 	MenuHome       = "🏠 Главная"
 	MenuTasksToday = "📅 Задачи"
@@ -9,13 +9,14 @@ const (
 	MenuCalendar   = "📆 Календарь"
 	MenuAnalytics  = "📊 Статистика"
 	MenuSettings   = "⚙️ Настройки"
+	MenuMiniApp    = "📱 Mini App"
 
 	// Ситуативные действия (только inline).
-	MenuAddTask           = "➕ Задача"
-	MenuPriorities        = "🔥 Важное"
-	MenuTriage            = "📦 Завал"
-	MenuAddProject        = "➕ Проект"
-	MenuProjectProgress   = "🎯 Прогресс"
+	MenuAddTask         = "➕ Задача"
+	MenuPriorities      = "🔥 Важное"
+	MenuTriage          = "📦 Завал"
+	MenuAddProject      = "➕ Проект"
+	MenuProjectProgress = "🎯 Прогресс"
 )
 
 // Callback data prefixes.
@@ -28,28 +29,39 @@ const (
 )
 
 const (
-	ActionHome       = "home"
-	ActionTasksToday = "tasks_today"
-	ActionPriorities = "priorities"
-	ActionAddTask    = "add_task"
+	ActionHome            = "home"
+	ActionTasksToday      = "tasks_today"
+	ActionPriorities      = "priorities"
+	ActionAddTask         = "add_task"
 	ActionProjectProgress = "project_progress"
 	ActionAddProject      = "add_project"
-	ActionTriage     = "triage"
-	ActionHabits     = "habits"
-	ActionProjects   = "projects"
-	ActionCalendar   = "calendar"
-	ActionAnalytics  = "analytics"
-	ActionSettings   = "settings"
+	ActionTriage          = "triage"
+	ActionHabits          = "habits"
+	ActionProjects        = "projects"
+	ActionCalendar        = "calendar"
+	ActionAnalytics       = "analytics"
+	ActionSettings        = "settings"
+	ActionMiniApp         = "miniapp"
 )
 
-// MainReplyKeyboard — постоянная reply-клавиатура: разделы и настройки.
-func MainReplyKeyboard() [][]string {
-	return [][]string{
-		{MenuHome, MenuTasksToday},
-		{MenuProjects, MenuHabits},
-		{MenuCalendar, MenuAnalytics},
-		{MenuSettings},
+// ReplyButton is a Telegram reply-keyboard button (plain text or web_app).
+type ReplyButton struct {
+	Text   string
+	WebApp string // when set, Telegram opens this HTTPS Mini App URL
+}
+
+// MainReplyKeyboard — постоянная reply-клавиатура: разделы, настройки и Mini App.
+func MainReplyKeyboard(miniAppURL string) [][]ReplyButton {
+	rows := [][]ReplyButton{
+		{{Text: MenuHome}, {Text: MenuTasksToday}},
+		{{Text: MenuProjects}, {Text: MenuHabits}},
+		{{Text: MenuCalendar}, {Text: MenuAnalytics}},
+		{{Text: MenuSettings}},
 	}
+	if miniAppURL != "" {
+		rows = append(rows, []ReplyButton{{Text: MenuMiniApp, WebApp: miniAppURL}})
+	}
+	return rows
 }
 
 // InlineHomeActions — быстрые действия на главной.

@@ -171,7 +171,7 @@ func (c *Client) EditScreen(ctx context.Context, chatID, messageID int64, text s
 	})
 }
 
-func (c *Client) SetReplyKeyboard(ctx context.Context, chatID int64, keyboard [][]string) error {
+func (c *Client) SetReplyKeyboard(ctx context.Context, chatID int64, keyboard [][]ReplyButton) error {
 	payload := sendMessageRequest{
 		ChatID:      chatID,
 		Text:        "⌨️",
@@ -184,12 +184,16 @@ func (c *Client) SetReplyKeyboard(ctx context.Context, chatID int64, keyboard []
 	return err
 }
 
-func replyKeyboardMarkup(rows [][]string) map[string]any {
-	kb := make([][]map[string]string, 0, len(rows))
+func replyKeyboardMarkup(rows [][]ReplyButton) map[string]any {
+	kb := make([][]map[string]any, 0, len(rows))
 	for _, row := range rows {
-		buttons := make([]map[string]string, 0, len(row))
-		for _, text := range row {
-			buttons = append(buttons, map[string]string{"text": text})
+		buttons := make([]map[string]any, 0, len(row))
+		for _, btn := range row {
+			item := map[string]any{"text": btn.Text}
+			if btn.WebApp != "" {
+				item["web_app"] = map[string]string{"url": btn.WebApp}
+			}
+			buttons = append(buttons, item)
 		}
 		kb = append(kb, buttons)
 	}
@@ -200,6 +204,23 @@ func replyKeyboardMarkup(rows [][]string) map[string]any {
 		"one_time_keyboard":       false,
 		"input_field_placeholder": "Раздел, команда или текст…",
 	}
+}
+
+// SetChatMenuButton installs the global Telegram menu button that opens Mini App.
+func (c *Client) SetChatMenuButton(ctx context.Context, text, webAppURL string) error {
+	if webAppURL == "" {
+		return nil
+	}
+	if text == "" {
+		text = "Mini App"
+	}
+	return c.postAPI(ctx, "setChatMenuButton", map[string]any{
+		"menu_button": map[string]any{
+			"type":    "web_app",
+			"text":    text,
+			"web_app": map[string]string{"url": webAppURL},
+		},
+	})
 }
 
 // DeleteMessage removes a chat message. Best-effort: callers may ignore errors

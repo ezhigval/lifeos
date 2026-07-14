@@ -117,6 +117,7 @@ type MessageHandler struct {
 	}
 	deleteUser      *identityapp.DeleteUser
 	adminTelegramID int64
+	miniAppURL      string
 }
 
 type Deps struct {
@@ -187,6 +188,7 @@ type Deps struct {
 	}
 	DeleteUser      *identityapp.DeleteUser
 	AdminTelegramID int64
+	MiniAppURL      string
 }
 
 func NewHandler(d Deps) *MessageHandler {
@@ -218,6 +220,7 @@ func NewHandler(d Deps) *MessageHandler {
 		updateMorning: d.UpdateMorning, updateEvening: d.UpdateEvening, updateQuiet: d.UpdateQuiet,
 		tzReader:   d.TZReader,
 		deleteUser: d.DeleteUser, adminTelegramID: d.AdminTelegramID,
+		miniAppURL: strings.TrimSpace(d.MiniAppURL),
 	}
 }
 
@@ -505,6 +508,11 @@ func (h *MessageHandler) runAction(ctx context.Context, userID ids.UserID, actio
 		return h.analyticsView(ctx, userID)
 	case ActionSettings:
 		return h.settingsView(ctx, userID)
+	case ActionMiniApp:
+		if h.miniAppURL == "" {
+			return dispatchResult{text: "Mini App ещё не настроен (нет LIFEOS_MINIAPP_URL)."}, nil
+		}
+		return dispatchResult{text: "📱 Mini App: " + html.EscapeString(h.miniAppURL) + "\nНажми кнопку <b>📱 Mini App</b> на клавиатуре, чтобы открыть."}, nil
 	default:
 		return dispatchResult{text: FormatFallback()}, nil
 	}
@@ -525,7 +533,7 @@ const (
 	replyKBVersionKey = "reply_kb_ver"
 	// Bump when MainReplyKeyboard layout changes or keyboard attach strategy changes,
 	// so existing sessions reinstall the reply keyboard.
-	replyKBVersion = 2
+	replyKBVersion = 3
 )
 
 func (h *MessageHandler) ensureReplyKeyboard(ctx context.Context, userID ids.UserID, chatID int64) {
@@ -539,7 +547,7 @@ func (h *MessageHandler) ensureReplyKeyboard(ctx context.Context, userID ids.Use
 	if replyKeyboardInstalled(sess.StatePayload) {
 		return
 	}
-	if err := h.client.SetReplyKeyboard(ctx, chatID, MainReplyKeyboard()); err != nil {
+	if err := h.client.SetReplyKeyboard(ctx, chatID, MainReplyKeyboard(h.miniAppURL)); err != nil {
 		h.log.Warn("set reply keyboard failed", "user_id", userID.String(), "error", err)
 		return
 	}
