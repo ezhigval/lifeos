@@ -59,4 +59,4 @@ cd web/miniapp && npm run lint    # oxlint — OK (3 pre-existing only-export-co
 
 ## Commits
 
-- `7374269f770715bafd884321a0e2549d92076a5e` — `fix(miniapp): close P1 post-merge UX bugs`
+- `627f64fbcef77419c7901af0edb653260b00e743` — `fix(miniapp): close P1 post-merge UX bugs`
