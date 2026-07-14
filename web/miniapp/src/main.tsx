@@ -1,10 +1,15 @@
 import { Component, StrictMode, type ErrorInfo, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { HashRouter } from 'react-router-dom'
+import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
+import { freezeInitData, initTelegram } from '@/lib/telegram'
 import App from './App'
 import './index.css'
+
+// Capture Telegram launch payload before the router can touch location.hash.
+freezeInitData()
+initTelegram()
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -90,9 +95,11 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <HashRouter>
+          {/* BrowserRouter keeps Telegram's #tgWebAppData=… hash intact.
+              HashRouter would overwrite it and break initData signatures. */}
+          <BrowserRouter basename="/app">
             <Root />
-          </HashRouter>
+          </BrowserRouter>
         </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>

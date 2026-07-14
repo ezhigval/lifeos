@@ -31,6 +31,17 @@ async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise
   }
 }
 
+async function waitForInitData(maxMs: number): Promise<string> {
+  const started = Date.now()
+  let data = getInitData()
+  while (!data && Date.now() - started < maxMs) {
+    await new Promise((r) => setTimeout(r, 50))
+    initTelegram()
+    data = getInitData()
+  }
+  return data
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: 'loading' })
 
@@ -40,10 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function login() {
       try {
         initTelegram()
-        // Give Telegram WebView a tick to populate initData after ready().
-        await new Promise((r) => setTimeout(r, 50))
-
-        const initData = getInitData()
+        const initData = await waitForInitData(1_500)
         if (initData) {
           const token = await withTimeout(
             authWithInitData(initData),
@@ -76,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setState({
             status: 'error',
             message: isTelegramEnv()
-              ? 'Telegram не передал initData. Закрой Mini App и открой снова кнопкой «📱 Mini App».'
+              ? 'Telegram не передал initData. Закрой Mini App полностью и открой снова кнопкой «📱 Mini App».'
               : 'Открой из Telegram или задай VITE_DEV_API_KEY и VITE_DEV_TELEGRAM_ID',
           })
         }

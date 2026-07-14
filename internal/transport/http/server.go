@@ -91,19 +91,30 @@ func New(log *slog.Logger, addr string, db *postgres.Pool, traceHTTP bool, apiRo
 }
 
 func mountMiniApp(r chi.Router, dir string) {
-	fileServer := http.FileServer(http.Dir(dir))
+	serveIndex := func(w http.ResponseWriter, req *http.Request) {
+		http.ServeFile(w, req, filepath.Join(dir, "index.html"))
+	}
 	r.Get("/app", func(w http.ResponseWriter, req *http.Request) {
 		http.Redirect(w, req, "/app/", http.StatusFound)
 	})
 	r.Handle("/app/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// Strip /app prefix so dist/index.html is served at /app/.
 		path := strings.TrimPrefix(req.URL.Path, "/app")
 		if path == "" || path == "/" {
-			http.ServeFile(w, req, filepath.Join(dir, "index.html"))
+			serveIndex(w, req)
 			return
 		}
-		req.URL.Path = path
-		fileServer.ServeHTTP(w, req)
+		full := filepath.Join(dir, filepath.Clean("/"+path))
+		root := filepath.Clean(dir)
+		if full != root && !strings.HasPrefix(full, root+string(filepath.Separator)) {
+			http.NotFound(w, req)
+			return
+		}
+		if st, err := os.Stat(full); err == nil && !st.IsDir() {
+			http.ServeFile(w, req, full)
+			return
+		}
+		// SPA fallback for client-side routes (BrowserRouter basename=/app).
+		serveIndex(w, req)
 	}))
 }
 

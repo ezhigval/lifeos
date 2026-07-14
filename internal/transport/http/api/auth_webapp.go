@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
@@ -38,7 +39,15 @@ func (rt *Router) authTelegramWebApp(w http.ResponseWriter, r *http.Request) {
 	}
 	parsed, err := auth.ValidateWebAppInitData(req.InitData, rt.deps.BotToken, maxAge, time.Now().UTC())
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "invalid init_data")
+		if rt.deps.Log != nil {
+			rt.deps.Log.Warn("telegram webapp auth rejected",
+				"error", err.Error(),
+				"init_data_len", len(req.InitData),
+				"has_hash", strings.Contains(req.InitData, "hash="),
+				"has_user", strings.Contains(req.InitData, "user="),
+			)
+		}
+		writeError(w, http.StatusUnauthorized, publicWebAppAuthError(err))
 		return
 	}
 
@@ -64,4 +73,18 @@ func (rt *Router) authTelegramWebApp(w http.ResponseWriter, r *http.Request) {
 		ExpiresIn:   int64(timeUntil(exp)),
 		TokenType:   "Bearer",
 	})
+}
+
+func publicWebAppAuthError(err error) string {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "expired"):
+		return "init_data expired — закрой Mini App и открой снова"
+	case strings.Contains(msg, "invalid init_data hash"):
+		return "invalid init_data hash — открой Mini App кнопкой бота @urban_assist_bot"
+	case strings.Contains(msg, "missing hash"), strings.Contains(msg, "missing user"), strings.Contains(msg, "missing auth_date"):
+		return "init_data incomplete — закрой Mini App и открой снова из Telegram"
+	default:
+		return "invalid init_data"
+	}
 }

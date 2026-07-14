@@ -14,6 +14,7 @@ export function BottomNav() {
       <div className="mx-auto grid max-w-lg grid-cols-2 gap-1 px-4 py-2">
         <NavLink
           to="/"
+          end
           className={({ isActive }) =>
             cn(
               'flex flex-col items-center gap-1 rounded-2xl py-2 text-xs font-medium transition',
