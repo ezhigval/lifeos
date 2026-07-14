@@ -1,28 +1,86 @@
-import WebApp from '@twa-dev/sdk'
+type TelegramUser = {
+  id?: number
+  first_name?: string
+  last_name?: string
+  username?: string
+  language_code?: string
+}
+
+type TelegramWebApp = {
+  initData?: string
+  initDataUnsafe?: { user?: TelegramUser }
+  platform?: string
+  version?: string
+  ready?: () => void
+  expand?: () => void
+  setHeaderColor?: (color: string) => void
+  setBackgroundColor?: (color: string) => void
+  HapticFeedback?: {
+    impactOccurred?: (style: string) => void
+    notificationOccurred?: (type: string) => void
+  }
+}
+
+function getWebApp(): TelegramWebApp | undefined {
+  if (typeof window === 'undefined') return undefined
+  return (window as Window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp
+}
 
 export function initTelegram() {
-  WebApp.ready()
-  WebApp.expand()
-  WebApp.setHeaderColor('secondary_bg_color')
-  WebApp.setBackgroundColor('bg_color')
+  try {
+    const wa = getWebApp()
+    if (!wa) return
+    wa.ready?.()
+    wa.expand?.()
+    try {
+      wa.setHeaderColor?.('secondary_bg_color')
+    } catch {
+      /* older clients */
+    }
+    try {
+      wa.setBackgroundColor?.('bg_color')
+    } catch {
+      /* older clients */
+    }
+  } catch (err) {
+    console.warn('telegram init failed', err)
+  }
 }
 
 export function getInitData(): string {
-  return WebApp.initData || ''
+  try {
+    return getWebApp()?.initData || ''
+  } catch {
+    return ''
+  }
 }
 
 export function isTelegramEnv(): boolean {
-  return Boolean(WebApp.initData || WebApp.platform !== 'unknown')
+  const wa = getWebApp()
+  if (!wa) return false
+  return Boolean(wa.initData) || (wa.platform !== undefined && wa.platform !== 'unknown')
 }
 
 export function hapticLight() {
-  WebApp.HapticFeedback?.impactOccurred('light')
+  try {
+    getWebApp()?.HapticFeedback?.impactOccurred?.('light')
+  } catch {
+    /* ignore */
+  }
 }
 
 export function hapticSuccess() {
-  WebApp.HapticFeedback?.notificationOccurred('success')
+  try {
+    getWebApp()?.HapticFeedback?.notificationOccurred?.('success')
+  } catch {
+    /* ignore */
+  }
 }
 
-export function tgUser() {
-  return WebApp.initDataUnsafe?.user
+export function tgUser(): TelegramUser | undefined {
+  try {
+    return getWebApp()?.initDataUnsafe?.user
+  } catch {
+    return undefined
+  }
 }

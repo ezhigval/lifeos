@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from 'react'
 import { setAccessToken, authWithInitData, authWithDevCredentials } from '@/api/client'
-import { getInitData, isTelegramEnv } from '@/lib/telegram'
+import { getInitData, initTelegram, isTelegramEnv } from '@/lib/telegram'
 
 type AuthState =
   | { status: 'loading' }
@@ -14,6 +14,22 @@ type AuthState =
   | { status: 'error'; message: string }
 
 const AuthContext = createContext<AuthState>({ status: 'loading' })
+
+const AUTH_TIMEOUT_MS = 12_000
+
+async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      p,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timeout`)), ms)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: 'loading' })
@@ -23,9 +39,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function login() {
       try {
+        initTelegram()
+        // Give Telegram WebView a tick to populate initData after ready().
+        await new Promise((r) => setTimeout(r, 50))
+
         const initData = getInitData()
         if (initData) {
-          const token = await authWithInitData(initData)
+          const token = await withTimeout(
+            authWithInitData(initData),
+            AUTH_TIMEOUT_MS,
+            'auth/telegram-webapp',
+          )
           if (!cancelled) {
             setAccessToken(token)
             setState({ status: 'ready' })
@@ -36,7 +60,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const apiKey = import.meta.env.VITE_DEV_API_KEY as string | undefined
         const telegramId = Number(import.meta.env.VITE_DEV_TELEGRAM_ID)
         if (apiKey && telegramId > 0) {
-          const token = await authWithDevCredentials(apiKey, telegramId)
+          const token = await withTimeout(
+            authWithDevCredentials(apiKey, telegramId),
+            AUTH_TIMEOUT_MS,
+            'auth/token',
+          )
           if (!cancelled) {
             setAccessToken(token)
             setState({ status: 'ready' })
@@ -48,11 +76,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setState({
             status: 'error',
             message: isTelegramEnv()
-              ? 'Не удалось авторизоваться через Telegram'
+              ? 'Telegram не передал initData. Закрой Mini App и открой снова кнопкой «📱 Mini App».'
               : 'Открой из Telegram или задай VITE_DEV_API_KEY и VITE_DEV_TELEGRAM_ID',
           })
         }
       } catch (e) {
+        console.error('miniapp auth failed', e)
         const apiKey = import.meta.env.VITE_DEV_API_KEY as string | undefined
         const telegramId = Number(import.meta.env.VITE_DEV_TELEGRAM_ID)
         if (apiKey && telegramId > 0) {
@@ -76,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    login()
+    void login()
     return () => {
       cancelled = true
     }

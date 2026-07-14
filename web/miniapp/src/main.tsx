@@ -1,13 +1,10 @@
-import { StrictMode } from 'react'
+import { Component, StrictMode, type ErrorInfo, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
-import { initTelegram } from '@/lib/telegram'
 import App from './App'
 import './index.css'
-
-initTelegram()
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,12 +15,46 @@ const queryClient = new QueryClient({
   },
 })
 
+class ErrorBoundary extends Component<{ children: ReactNode }, { error?: string }> {
+  state: { error?: string } = {}
+
+  static getDerivedStateFromError(err: Error) {
+    return { error: err.message || 'Unknown UI error' }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('miniapp crashed', error, info)
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 24, color: '#f8fafc', background: '#0f172a', minHeight: '100%' }}>
+          <h1 style={{ fontSize: 18, marginBottom: 8 }}>Ошибка Mini App</h1>
+          <p style={{ color: '#94a3b8', fontSize: 14 }}>{this.state.error}</p>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 function Root() {
   const auth = useAuth()
 
   if (auth.status === 'loading') {
     return (
-      <div className="flex min-h-full items-center justify-center p-8 text-[var(--tg-theme-hint-color,#94a3b8)]">
+      <div
+        style={{
+          display: 'flex',
+          minHeight: '100%',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 32,
+          background: '#0f172a',
+          color: '#94a3b8',
+        }}
+      >
         Загрузка…
       </div>
     )
@@ -31,9 +62,22 @@ function Root() {
 
   if (auth.status === 'error') {
     return (
-      <div className="flex min-h-full flex-col items-center justify-center gap-2 p-8 text-center">
-        <p className="text-lg font-medium">Не удалось войти</p>
-        <p className="text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">{auth.message}</p>
+      <div
+        style={{
+          display: 'flex',
+          minHeight: '100%',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          padding: 32,
+          textAlign: 'center',
+          background: '#0f172a',
+          color: '#f8fafc',
+        }}
+      >
+        <p style={{ fontSize: 18, fontWeight: 500, margin: 0 }}>Не удалось войти</p>
+        <p style={{ fontSize: 14, color: '#94a3b8', margin: 0 }}>{auth.message}</p>
       </div>
     )
   }
@@ -43,12 +87,14 @@ function Root() {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <HashRouter>
-          <Root />
-        </HashRouter>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <HashRouter>
+            <Root />
+          </HashRouter>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </StrictMode>,
 )
