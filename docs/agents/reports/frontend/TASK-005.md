@@ -57,4 +57,4 @@ cd web/miniapp && npm run lint    # OK (3 pre-existing only-export-components wa
 
 ## Commits
 
-- *(filled after commit)*
+- `2a626c0ede8e6772caa30ed163057369e717971f` — `fix(miniapp): Stage 3.0 dogfood`
