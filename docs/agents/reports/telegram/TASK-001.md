@@ -61,4 +61,4 @@ go build ./cmd/lifeos/...                   # OK
 
 ## Commits
 
-_(filled after commit)_
+- `bd7fda394df518e185c6ec900f0e9c1f3cf9c407` — `fix(telegram): close P0/P1 post-lifecycle transport bugs`
