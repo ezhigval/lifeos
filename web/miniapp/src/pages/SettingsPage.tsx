@@ -240,7 +240,15 @@ function SpheresSettings() {
       {isError && <QueryError message="Не удалось загрузить сферы" onRetry={() => void refetch()} />}
 
       {!isLoading && !isError && (data ?? []).length === 0 && (
-        <EmptyState title="Сфер нет" description="Создай первую" />
+        <EmptyState
+          title="Сфер нет"
+          description="Создай первую"
+          actionLabel="Создать"
+          onAction={() => {
+            setName('')
+            setCreateOpen(true)
+          }}
+        />
       )}
 
       <div className="space-y-2">

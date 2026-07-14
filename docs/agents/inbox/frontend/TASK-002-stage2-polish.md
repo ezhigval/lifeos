@@ -1,7 +1,7 @@
 # TASK-002: Stage 2 Mini App polish
 
 - **Agent:** frontend
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P1
 - **Stage:** miniapp-functionality (Stage 2)
 
@@ -28,7 +28,7 @@ Backend TASK-002 (can start polish in parallel; pull latest before final wire).
 
 ## Acceptance
 
-- [ ] FinanceOverview used when endpoint works; categories visible
-- [ ] `npm run build` (+ lint) green
-- [ ] Report: `docs/agents/reports/frontend/TASK-002.md`
-- [ ] Commit + push branch
+- [x] FinanceOverview used when endpoint works; categories visible
+- [x] `npm run build` (+ lint) green
+- [x] Report: `docs/agents/reports/frontend/TASK-002.md`
+- [x] Commit + push branch

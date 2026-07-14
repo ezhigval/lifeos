@@ -360,10 +360,15 @@ export const api = {
       body: JSON.stringify({ duration_hours }),
     }),
 
+  /**
+   * Prefer GET /finance/overview (categories + period). Fall back to cash-flow
+   * only while overview is missing (404/501) — remove once Backend TASK-002 ships.
+   */
   financeOverview: async (period: Period): Promise<FinanceOverview> => {
     const key = periodKey(period)
     try {
-      return await request<FinanceOverview>(`/api/v1/finance/overview?period=${key}`)
+      const raw = await request<FinanceOverview>(`/api/v1/finance/overview?period=${key}`)
+      return normalizeFinanceOverview(raw, period)
     } catch (e) {
       if (!(e instanceof ApiClientError) || (e.status !== 404 && e.status !== 501)) {
         throw e
@@ -387,9 +392,9 @@ export const api = {
 
       return {
         period_label: periodFullLabel(period),
-        income_cents: cf.income_cents,
-        expense_cents: cf.expense_cents,
-        net_cents: cf.net_cents,
+        income_cents: cf.income_cents ?? 0,
+        expense_cents: cf.expense_cents ?? 0,
+        net_cents: cf.net_cents ?? 0,
         currency: cf.currency || 'RUB',
         categories: [],
       }
@@ -397,8 +402,29 @@ export const api = {
   },
 }
 
+/** Coerce overview payload so Legend/Ring always get a categories array. */
+function normalizeFinanceOverview(
+  raw: FinanceOverview,
+  period: Period,
+): FinanceOverview {
+  const categories = Array.isArray(raw.categories) ? raw.categories : []
+  return {
+    period_label: raw.period_label || periodFullLabel(period),
+    income_cents: Number(raw.income_cents) || 0,
+    expense_cents: Number(raw.expense_cents) || 0,
+    net_cents: Number(raw.net_cents) || 0,
+    currency: raw.currency || 'RUB',
+    categories: categories.map((c) => ({
+      name: c.name || 'Прочее',
+      amount_cents: Number(c.amount_cents) || 0,
+      percent: Number(c.percent) || 0,
+      color_hint: c.color_hint,
+    })),
+  }
+}
+
 export function enrichFinanceCategories(overview: FinanceOverview): FinanceOverview {
-  if (overview.categories.length === 0) return overview
+  if (!overview.categories || overview.categories.length === 0) return overview
   const slices = majorCategories(overview.categories, overview.expense_cents)
   return {
     ...overview,

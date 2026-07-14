@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
-import { api, enrichFinanceCategories } from '@/api/client'
+import { api } from '@/api/client'
 import type { FinanceOverview } from '@/api/types'
 import { FinanceRing } from '@/components/finance/FinanceRing'
 import { FinanceLegend } from '@/components/finance/FinanceLegend'
@@ -20,6 +20,7 @@ import { getSavedPeriod, savePeriod } from '@/lib/storage'
 import { hapticSuccess } from '@/lib/telegram'
 
 type Props = {
+  /** Prefer overview from GET /finance/overview (enriched); cash-flow fallback OK until then. */
   overview: FinanceOverview | undefined
   isLoading: boolean
   period: Period
@@ -44,15 +45,13 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
     },
   })
 
-  const enriched = overview ? enrichFinanceCategories(overview) : undefined
-
   return (
     <section className="rounded-3xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] p-4">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold">Финансы</h2>
-        {enriched && (
+        {overview && (
           <span className="text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">
-            {enriched.period_label}
+            {overview.period_label}
           </span>
         )}
       </div>
@@ -71,14 +70,14 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-3/4" />
         </div>
-      ) : enriched ? (
+      ) : overview ? (
         <>
           <div className="mt-4">
             <FinanceRing
-              netCents={enriched.net_cents}
-              expenseCents={enriched.expense_cents}
-              categories={enriched.categories}
-              currency={enriched.currency}
+              netCents={overview.net_cents}
+              expenseCents={overview.expense_cents}
+              categories={overview.categories}
+              currency={overview.currency}
             />
           </div>
 
@@ -89,7 +88,7 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
                 Доход
               </div>
               <div className="tabular-nums font-semibold">
-                {formatMoneyPlain(enriched.income_cents, enriched.currency)}
+                {formatMoneyPlain(overview.income_cents, overview.currency)}
               </div>
             </div>
             <div className="rounded-2xl bg-rose-500/10 px-3 py-2">
@@ -98,13 +97,17 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
                 Расход
               </div>
               <div className="tabular-nums font-semibold">
-                {formatMoneyPlain(enriched.expense_cents, enriched.currency)}
+                {formatMoneyPlain(overview.expense_cents, overview.currency)}
               </div>
             </div>
           </div>
 
           <div className="mt-4">
-            <FinanceLegend categories={enriched.categories} currency={enriched.currency} />
+            <FinanceLegend
+              categories={overview.categories}
+              currency={overview.currency}
+              expenseCents={overview.expense_cents}
+            />
           </div>
         </>
       ) : null}

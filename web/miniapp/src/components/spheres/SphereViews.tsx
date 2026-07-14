@@ -547,7 +547,12 @@ export function ProjectDetailPage() {
             />
           ))}
           {!isLoading && active.length === 0 && (
-            <p className="text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Нет активных задач</p>
+            <EmptyState
+              title="Нет активных задач"
+              description="Добавь задачу в проект"
+              actionLabel="Создать"
+              onAction={() => setCreateOpen(true)}
+            />
           )}
         </div>
       </section>
