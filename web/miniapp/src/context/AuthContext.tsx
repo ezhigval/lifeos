@@ -5,8 +5,22 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { setAccessToken, authWithInitData, authWithDevCredentials } from '@/api/client'
-import { getInitData, initTelegram, isTelegramEnv } from '@/lib/telegram'
+import {
+  setAccessToken,
+  setUnauthorizedHandler,
+  authWithInitData,
+  authWithDevCredentials,
+} from '@/api/client'
+import { getInitData, initTelegram, isTelegramEnv, tgUser } from '@/lib/telegram'
+import {
+  buildSession,
+  clearSession,
+  isSessionFresh,
+  loadSession,
+  saveSession,
+  sessionMatchesTelegram,
+  type StoredSession,
+} from '@/lib/session'
 
 type AuthState =
   | { status: 'loading' }
@@ -42,41 +56,104 @@ async function waitForInitData(maxMs: number): Promise<string> {
   return data
 }
 
+function applySession(session: StoredSession) {
+  setAccessToken(session.accessToken)
+  saveSession(session)
+}
+
+function tryRestoreSession(): boolean {
+  const session = loadSession()
+  if (!session || !isSessionFresh(session)) {
+    if (session) clearSession()
+    return false
+  }
+  const tgId = tgUser()?.id
+  if (!sessionMatchesTelegram(session, tgId)) {
+    clearSession()
+    return false
+  }
+  setAccessToken(session.accessToken)
+  return true
+}
+
+async function loginWithInitData(initData: string): Promise<StoredSession> {
+  const result = await withTimeout(
+    authWithInitData(initData),
+    AUTH_TIMEOUT_MS,
+    'auth/telegram-webapp',
+  )
+  const telegramId = tgUser()?.id
+  const session = buildSession(result.accessToken, result.expiresIn, telegramId)
+  applySession(session)
+  return session
+}
+
+async function loginWithDev(): Promise<StoredSession | null> {
+  const apiKey = import.meta.env.VITE_DEV_API_KEY as string | undefined
+  const telegramId = Number(import.meta.env.VITE_DEV_TELEGRAM_ID)
+  if (!apiKey || !(telegramId > 0)) return null
+  const result = await withTimeout(
+    authWithDevCredentials(apiKey, telegramId),
+    AUTH_TIMEOUT_MS,
+    'auth/token',
+  )
+  const session = buildSession(result.accessToken, result.expiresIn, telegramId)
+  applySession(session)
+  return session
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: 'loading' })
 
   useEffect(() => {
     let cancelled = false
+    let refreshInFlight: Promise<boolean> | null = null
+
+    async function refreshFromInitData(): Promise<boolean> {
+      if (refreshInFlight) return refreshInFlight
+      refreshInFlight = (async () => {
+        try {
+          initTelegram()
+          const initData = getInitData() || (await waitForInitData(800))
+          if (!initData) return false
+          await loginWithInitData(initData)
+          return true
+        } catch (err) {
+          console.warn('silent re-auth failed', err)
+          clearSession()
+          setAccessToken(null)
+          return false
+        } finally {
+          refreshInFlight = null
+        }
+      })()
+      return refreshInFlight
+    }
+
+    setUnauthorizedHandler(refreshFromInitData)
 
     async function login() {
       try {
         initTelegram()
-        const initData = await waitForInitData(1_500)
-        if (initData) {
-          const token = await withTimeout(
-            authWithInitData(initData),
-            AUTH_TIMEOUT_MS,
-            'auth/telegram-webapp',
-          )
-          if (!cancelled) {
-            setAccessToken(token)
-            setState({ status: 'ready' })
-          }
+
+        // 1) Prefer persisted JWT — do NOT touch initData if session is fresh.
+        if (tryRestoreSession()) {
+          if (!cancelled) setState({ status: 'ready' })
           return
         }
 
-        const apiKey = import.meta.env.VITE_DEV_API_KEY as string | undefined
-        const telegramId = Number(import.meta.env.VITE_DEV_TELEGRAM_ID)
-        if (apiKey && telegramId > 0) {
-          const token = await withTimeout(
-            authWithDevCredentials(apiKey, telegramId),
-            AUTH_TIMEOUT_MS,
-            'auth/token',
-          )
-          if (!cancelled) {
-            setAccessToken(token)
-            setState({ status: 'ready' })
-          }
+        // 2) One-shot Telegram bootstrap when we have no/expired session.
+        const initData = await waitForInitData(1_500)
+        if (initData) {
+          await loginWithInitData(initData)
+          if (!cancelled) setState({ status: 'ready' })
+          return
+        }
+
+        // 3) Dev fallback outside Telegram.
+        const dev = await loginWithDev()
+        if (dev) {
+          if (!cancelled) setState({ status: 'ready' })
           return
         }
 
@@ -84,25 +161,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setState({
             status: 'error',
             message: isTelegramEnv()
-              ? 'Telegram не передал initData. Закрой Mini App полностью и открой снова кнопкой «📱 Mini App».'
+              ? 'Нет сохранённой сессии и Telegram не передал initData. Открой Mini App кнопкой «📱 Mini App».'
               : 'Открой из Telegram или задай VITE_DEV_API_KEY и VITE_DEV_TELEGRAM_ID',
           })
         }
       } catch (e) {
         console.error('miniapp auth failed', e)
-        const apiKey = import.meta.env.VITE_DEV_API_KEY as string | undefined
-        const telegramId = Number(import.meta.env.VITE_DEV_TELEGRAM_ID)
-        if (apiKey && telegramId > 0) {
-          try {
-            const token = await authWithDevCredentials(apiKey, telegramId)
-            if (!cancelled) {
-              setAccessToken(token)
-              setState({ status: 'ready' })
-            }
+        try {
+          const dev = await loginWithDev()
+          if (dev) {
+            if (!cancelled) setState({ status: 'ready' })
             return
-          } catch {
-            /* fall through */
           }
+        } catch {
+          /* fall through */
         }
         if (!cancelled) {
           setState({
@@ -116,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void login()
     return () => {
       cancelled = true
+      setUnauthorizedHandler(null)
     }
   }, [])
 

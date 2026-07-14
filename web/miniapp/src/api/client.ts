@@ -1,10 +1,17 @@
 import type { FinanceOverview } from '@/api/types'
 import { periodKey, periodFullLabel, currentPeriod, isSamePeriod, type Period } from '@/lib/periods'
 import { majorCategories } from '@/lib/categories'
+import { clearSession } from '@/lib/session'
 
 export type { Period } from '@/lib/periods'
 
+export type AuthResult = {
+  accessToken: string
+  expiresIn: number
+}
+
 let accessToken: string | null = null
+let onUnauthorized: (() => Promise<boolean>) | null = null
 
 export function setAccessToken(token: string | null) {
   accessToken = token
@@ -12,6 +19,11 @@ export function setAccessToken(token: string | null) {
 
 export function getAccessToken() {
   return accessToken
+}
+
+/** Called once when a request gets 401; return true if auth was refreshed. */
+export function setUnauthorizedHandler(handler: (() => Promise<boolean>) | null) {
+  onUnauthorized = handler
 }
 
 class ApiClientError extends Error {
@@ -25,6 +37,7 @@ class ApiClientError extends Error {
 async function request<T>(
   path: string,
   init: RequestInit = {},
+  allowRefresh = true,
 ): Promise<T> {
   const headers = new Headers(init.headers)
   if (!headers.has('Content-Type') && init.body) {
@@ -35,6 +48,14 @@ async function request<T>(
   }
 
   const res = await fetch(path, { ...init, headers })
+  if (res.status === 401 && allowRefresh && onUnauthorized) {
+    const refreshed = await onUnauthorized()
+    if (refreshed) {
+      return request<T>(path, init, false)
+    }
+    clearSession()
+    setAccessToken(null)
+  }
   if (!res.ok) {
     let msg = res.statusText
     try {
@@ -49,13 +70,20 @@ async function request<T>(
   return res.json() as Promise<T>
 }
 
-export async function authWithInitData(initData: string): Promise<string> {
+export async function authWithInitData(initData: string): Promise<AuthResult> {
   try {
-    const data = await request<{ access_token: string }>('/api/v1/auth/telegram-webapp', {
-      method: 'POST',
-      body: JSON.stringify({ init_data: initData }),
-    })
-    return data.access_token
+    const data = await request<{ access_token: string; expires_in?: number }>(
+      '/api/v1/auth/telegram-webapp',
+      {
+        method: 'POST',
+        body: JSON.stringify({ init_data: initData }),
+      },
+      false,
+    )
+    return {
+      accessToken: data.access_token,
+      expiresIn: data.expires_in ?? 0,
+    }
   } catch (e) {
     if (e instanceof ApiClientError && e.status === 404) {
       throw new Error('auth/telegram-webapp not implemented')
@@ -67,13 +95,20 @@ export async function authWithInitData(initData: string): Promise<string> {
 export async function authWithDevCredentials(
   apiKey: string,
   telegramId: number,
-): Promise<string> {
-  const data = await request<{ access_token: string }>('/api/v1/auth/token', {
-    method: 'POST',
-    headers: { 'X-API-Key': apiKey },
-    body: JSON.stringify({ telegram_id: telegramId }),
-  })
-  return data.access_token
+): Promise<AuthResult> {
+  const data = await request<{ access_token: string; expires_in?: number }>(
+    '/api/v1/auth/token',
+    {
+      method: 'POST',
+      headers: { 'X-API-Key': apiKey },
+      body: JSON.stringify({ telegram_id: telegramId }),
+    },
+    false,
+  )
+  return {
+    accessToken: data.access_token,
+    expiresIn: data.expires_in ?? 0,
+  }
 }
 
 export const api = {
