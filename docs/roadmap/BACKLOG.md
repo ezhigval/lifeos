@@ -144,11 +144,27 @@
 
 ---
 
+## Mini App (active)
+
+План: [UX_UI_PLAN.md](../miniapp/UX_UI_PLAN.md)
+
+| ID | Story | Priority | Phase |
+|----|-------|----------|-------|
+| MA-A1 | Auth `POST /auth/telegram-webapp` | P0 | A |
+| MA-A2 | Telegram BackButton on nested routes | P0 | A |
+| MA-A4 | Finance overview API + Mini App wire | P0 | A |
+| MA-A3 | Tab «Ещё» + Settings stub | P1 | A |
+| MA-B4 | Habits today + track | P1 | B |
+| MA-B1 | CreateTask sheet (priority/due) | P1 | B |
+
+Остальные MA-* — в UX_UI_PLAN §8.
+
+---
+
 ## Icebox
 
 - Multi-user SaaS
 - Mobile app
-- Telegram Mini App UI
 - Google Calendar sync
 - Bank API integration
 - GraphQL API

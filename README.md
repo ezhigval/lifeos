@@ -34,6 +34,7 @@ cd web/miniapp && npm install && npm run dev
 | ER / Sequence | [docs/diagrams/](docs/diagrams/) |
 | ADR (001–009) | [docs/adr/](docs/adr/) |
 | Roadmap | [docs/roadmap/ROADMAP.md](docs/roadmap/ROADMAP.md) |
+| Mini App UX/UI | [docs/miniapp/UX_UI_PLAN.md](docs/miniapp/UX_UI_PLAN.md) |
 | OpenAPI | [docs/api/openapi.yaml](docs/api/openapi.yaml) |
 
 ## Деплой

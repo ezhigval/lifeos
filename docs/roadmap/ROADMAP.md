@@ -64,7 +64,7 @@ Foundation ✅    Expansion ✅     Intelligence     Multi-client
 ## Phase 4: Life Domains — ongoing
 
 - [x] Knowledge, Career, Health (Telegram + API)
-- [ ] Mini App: full feature parity with bot
+- [ ] Mini App: full feature parity with bot — план: [UX_UI_PLAN.md](../miniapp/UX_UI_PLAN.md)
 - [ ] Production module (orders, pipeline)
 - [ ] Multi-user / family mode
 

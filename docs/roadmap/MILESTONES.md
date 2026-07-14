@@ -88,6 +88,6 @@
 | REST `/api/v1` + JWT | ✅ |
 | OpenAPI spec | ✅ (partial sync) |
 | Ollama LLM resolver | 🚧 optional |
-| Mini App UI | 🚧 scaffold |
+| Mini App UI | 🚧 scaffold → [UX/UI plan](../miniapp/UX_UI_PLAN.md) |
 
 See [ROADMAP.md](ROADMAP.md) for Phase 3–4.
