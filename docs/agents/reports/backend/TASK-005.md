@@ -1,50 +1,51 @@
-# Report TASK-005
-
-- **Agent:** backend
-- **Status:** DONE
-- **Branch / commits:** `cursor/docs-sync-orchestration-fe85` @ `5055778` (`5055778d55137c848d0a6a0ed96fc7ab8cfc78cb`)
-
-## Summary
-
-Free-audit of HTTP/API/domain after Stage 2.2 + reminder create id change. Fixed **P1 timezone month/week bounds** (analytics, cash-flow, reviews, finance month totals) that truncated the last calendar day for non-UTC zones (e.g. Europe/Moscow). Hardened reminder create→cancel id contract tests. Fixed flaky list-today timezone test past 21:00 UTC.
-
-## Bugs found / fixed
-
-| Sev | Area | Bug | Fix |
-|-----|------|-----|-----|
-| **P1** | Analytics / cash-flow / reviews | `MonthBounds` / `PreviousMonthBounds` added months on the UTC instant after converting local midnight → end was **1 day early** for positive offsets (Moscow July ended Jul 30 21:00Z instead of Jul 31 21:00Z) | Compute end in local TZ then `.UTC()`; `MonthBounds` delegates to `MonthBoundsForPeriod` |
-| **P1** | Finance month totals | `MonthStartInTimezone` built `time.Date(..., time.UTC)` (wall clock as UTC) + `AddDate` → wrong `[start,end)` vs overview | Return local month-start UTC instant; `finance.monthBounds` uses `MonthBounds` |
-| **P1** | Task lifecycle | `TestListTasksTodayUsesTimezone` assumed Jul 14 MSK while wall clock after 21:00 UTC is Jul 15 MSK → empty today list in CI evenings | Derive expected due date from Moscow wall calendar |
-| **P0** (guard) | Reminders | Create now returns full ReminderDTO (`id`/`status`); contract test only checked list | Assert create body id/status; cancel by **create** id; list id matches |
-
-## Verified OK (no code change)
-
-| Surface | Result |
-|---|---|
-| `POST /reminders` → ReminderDTO with id | Already fixed in `a1da86c`; tests strengthened |
-| Health `*/latest` empty → **404** | Contract green |
-| `GET /analytics/summary` ints + `title`/`percent` + `projects:[]` | Contract green |
-| `GET /finance/overview?period=YYYY-MM` | Already used correct `MonthBoundsForPeriod` |
-| Task PATCH null-clear / 404 / archive / delete | Lifecycle contract green |
-
-## Changes
-
-- `internal/platform/timeutil/{period,timeutil}.go` + `period_test.go`
-- `internal/finance/app/period.go`
-- `internal/transport/http/api/api_test.go` — reminder create id contract
-- `internal/tasks/app/app_test.go` — list-today timezone freeze
-
-## Tests run
-
-```
-go test ./internal/platform/timeutil/ ./internal/finance/... \
-  ./internal/transport/http/api/ ./internal/tasks/... \
-  ./internal/notifications/... ./internal/health/... ./internal/query/...
-go build ./cmd/lifeos
-```
-
-All green.
-
-## Cross-zone asks
-
-None blocking. Frontend can optimistic-insert from `POST /reminders` id (DTO already live).
+ ()# ()  ()R ()e ()p ()o ()r ()t ()  ()T ()A ()S ()K ()- ()0 ()0 ()5 ()
+ ()
+ ()- ()  ()* ()* ()A ()g ()e ()n ()t (): ()* ()* ()  ()b ()a ()c ()k ()e ()n ()d ()
+ ()- ()  ()* ()* ()S ()t ()a ()t ()u ()s (): ()* ()* ()  ()D ()O ()N ()E ()
+ ()- ()  ()* ()* ()B ()r ()a ()n ()c ()h ()  ()/ ()  ()c ()o ()m ()m ()i ()t ()s (): ()* ()* ()  ()` ()c ()u ()r ()s ()o ()r ()/ ()d ()o ()c ()s ()- ()s ()y ()n ()c ()- ()o ()r ()c ()h ()e ()s ()t ()r ()a ()t ()i ()o ()n ()- ()f ()e ()8 ()5 ()` ()  ()@ ()  ()` ()5 ()0 ()5 ()5 ()7 ()7 ()8 ()` ()  ()( ()` ()5 ()0 ()5 ()5 ()7 ()7 ()8 ()d ()5 ()5 ()1 ()3 ()7 ()c ()8 ()4 ()8 ()d ()0 ()a ()6 ()a ()0 ()e ()d ()9 ()6 ()f ()c ()7 ()a ()b ()8 ()c ()f ()c ()7 ()8 ()c ()b ()` ()) ()
+ ()
+ ()# ()# ()  ()S ()u ()m ()m ()a ()r ()y ()
+ ()
+ ()F ()r ()e ()e ()- ()a ()u ()d ()i ()t ()  ()o ()f ()  ()H ()T ()T ()P ()/ ()A ()P ()I ()/ ()d ()o ()m ()a ()i ()n ()  ()a ()f ()t ()e ()r ()  ()S ()t ()a ()g ()e ()  ()2 (). ()2 ()  ()+ ()  ()r ()e ()m ()i ()n ()d ()e ()r ()  ()c ()r ()e ()a ()t ()e ()  ()i ()d ()  ()c ()h ()a ()n ()g ()e (). ()  ()F ()i ()x ()e ()d ()  ()* ()* ()P ()1 ()  ()t ()i ()m ()e ()z ()o ()n ()e ()  ()m ()o ()n ()t ()h ()/ ()w ()e ()e ()k ()  ()b ()o ()u ()n ()d ()s ()* ()* ()  ()( ()a ()n ()a ()l ()y ()t ()i ()c ()s (), ()  ()c ()a ()s ()h ()- ()f ()l ()o ()w (), ()  ()r ()e ()v ()i ()e ()w ()s (), ()  ()f ()i ()n ()a ()n ()c ()e ()  ()m ()o ()n ()t ()h ()  ()t ()o ()t ()a ()l ()s ()) ()  ()t ()h ()a ()t ()  ()t ()r ()u ()n ()c ()a ()t ()e ()d ()  ()t ()h ()e ()  ()l ()a ()s ()t ()  ()c ()a ()l ()e ()n ()d ()a ()r ()  ()d ()a ()y ()  ()f ()o ()r ()  ()n ()o ()n ()- ()U ()T ()C ()  ()z ()o ()n ()e ()s ()  ()( ()e (). ()g (). ()  ()E ()u ()r ()o ()p ()e ()/ ()M ()o ()s ()c ()o ()w ()) (). ()  ()H ()a ()r ()d ()e ()n ()e ()d ()  ()r ()e ()m ()i ()n ()d ()e ()r ()  ()c ()r ()e ()a ()t ()e ()→ ()c ()a ()n ()c ()e ()l ()  ()i ()d ()  ()c ()o ()n ()t ()r ()a ()c ()t ()  ()t ()e ()s ()t ()s (). ()  ()F ()i ()x ()e ()d ()  ()f ()l ()a ()k ()y ()  ()l ()i ()s ()t ()- ()t ()o ()d ()a ()y ()  ()t ()i ()m ()e ()z ()o ()n ()e ()  ()t ()e ()s ()t ()  ()p ()a ()s ()t ()  ()2 ()1 (): ()0 ()0 ()  ()U ()T ()C (). ()
+ ()
+ ()# ()# ()  ()B ()u ()g ()s ()  ()f ()o ()u ()n ()d ()  ()/ ()  ()f ()i ()x ()e ()d ()
+ ()
+ ()| ()  ()S ()e ()v ()  ()| ()  ()A ()r ()e ()a ()  ()| ()  ()B ()u ()g ()  ()| ()  ()F ()i ()x ()  ()| ()
+ ()| ()- ()- ()- ()- ()- ()| ()- ()- ()- ()- ()- ()- ()| ()- ()- ()- ()- ()- ()| ()- ()- ()- ()- ()- ()| ()
+ ()| ()  ()* ()* ()P ()1 ()* ()* ()  ()| ()  ()A ()n ()a ()l ()y ()t ()i ()c ()s ()  ()/ ()  ()c ()a ()s ()h ()- ()f ()l ()o ()w ()  ()/ ()  ()r ()e ()v ()i ()e ()w ()s ()  ()| ()  ()` ()M ()o ()n ()t ()h ()B ()o ()u ()n ()d ()s ()` ()  ()/ ()  ()` ()P ()r ()e ()v ()i ()o ()u ()s ()M ()o ()n ()t ()h ()B ()o ()u ()n ()d ()s ()` ()  ()a ()d ()d ()e ()d ()  ()m ()o ()n ()t ()h ()s ()  ()o ()n ()  ()t ()h ()e ()  ()U ()T ()C ()  ()i ()n ()s ()t ()a ()n ()t ()  ()a ()f ()t ()e ()r ()  ()c ()o ()n ()v ()e ()r ()t ()i ()n ()g ()  ()l ()o ()c ()a ()l ()  ()m ()i ()d ()n ()i ()g ()h ()t ()  ()→ ()  ()e ()n ()d ()  ()w ()a ()s ()  ()* ()* ()1 ()  ()d ()a ()y ()  ()e ()a ()r ()l ()y ()* ()* ()  ()f ()o ()r ()  ()p ()o ()s ()i ()t ()i ()v ()e ()  ()o ()f ()f ()s ()e ()t ()s ()  ()( ()M ()o ()s ()c ()o ()w ()  ()J ()u ()l ()y ()  ()e ()n ()d ()e ()d ()  ()J ()u ()l ()  ()3 ()0 ()  ()2 ()1 (): ()0 ()0 ()Z ()  ()i ()n ()s ()t ()e ()a ()d ()  ()o ()f ()  ()J ()u ()l ()  ()3 ()1 ()  ()2 ()1 (): ()0 ()0 ()Z ()) ()  ()| ()  ()C ()o ()m ()p ()u ()t ()e ()  ()e ()n ()d ()  ()i ()n ()  ()l ()o ()c ()a ()l ()  ()T ()Z ()  ()t ()h ()e ()n ()  ()` (). ()U ()T ()C ()( ()) ()` (); ()  ()` ()M ()o ()n ()t ()h ()B ()o ()u ()n ()d ()s ()` ()  ()d ()e ()l ()e ()g ()a ()t ()e ()s ()  ()t ()o ()  ()` ()M ()o ()n ()t ()h ()B ()o ()u ()n ()d ()s ()F ()o ()r ()P ()e ()r ()i ()o ()d ()` ()  ()| ()
+ ()| ()  ()* ()* ()P ()1 ()* ()* ()  ()| ()  ()F ()i ()n ()a ()n ()c ()e ()  ()m ()o ()n ()t ()h ()  ()t ()o ()t ()a ()l ()s ()  ()| ()  ()` ()M ()o ()n ()t ()h ()S ()t ()a ()r ()t ()I ()n ()T ()i ()m ()e ()z ()o ()n ()e ()` ()  ()b ()u ()i ()l ()t ()  ()` ()t ()i ()m ()e (). ()D ()a ()t ()e ()( (). (). (). (), ()  ()t ()i ()m ()e (). ()U ()T ()C ()) ()` ()  ()( ()w ()a ()l ()l ()  ()c ()l ()o ()c ()k ()  ()a ()s ()  ()U ()T ()C ()) ()  ()+ ()  ()` ()A ()d ()d ()D ()a ()t ()e ()` ()  ()→ ()  ()w ()r ()o ()n ()g ()  ()` ()[ ()s ()t ()a ()r ()t (), ()e ()n ()d ()) ()` ()  ()v ()s ()  ()o ()v ()e ()r ()v ()i ()e ()w ()  ()| ()  ()R ()e ()t ()u ()r ()n ()  ()l ()o ()c ()a ()l ()  ()m ()o ()n ()t ()h ()- ()s ()t ()a ()r ()t ()  ()U ()T ()C ()  ()i ()n ()s ()t ()a ()n ()t (); ()  ()` ()f ()i ()n ()a ()n ()c ()e (). ()m ()o ()n ()t ()h ()B ()o ()u ()n ()d ()s ()` ()  ()u ()s ()e ()s ()  ()` ()M ()o ()n ()t ()h ()B ()o ()u ()n ()d ()s ()` ()  ()| ()
+ ()| ()  ()* ()* ()P ()1 ()* ()* ()  ()| ()  ()T ()a ()s ()k ()  ()l ()i ()f ()e ()c ()y ()c ()l ()e ()  ()| ()  ()` ()T ()e ()s ()t ()L ()i ()s ()t ()T ()a ()s ()k ()s ()T ()o ()d ()a ()y ()U ()s ()e ()s ()T ()i ()m ()e ()z ()o ()n ()e ()` ()  ()a ()s ()s ()u ()m ()e ()d ()  ()J ()u ()l ()  ()1 ()4 ()  ()M ()S ()K ()  ()w ()h ()i ()l ()e ()  ()w ()a ()l ()l ()  ()c ()l ()o ()c ()k ()  ()a ()f ()t ()e ()r ()  ()2 ()1 (): ()0 ()0 ()  ()U ()T ()C ()  ()i ()s ()  ()J ()u ()l ()  ()1 ()5 ()  ()M ()S ()K ()  ()→ ()  ()e ()m ()p ()t ()y ()  ()t ()o ()d ()a ()y ()  ()l ()i ()s ()t ()  ()i ()n ()  ()C ()I ()  ()e ()v ()e ()n ()i ()n ()g ()s ()  ()| ()  ()D ()e ()r ()i ()v ()e ()  ()e ()x ()p ()e ()c ()t ()e ()d ()  ()d ()u ()e ()  ()d ()a ()t ()e ()  ()f ()r ()o ()m ()  ()M ()o ()s ()c ()o ()w ()  ()w ()a ()l ()l ()  ()c ()a ()l ()e ()n ()d ()a ()r ()  ()| ()
+ ()| ()  ()* ()* ()P ()0 ()* ()* ()  ()( ()g ()u ()a ()r ()d ()) ()  ()| ()  ()R ()e ()m ()i ()n ()d ()e ()r ()s ()  ()| ()  ()C ()r ()e ()a ()t ()e ()  ()n ()o ()w ()  ()r ()e ()t ()u ()r ()n ()s ()  ()f ()u ()l ()l ()  ()R ()e ()m ()i ()n ()d ()e ()r ()D ()T ()O ()  ()( ()` ()i ()d ()` ()/ ()` ()s ()t ()a ()t ()u ()s ()` ()) (); ()  ()c ()o ()n ()t ()r ()a ()c ()t ()  ()t ()e ()s ()t ()  ()o ()n ()l ()y ()  ()c ()h ()e ()c ()k ()e ()d ()  ()l ()i ()s ()t ()  ()| ()  ()A ()s ()s ()e ()r ()t ()  ()c ()r ()e ()a ()t ()e ()  ()b ()o ()d ()y ()  ()i ()d ()/ ()s ()t ()a ()t ()u ()s (); ()  ()c ()a ()n ()c ()e ()l ()  ()b ()y ()  ()* ()* ()c ()r ()e ()a ()t ()e ()* ()* ()  ()i ()d (); ()  ()l ()i ()s ()t ()  ()i ()d ()  ()m ()a ()t ()c ()h ()e ()s ()  ()| ()
+ ()
+ ()# ()# ()  ()V ()e ()r ()i ()f ()i ()e ()d ()  ()O ()K ()  ()( ()n ()o ()  ()c ()o ()d ()e ()  ()c ()h ()a ()n ()g ()e ()) ()
+ ()
+ ()| ()  ()S ()u ()r ()f ()a ()c ()e ()  ()| ()  ()R ()e ()s ()u ()l ()t ()  ()| ()
+ ()| ()- ()- ()- ()| ()- ()- ()- ()| ()
+ ()| ()  ()` ()P ()O ()S ()T ()  ()/ ()r ()e ()m ()i ()n ()d ()e ()r ()s ()` ()  ()→ ()  ()R ()e ()m ()i ()n ()d ()e ()r ()D ()T ()O ()  ()w ()i ()t ()h ()  ()i ()d ()  ()| ()  ()A ()l ()r ()e ()a ()d ()y ()  ()f ()i ()x ()e ()d ()  ()i ()n ()  ()` ()a ()1 ()d ()a ()8 ()6 ()c ()` (); ()  ()t ()e ()s ()t ()s ()  ()s ()t ()r ()e ()n ()g ()t ()h ()e ()n ()e ()d ()  ()| ()
+ ()| ()  ()H ()e ()a ()l ()t ()h ()  ()` ()* ()/ ()l ()a ()t ()e ()s ()t ()` ()  ()e ()m ()p ()t ()y ()  ()→ ()  ()* ()* ()4 ()0 ()4 ()* ()* ()  ()| ()  ()C ()o ()n ()t ()r ()a ()c ()t ()  ()g ()r ()e ()e ()n ()  ()| ()
+ ()| ()  ()` ()G ()E ()T ()  ()/ ()a ()n ()a ()l ()y ()t ()i ()c ()s ()/ ()s ()u ()m ()m ()a ()r ()y ()` ()  ()i ()n ()t ()s ()  ()+ ()  ()` ()t ()i ()t ()l ()e ()` ()/ ()` ()p ()e ()r ()c ()e ()n ()t ()` ()  ()+ ()  ()` ()p ()r ()o ()j ()e ()c ()t ()s (): ()[ ()] ()` ()  ()| ()  ()C ()o ()n ()t ()r ()a ()c ()t ()  ()g ()r ()e ()e ()n ()  ()| ()
+ ()| ()  ()` ()G ()E ()T ()  ()/ ()f ()i ()n ()a ()n ()c ()e ()/ ()o ()v ()e ()r ()v ()i ()e ()w ()? ()p ()e ()r ()i ()o ()d ()= ()Y ()Y ()Y ()Y ()- ()M ()M ()` ()  ()| ()  ()A ()l ()r ()e ()a ()d ()y ()  ()u ()s ()e ()d ()  ()c ()o ()r ()r ()e ()c ()t ()  ()` ()M ()o ()n ()t ()h ()B ()o ()u ()n ()d ()s ()F ()o ()r ()P ()e ()r ()i ()o ()d ()` ()  ()| ()
+ ()| ()  ()T ()a ()s ()k ()  ()P ()A ()T ()C ()H ()  ()n ()u ()l ()l ()- ()c ()l ()e ()a ()r ()  ()/ ()  ()4 ()0 ()4 ()  ()/ ()  ()a ()r ()c ()h ()i ()v ()e ()  ()/ ()  ()d ()e ()l ()e ()t ()e ()  ()| ()  ()L ()i ()f ()e ()c ()y ()c ()l ()e ()  ()c ()o ()n ()t ()r ()a ()c ()t ()  ()g ()r ()e ()e ()n ()  ()| ()
+ ()
+ ()# ()# ()  ()C ()h ()a ()n ()g ()e ()s ()
+ ()
+ ()- ()  ()` ()i ()n ()t ()e ()r ()n ()a ()l ()/ ()p ()l ()a ()t ()f ()o ()r ()m ()/ ()t ()i ()m ()e ()u ()t ()i ()l ()/ (){ ()p ()e ()r ()i ()o ()d (), ()t ()i ()m ()e ()u ()t ()i ()l ()} (). ()g ()o ()` ()  ()+ ()  ()` ()p ()e ()r ()i ()o ()d ()_ ()t ()e ()s ()t (). ()g ()o ()` ()
+ ()- ()  ()` ()i ()n ()t ()e ()r ()n ()a ()l ()/ ()f ()i ()n ()a ()n ()c ()e ()/ ()a ()p ()p ()/ ()p ()e ()r ()i ()o ()d (). ()g ()o ()` ()
+ ()- ()  ()` ()i ()n ()t ()e ()r ()n ()a ()l ()/ ()t ()r ()a ()n ()s ()p ()o ()r ()t ()/ ()h ()t ()t ()p ()/ ()a ()p ()i ()/ ()a ()p ()i ()_ ()t ()e ()s ()t (). ()g ()o ()` ()  ()— ()  ()r ()e ()m ()i ()n ()d ()e ()r ()  ()c ()r ()e ()a ()t ()e ()  ()i ()d ()  ()c ()o ()n ()t ()r ()a ()c ()t ()
+ ()- ()  ()` ()i ()n ()t ()e ()r ()n ()a ()l ()/ ()t ()a ()s ()k ()s ()/ ()a ()p ()p ()/ ()a ()p ()p ()_ ()t ()e ()s ()t (). ()g ()o ()` ()  ()— ()  ()l ()i ()s ()t ()- ()t ()o ()d ()a ()y ()  ()t ()i ()m ()e ()z ()o ()n ()e ()  ()f ()r ()e ()e ()z ()e ()
+ ()
+ ()# ()# ()  ()T ()e ()s ()t ()s ()  ()r ()u ()n ()
+ ()
+ ()` ()` ()` ()
+ ()g ()o ()  ()t ()e ()s ()t ()  (). ()/ ()i ()n ()t ()e ()r ()n ()a ()l ()/ ()p ()l ()a ()t ()f ()o ()r ()m ()/ ()t ()i ()m ()e ()u ()t ()i ()l ()/ ()  (). ()/ ()i ()n ()t ()e ()r ()n ()a ()l ()/ ()f ()i ()n ()a ()n ()c ()e ()/ (). (). (). ()  ()\ ()
+ ()  ()  (). ()/ ()i ()n ()t ()e ()r ()n ()a ()l ()/ ()t ()r ()a ()n ()s ()p ()o ()r ()t ()/ ()h ()t ()t ()p ()/ ()a ()p ()i ()/ ()  (). ()/ ()i ()n ()t ()e ()r ()n ()a ()l ()/ ()t ()a ()s ()k ()s ()/ (). (). (). ()  ()\ ()
+ ()  ()  (). ()/ ()i ()n ()t ()e ()r ()n ()a ()l ()/ ()n ()o ()t ()i ()f ()i ()c ()a ()t ()i ()o ()n ()s ()/ (). (). (). ()  (). ()/ ()i ()n ()t ()e ()r ()n ()a ()l ()/ ()h ()e ()a ()l ()t ()h ()/ (). (). (). ()  (). ()/ ()i ()n ()t ()e ()r ()n ()a ()l ()/ ()q ()u ()e ()r ()y ()/ (). (). (). ()
+ ()g ()o ()  ()b ()u ()i ()l ()d ()  (). ()/ ()c ()m ()d ()/ ()l ()i ()f ()e ()o ()s ()
+ ()` ()` ()` ()
+ ()
+ ()A ()l ()l ()  ()g ()r ()e ()e ()n (). ()
+ ()
+ ()# ()# ()  ()C ()r ()o ()s ()s ()- ()z ()o ()n ()e ()  ()a ()s ()k ()s ()
+ ()
+ ()N ()o ()n ()e ()  ()b ()l ()o ()c ()k ()i ()n ()g (). ()  ()F ()r ()o ()n ()t ()e ()n ()d ()  ()c ()a ()n ()  ()o ()p ()t ()i ()m ()i ()s ()t ()i ()c ()- ()i ()n ()s ()e ()r ()t ()  ()f ()r ()o ()m ()  ()` ()P ()O ()S ()T ()  ()/ ()r ()e ()m ()i ()n ()d ()e ()r ()s ()` ()  ()i ()d ()  ()( ()D ()T ()O ()  ()a ()l ()r ()e ()a ()d ()y ()  ()l ()i ()v ()e ()) (). ()
+ ()
