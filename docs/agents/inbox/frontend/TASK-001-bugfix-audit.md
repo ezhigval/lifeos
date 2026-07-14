@@ -1,7 +1,7 @@
 # TASK-001: Bugfix free-audit (zone only)
 
 - **Agent:** frontend
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P0
 - **Stage:** bugfix
 - **Owner ACK:** 2026-07-14 — no dogfood list; free audit; miniapp-ux merge in progress

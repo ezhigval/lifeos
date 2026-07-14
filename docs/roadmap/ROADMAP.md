@@ -27,8 +27,8 @@ Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST +
 
 - [x] Merge task lifecycle branch
 - [x] Merge miniapp UX branch
-- [ ] Free-audit bugfix: Backend / Frontend / Telegram (TASK-001 OPEN)
-- [ ] Cross-zone asks closed via Architect
+- [x] Free-audit bugfix: Backend / Frontend / Telegram (TASK-001 DONE)
+- [ ] Cross-zone asks → Stage 2 DRAFT (finance overview, Mini App polish)
 
 ## Stage 2 — Mini App + functionality (next primary)
 
