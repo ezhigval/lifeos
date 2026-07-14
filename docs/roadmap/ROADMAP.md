@@ -47,9 +47,11 @@ Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST +
 
 ## Remaining debt (ongoing)
 
-- [ ] OpenAPI ↔ router parity CI
+- [x] OpenAPI ↔ router parity CI (`make openapi-check`)
+- [x] 14-day dogfood checklist: [DOGFOOD.md](DOGFOOD.md)
+- [ ] Owner runs 14-day dogfood gate (G2→G3) on Mac + Telegram
 - [ ] Test / observability budget (~20%)
-- [ ] 14-day dogfood gate (G2→G3) — checklist: [DOGFOOD.md](DOGFOOD.md)
+- [ ] Collect dogfood P0 → inbox `TASK-008-dogfood-p0` (DRAFT)
 
 ## Icebox
 
