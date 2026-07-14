@@ -26,3 +26,14 @@ SET state = $2,
     state_payload = $3,
     updated_at = now()
 WHERE user_id = $1;
+
+-- name: ResetTelegramSession :exec
+-- Clears only conversation UI state. Domain user data is untouched.
+INSERT INTO telegram_sessions (user_id, chat_id, dashboard_message_id, state, state_payload, updated_at)
+VALUES ($1, $2, NULL, 'idle', '{}', now())
+ON CONFLICT (user_id) DO UPDATE
+SET chat_id = EXCLUDED.chat_id,
+    dashboard_message_id = NULL,
+    state = 'idle',
+    state_payload = '{}',
+    updated_at = now();

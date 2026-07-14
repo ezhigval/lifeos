@@ -3,8 +3,9 @@ package telegram
 import "strings"
 
 const (
-	CmdStart  = "/start"
-	CmdCancel = "/cancel"
+	CmdStart   = "/start"
+	CmdCancel  = "/cancel"
+	CmdClear   = "/clear"
 	TextCancel = "отмена"
 )
 

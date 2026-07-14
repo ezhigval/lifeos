@@ -121,3 +121,12 @@ func (s *Sessions) UpdatePayload(ctx context.Context, userID ids.UserID, patch m
 	}
 	return s.Save(ctx, sess)
 }
+
+// Reset clears conversation UI state (drafts, dashboard pointer, keyboard flag).
+// Domain data for the user is not touched.
+func (s *Sessions) Reset(ctx context.Context, userID ids.UserID, chatID int64) error {
+	return db.New(s.pool).ResetTelegramSession(ctx, db.ResetTelegramSessionParams{
+		UserID: pgconv.UserID(userID),
+		ChatID: chatID,
+	})
+}

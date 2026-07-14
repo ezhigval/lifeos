@@ -13,31 +13,32 @@ import (
 	"github.com/valentinezhov/lifeos/internal/ai"
 	"github.com/valentinezhov/lifeos/internal/ai/rulebased"
 	calendarapp "github.com/valentinezhov/lifeos/internal/calendar/app"
+	careerapp "github.com/valentinezhov/lifeos/internal/career/app"
+	careerdomain "github.com/valentinezhov/lifeos/internal/career/domain"
 	financeapp "github.com/valentinezhov/lifeos/internal/finance/app"
 	financedomain "github.com/valentinezhov/lifeos/internal/finance/domain"
 	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
 	habitsdomain "github.com/valentinezhov/lifeos/internal/habits/domain"
-	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
 	healthapp "github.com/valentinezhov/lifeos/internal/health/app"
 	"github.com/valentinezhov/lifeos/internal/health/domain"
+	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
 	knowledgeapp "github.com/valentinezhov/lifeos/internal/knowledge/app"
-	careerapp "github.com/valentinezhov/lifeos/internal/career/app"
-	careerdomain "github.com/valentinezhov/lifeos/internal/career/domain"
-	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
-	spheresdomain "github.com/valentinezhov/lifeos/internal/spheres/domain"
 	notifapp "github.com/valentinezhov/lifeos/internal/notifications/app"
-	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
-	projectsdomain "github.com/valentinezhov/lifeos/internal/projects/domain"
 	planapp "github.com/valentinezhov/lifeos/internal/planning/app"
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
 	"github.com/valentinezhov/lifeos/internal/platform/timeutil"
+	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
+	projectsdomain "github.com/valentinezhov/lifeos/internal/projects/domain"
 	"github.com/valentinezhov/lifeos/internal/query"
 	settingsapp "github.com/valentinezhov/lifeos/internal/settings/app"
 	settingsdomain "github.com/valentinezhov/lifeos/internal/settings/domain"
+	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
+	spheresdomain "github.com/valentinezhov/lifeos/internal/spheres/domain"
 	tasksapp "github.com/valentinezhov/lifeos/internal/tasks/app"
 	taskdomain "github.com/valentinezhov/lifeos/internal/tasks/domain"
 	tginfra "github.com/valentinezhov/lifeos/internal/transport/telegram/infra"
+	"golang.org/x/sync/errgroup"
 )
 
 type dispatchResult struct {
@@ -47,138 +48,138 @@ type dispatchResult struct {
 }
 
 type MessageHandler struct {
-	log             *slog.Logger
-	client          *Client
-	screen          *Screen
-	sessions        *tginfra.Sessions
-	ensureUser      *identityapp.EnsureUserByTelegram
-	processed       *tginfra.ProcessedUpdates
-	resolver        ai.IntentResolver
-	createTask      *tasksapp.CreateTask
-	completeTask    *tasksapp.CompleteTask
-	completeByTitle *tasksapp.CompleteTaskByTitle
-	projectProg     *projectsapp.GetProjectProgress
-	listToday       *tasksapp.ListTasksToday
-	priorities      *query.GetTopPriorities
-	reminder        *notifapp.ScheduleReminder
-	listReminders   *notifapp.ListReminders
-	cancelReminder  *notifapp.CancelReminder
-	setAvail        *planapp.SetDayAvailability
-	triage          *planapp.TriageOverloadedDay
-	reschedule      *planapp.RescheduleTasks
-	recordIncome    *financeapp.RecordIncome
-	recordExpense   *financeapp.RecordExpense
-	createDebt      *financeapp.CreateDebt
-	payDebt         *financeapp.PayDebt
-	listDebts       *financeapp.ListDebts
-	cashFlow        *financeapp.CashFlowSummary
-	createHabit     *habitsapp.CreateHabit
-	trackHabit      *habitsapp.TrackHabit
-	listHabits      *habitsapp.ListHabitsToday
-	createProject   *projectsapp.CreateProject
-	findProject     *projectsapp.FindProjectByName
-	listProjects    *projectsapp.ListProjects
+	log              *slog.Logger
+	client           *Client
+	screen           *Screen
+	sessions         *tginfra.Sessions
+	ensureUser       *identityapp.EnsureUserByTelegram
+	processed        *tginfra.ProcessedUpdates
+	resolver         ai.IntentResolver
+	createTask       *tasksapp.CreateTask
+	completeTask     *tasksapp.CompleteTask
+	completeByTitle  *tasksapp.CompleteTaskByTitle
+	projectProg      *projectsapp.GetProjectProgress
+	listToday        *tasksapp.ListTasksToday
+	priorities       *query.GetTopPriorities
+	reminder         *notifapp.ScheduleReminder
+	listReminders    *notifapp.ListReminders
+	cancelReminder   *notifapp.CancelReminder
+	setAvail         *planapp.SetDayAvailability
+	triage           *planapp.TriageOverloadedDay
+	reschedule       *planapp.RescheduleTasks
+	recordIncome     *financeapp.RecordIncome
+	recordExpense    *financeapp.RecordExpense
+	createDebt       *financeapp.CreateDebt
+	payDebt          *financeapp.PayDebt
+	listDebts        *financeapp.ListDebts
+	cashFlow         *financeapp.CashFlowSummary
+	createHabit      *habitsapp.CreateHabit
+	trackHabit       *habitsapp.TrackHabit
+	listHabits       *habitsapp.ListHabitsToday
+	createProject    *projectsapp.CreateProject
+	findProject      *projectsapp.FindProjectByName
+	listProjects     *projectsapp.ListProjects
 	listProjectTasks *tasksapp.ListTasksByProject
-	archiveProject  *projectsapp.ArchiveProject
-	createEvent     *calendarapp.CreateEvent
-	listCalendar    *calendarapp.ListEventsToday
-	review          *query.Review
-	analytics       *query.GetProductivitySummary
-	createNote      *knowledgeapp.CreateNote
-	listNotes       *knowledgeapp.ListNotes
-	searchNotes     *knowledgeapp.SearchNotes
-	deleteNote      *knowledgeapp.DeleteNote
-	createContact   *careerapp.CreateContact
-	listContacts    *careerapp.ListContacts
-	searchContacts  *careerapp.SearchContacts
-	deleteContact   *careerapp.DeleteContact
-	createSkill     *careerapp.CreateSkill
-	listSkills      *careerapp.ListSkills
-	searchSkills    *careerapp.SearchSkills
-	deleteSkill     *careerapp.DeleteSkill
-	createSphere    *spheresapp.CreateSphere
-	listSpheres     *spheresapp.ListSpheres
-	updateSphere    *spheresapp.UpdateSphere
-	deleteSphere    *spheresapp.DeleteSphere
-	findSphere      *spheresapp.FindSphereByName
-	recordWeight    *healthapp.RecordWeight
-	latestWeight    *healthapp.GetLatestWeight
-	recordSteps     *healthapp.RecordSteps
-	latestSteps     *healthapp.GetLatestSteps
-	recordSleep     *healthapp.RecordSleep
-	latestSleep     *healthapp.GetLatestSleep
-	updateMorning   *settingsapp.UpdateMorningReview
-	updateEvening   *settingsapp.UpdateEveningReview
-	updateQuiet     *settingsapp.UpdateQuietHours
-	tzReader        interface {
+	archiveProject   *projectsapp.ArchiveProject
+	createEvent      *calendarapp.CreateEvent
+	listCalendar     *calendarapp.ListEventsToday
+	review           *query.Review
+	analytics        *query.GetProductivitySummary
+	createNote       *knowledgeapp.CreateNote
+	listNotes        *knowledgeapp.ListNotes
+	searchNotes      *knowledgeapp.SearchNotes
+	deleteNote       *knowledgeapp.DeleteNote
+	createContact    *careerapp.CreateContact
+	listContacts     *careerapp.ListContacts
+	searchContacts   *careerapp.SearchContacts
+	deleteContact    *careerapp.DeleteContact
+	createSkill      *careerapp.CreateSkill
+	listSkills       *careerapp.ListSkills
+	searchSkills     *careerapp.SearchSkills
+	deleteSkill      *careerapp.DeleteSkill
+	createSphere     *spheresapp.CreateSphere
+	listSpheres      *spheresapp.ListSpheres
+	updateSphere     *spheresapp.UpdateSphere
+	deleteSphere     *spheresapp.DeleteSphere
+	findSphere       *spheresapp.FindSphereByName
+	recordWeight     *healthapp.RecordWeight
+	latestWeight     *healthapp.GetLatestWeight
+	recordSteps      *healthapp.RecordSteps
+	latestSteps      *healthapp.GetLatestSteps
+	recordSleep      *healthapp.RecordSleep
+	latestSleep      *healthapp.GetLatestSleep
+	updateMorning    *settingsapp.UpdateMorningReview
+	updateEvening    *settingsapp.UpdateEveningReview
+	updateQuiet      *settingsapp.UpdateQuietHours
+	tzReader         interface {
 		Timezone(ctx context.Context, userID ids.UserID) (string, error)
 	}
 }
 
 type Deps struct {
-	Log             *slog.Logger
-	Client          *Client
-	Sessions        *tginfra.Sessions
-	EnsureUser      *identityapp.EnsureUserByTelegram
-	Processed       *tginfra.ProcessedUpdates
-	Resolver        ai.IntentResolver
-	CreateTask      *tasksapp.CreateTask
-	CompleteTask    *tasksapp.CompleteTask
-	CompleteByTitle *tasksapp.CompleteTaskByTitle
-	ProjectProg     *projectsapp.GetProjectProgress
-	ListToday       *tasksapp.ListTasksToday
-	Priorities      *query.GetTopPriorities
-	Reminder        *notifapp.ScheduleReminder
-	ListReminders   *notifapp.ListReminders
-	CancelReminder  *notifapp.CancelReminder
-	SetAvail        *planapp.SetDayAvailability
-	Triage          *planapp.TriageOverloadedDay
-	Reschedule      *planapp.RescheduleTasks
-	RecordIncome    *financeapp.RecordIncome
-	RecordExpense   *financeapp.RecordExpense
-	CreateDebt      *financeapp.CreateDebt
-	PayDebt         *financeapp.PayDebt
-	ListDebts       *financeapp.ListDebts
-	CashFlow        *financeapp.CashFlowSummary
-	CreateHabit     *habitsapp.CreateHabit
-	TrackHabit      *habitsapp.TrackHabit
-	ListHabits      *habitsapp.ListHabitsToday
-	CreateProject   *projectsapp.CreateProject
-	FindProject     *projectsapp.FindProjectByName
-	ListProjects    *projectsapp.ListProjects
+	Log              *slog.Logger
+	Client           *Client
+	Sessions         *tginfra.Sessions
+	EnsureUser       *identityapp.EnsureUserByTelegram
+	Processed        *tginfra.ProcessedUpdates
+	Resolver         ai.IntentResolver
+	CreateTask       *tasksapp.CreateTask
+	CompleteTask     *tasksapp.CompleteTask
+	CompleteByTitle  *tasksapp.CompleteTaskByTitle
+	ProjectProg      *projectsapp.GetProjectProgress
+	ListToday        *tasksapp.ListTasksToday
+	Priorities       *query.GetTopPriorities
+	Reminder         *notifapp.ScheduleReminder
+	ListReminders    *notifapp.ListReminders
+	CancelReminder   *notifapp.CancelReminder
+	SetAvail         *planapp.SetDayAvailability
+	Triage           *planapp.TriageOverloadedDay
+	Reschedule       *planapp.RescheduleTasks
+	RecordIncome     *financeapp.RecordIncome
+	RecordExpense    *financeapp.RecordExpense
+	CreateDebt       *financeapp.CreateDebt
+	PayDebt          *financeapp.PayDebt
+	ListDebts        *financeapp.ListDebts
+	CashFlow         *financeapp.CashFlowSummary
+	CreateHabit      *habitsapp.CreateHabit
+	TrackHabit       *habitsapp.TrackHabit
+	ListHabits       *habitsapp.ListHabitsToday
+	CreateProject    *projectsapp.CreateProject
+	FindProject      *projectsapp.FindProjectByName
+	ListProjects     *projectsapp.ListProjects
 	ListProjectTasks *tasksapp.ListTasksByProject
-	ArchiveProject  *projectsapp.ArchiveProject
-	CreateEvent     *calendarapp.CreateEvent
-	ListCalendar    *calendarapp.ListEventsToday
-	Review          *query.Review
-	Analytics       *query.GetProductivitySummary
-	CreateNote      *knowledgeapp.CreateNote
-	ListNotes       *knowledgeapp.ListNotes
-	SearchNotes     *knowledgeapp.SearchNotes
-	DeleteNote      *knowledgeapp.DeleteNote
-	CreateContact   *careerapp.CreateContact
-	ListContacts    *careerapp.ListContacts
-	SearchContacts  *careerapp.SearchContacts
-	DeleteContact   *careerapp.DeleteContact
-	CreateSkill     *careerapp.CreateSkill
-	ListSkills      *careerapp.ListSkills
-	SearchSkills    *careerapp.SearchSkills
-	DeleteSkill     *careerapp.DeleteSkill
-	CreateSphere    *spheresapp.CreateSphere
-	ListSpheres     *spheresapp.ListSpheres
-	UpdateSphere    *spheresapp.UpdateSphere
-	DeleteSphere    *spheresapp.DeleteSphere
-	FindSphere      *spheresapp.FindSphereByName
-	RecordWeight    *healthapp.RecordWeight
-	LatestWeight    *healthapp.GetLatestWeight
-	RecordSteps     *healthapp.RecordSteps
-	LatestSteps     *healthapp.GetLatestSteps
-	RecordSleep     *healthapp.RecordSleep
-	LatestSleep     *healthapp.GetLatestSleep
-	UpdateMorning   *settingsapp.UpdateMorningReview
-	UpdateEvening   *settingsapp.UpdateEveningReview
-	UpdateQuiet     *settingsapp.UpdateQuietHours
-	TZReader        interface {
+	ArchiveProject   *projectsapp.ArchiveProject
+	CreateEvent      *calendarapp.CreateEvent
+	ListCalendar     *calendarapp.ListEventsToday
+	Review           *query.Review
+	Analytics        *query.GetProductivitySummary
+	CreateNote       *knowledgeapp.CreateNote
+	ListNotes        *knowledgeapp.ListNotes
+	SearchNotes      *knowledgeapp.SearchNotes
+	DeleteNote       *knowledgeapp.DeleteNote
+	CreateContact    *careerapp.CreateContact
+	ListContacts     *careerapp.ListContacts
+	SearchContacts   *careerapp.SearchContacts
+	DeleteContact    *careerapp.DeleteContact
+	CreateSkill      *careerapp.CreateSkill
+	ListSkills       *careerapp.ListSkills
+	SearchSkills     *careerapp.SearchSkills
+	DeleteSkill      *careerapp.DeleteSkill
+	CreateSphere     *spheresapp.CreateSphere
+	ListSpheres      *spheresapp.ListSpheres
+	UpdateSphere     *spheresapp.UpdateSphere
+	DeleteSphere     *spheresapp.DeleteSphere
+	FindSphere       *spheresapp.FindSphereByName
+	RecordWeight     *healthapp.RecordWeight
+	LatestWeight     *healthapp.GetLatestWeight
+	RecordSteps      *healthapp.RecordSteps
+	LatestSteps      *healthapp.GetLatestSteps
+	RecordSleep      *healthapp.RecordSleep
+	LatestSleep      *healthapp.GetLatestSleep
+	UpdateMorning    *settingsapp.UpdateMorningReview
+	UpdateEvening    *settingsapp.UpdateEveningReview
+	UpdateQuiet      *settingsapp.UpdateQuietHours
+	TZReader         interface {
 		Timezone(ctx context.Context, userID ids.UserID) (string, error)
 	}
 }
@@ -240,6 +241,14 @@ func (h *MessageHandler) HandleUpdate(ctx context.Context, update Update) error 
 	chatID := update.Message.Chat.ID
 	userMsgID := update.Message.MessageID
 	text := strings.TrimSpace(update.Message.Text)
+
+	if normalizeBotCommand(text) == CmdClear {
+		if err := h.clearChat(ctx, user.ID, chatID, userMsgID); err != nil {
+			out := dispatchResult{text: "Ошибка: " + err.Error()}
+			_ = h.present(ctx, user.ID, chatID, out)
+		}
+		return h.processed.Mark(ctx, update.UpdateID)
+	}
 
 	out, err := h.handleText(ctx, user.ID, text)
 	if err != nil {
@@ -461,6 +470,59 @@ func (h *MessageHandler) resetReplyKeyboardFlag(ctx context.Context, userID ids.
 	}
 	delete(sess.StatePayload, replyKBSetKey)
 	return h.sessions.Save(ctx, sess)
+}
+
+const clearChatMessageWindow = 200
+
+// clearChat resets conversation UI to a fresh start without wiping domain data.
+// It best-effort deletes recent chat messages (Telegram private chats use sequential IDs).
+func (h *MessageHandler) clearChat(ctx context.Context, userID ids.UserID, chatID, lastMsgID int64) error {
+	sess, err := h.sessions.Get(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	high := lastMsgID
+	if sess.DashboardMessageID > high {
+		high = sess.DashboardMessageID
+	}
+
+	if err := h.sessions.Reset(ctx, userID, chatID); err != nil {
+		return fmt.Errorf("reset session: %w", err)
+	}
+
+	low := high - clearChatMessageWindow + 1
+	if low < 1 {
+		low = 1
+	}
+	h.deleteMessageRange(ctx, chatID, low, high)
+
+	out, err := h.runAction(ctx, userID, ActionHome)
+	if err != nil {
+		return err
+	}
+	if out.text != "" {
+		out.text = "♻️ Переписка сброшена. Твои данные на месте.\n\n" + out.text
+	} else {
+		out.text = "♻️ Переписка сброшена. Твои данные на месте."
+	}
+	return h.present(ctx, userID, chatID, out)
+}
+
+func (h *MessageHandler) deleteMessageRange(ctx context.Context, chatID, low, high int64) {
+	if high < low {
+		return
+	}
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(8)
+	for id := high; id >= low; id-- {
+		id := id
+		g.Go(func() error {
+			_ = h.client.DeleteMessage(gctx, chatID, id)
+			return nil
+		})
+	}
+	_ = g.Wait()
 }
 
 func (h *MessageHandler) habitsTodayView(ctx context.Context, userID ids.UserID) (dispatchResult, error) {

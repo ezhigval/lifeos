@@ -18,6 +18,12 @@ func TestCommandToAction(t *testing.T) {
 	if !ok || action != ActionHome {
 		t.Fatalf("got %q ok=%v", action, ok)
 	}
+	if _, ok := commandToAction("/clear"); ok {
+		t.Fatal("/clear must not map via commandToAction; handled separately")
+	}
+	if got := normalizeBotCommand("/clear@lifeos_bot"); got != "/clear" {
+		t.Fatalf("got %q", got)
+	}
 }
 
 func TestIsCancelText(t *testing.T) {
