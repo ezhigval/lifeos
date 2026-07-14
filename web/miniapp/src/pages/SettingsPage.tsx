@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { QueryError } from '@/components/ui/QueryError'
 import { Sheet } from '@/components/ui/Sheet'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { ruApiError } from '@/lib/apiError'
 import { formatTimeOfDay, inputToTimeOfDay, timeOfDayToInput } from '@/lib/datetime'
 import {
   confirmAction,
@@ -24,18 +25,22 @@ export function SettingsPage() {
     queryFn: () => api.settings(),
   })
 
+  const [hydrated, setHydrated] = useState(false)
   const [morning, setMorning] = useState('08:00')
   const [evening, setEvening] = useState('21:00')
   const [quietStart, setQuietStart] = useState('23:00')
   const [quietEnd, setQuietEnd] = useState('07:00')
+  const [saveError, setSaveError] = useState<string | null>(null)
 
+  // Hydrate once so a save on one section does not wipe in-progress edits elsewhere.
   useEffect(() => {
-    if (!data) return
+    if (!data || hydrated) return
     setMorning(timeOfDayToInput(data.morning_review_at))
     setEvening(timeOfDayToInput(data.evening_review_at))
     setQuietStart(timeOfDayToInput(data.quiet_hours_start ?? { hour: 23, minute: 0 }))
     setQuietEnd(timeOfDayToInput(data.quiet_hours_end ?? { hour: 7, minute: 0 }))
-  }, [data])
+    setHydrated(true)
+  }, [data, hydrated])
 
   const saveMorning = useMutation({
     mutationFn: () => {
@@ -44,9 +49,13 @@ export function SettingsPage() {
     },
     onSuccess: () => {
       hapticSuccess()
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      setSaveError(null)
+      void queryClient.invalidateQueries({ queryKey: ['settings'] })
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setSaveError(ruApiError(err, 'Не удалось сохранить утренний обзор'))
+    },
   })
 
   const saveEvening = useMutation({
@@ -56,9 +65,13 @@ export function SettingsPage() {
     },
     onSuccess: () => {
       hapticSuccess()
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      setSaveError(null)
+      void queryClient.invalidateQueries({ queryKey: ['settings'] })
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setSaveError(ruApiError(err, 'Не удалось сохранить вечерний обзор'))
+    },
   })
 
   const saveQuiet = useMutation({
@@ -69,10 +82,29 @@ export function SettingsPage() {
     },
     onSuccess: () => {
       hapticSuccess()
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      setSaveError(null)
+      void queryClient.invalidateQueries({ queryKey: ['settings'] })
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setSaveError(ruApiError(err, 'Не удалось сохранить quiet hours'))
+    },
   })
+
+  const morningDirty =
+    hydrated &&
+    data &&
+    morning !== timeOfDayToInput(data.morning_review_at)
+  const eveningDirty =
+    hydrated &&
+    data &&
+    evening !== timeOfDayToInput(data.evening_review_at)
+  const quietDirty =
+    hydrated &&
+    data &&
+    (!data.quiet_hours_start ||
+      quietStart !== timeOfDayToInput(data.quiet_hours_start ?? { hour: 23, minute: 0 }) ||
+      quietEnd !== timeOfDayToInput(data.quiet_hours_end ?? { hour: 7, minute: 0 }))
 
   return (
     <>
@@ -83,8 +115,14 @@ export function SettingsPage() {
           <QueryError message="Не удалось загрузить настройки" onRetry={() => void refetch()} />
         )}
 
-        {data && (
+        {data && hydrated && (
           <>
+            {saveError && (
+              <p className="text-sm text-rose-400" role="alert">
+                {saveError}
+              </p>
+            )}
+
             <section className="space-y-3 rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] p-4">
               <h2 className="font-semibold">Утренний обзор</h2>
               <p className="text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">
@@ -93,13 +131,16 @@ export function SettingsPage() {
               <input
                 type="time"
                 value={morning}
-                onChange={(e) => setMorning(e.target.value)}
+                onChange={(e) => {
+                  setMorning(e.target.value)
+                  setSaveError(null)
+                }}
                 className="w-full rounded-2xl bg-black/20 px-4 py-3 outline-none"
               />
               <Button
                 className="w-full"
                 size="sm"
-                disabled={saveMorning.isPending}
+                disabled={!morningDirty || saveMorning.isPending}
                 onClick={() => saveMorning.mutate()}
               >
                 Сохранить утро
@@ -114,13 +155,16 @@ export function SettingsPage() {
               <input
                 type="time"
                 value={evening}
-                onChange={(e) => setEvening(e.target.value)}
+                onChange={(e) => {
+                  setEvening(e.target.value)
+                  setSaveError(null)
+                }}
                 className="w-full rounded-2xl bg-black/20 px-4 py-3 outline-none"
               />
               <Button
                 className="w-full"
                 size="sm"
-                disabled={saveEvening.isPending}
+                disabled={!eveningDirty || saveEvening.isPending}
                 onClick={() => saveEvening.mutate()}
               >
                 Сохранить вечер
@@ -140,7 +184,10 @@ export function SettingsPage() {
                   <input
                     type="time"
                     value={quietStart}
-                    onChange={(e) => setQuietStart(e.target.value)}
+                    onChange={(e) => {
+                      setQuietStart(e.target.value)
+                      setSaveError(null)
+                    }}
                     className="mt-1 w-full rounded-2xl bg-black/20 px-3 py-3 outline-none"
                   />
                 </label>
@@ -149,7 +196,10 @@ export function SettingsPage() {
                   <input
                     type="time"
                     value={quietEnd}
-                    onChange={(e) => setQuietEnd(e.target.value)}
+                    onChange={(e) => {
+                      setQuietEnd(e.target.value)
+                      setSaveError(null)
+                    }}
                     className="mt-1 w-full rounded-2xl bg-black/20 px-3 py-3 outline-none"
                   />
                 </label>
@@ -157,7 +207,7 @@ export function SettingsPage() {
               <Button
                 className="w-full"
                 size="sm"
-                disabled={saveQuiet.isPending}
+                disabled={!quietDirty || saveQuiet.isPending}
                 onClick={() => saveQuiet.mutate()}
               >
                 Сохранить quiet hours
@@ -176,42 +226,59 @@ function SpheresSettings() {
   const queryClient = useQueryClient()
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['spheres'],
-    queryFn: async () => (await api.spheres()).spheres,
+    queryFn: async () => {
+      const res = await api.spheres()
+      return Array.isArray(res.spheres) ? res.spheres : []
+    },
   })
 
   const [createOpen, setCreateOpen] = useState(false)
   const [edit, setEdit] = useState<Sphere | null>(null)
   const [name, setName] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
+  const [listError, setListError] = useState<string | null>(null)
 
   const create = useMutation({
     mutationFn: () => api.createSphere(name.trim()),
     onSuccess: () => {
       hapticSuccess()
-      queryClient.invalidateQueries({ queryKey: ['spheres'] })
+      void queryClient.invalidateQueries({ queryKey: ['spheres'] })
       setCreateOpen(false)
       setName('')
+      setFormError(null)
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setFormError(ruApiError(err, 'Не удалось создать сферу'))
+    },
   })
 
   const update = useMutation({
     mutationFn: () => api.updateSphere(edit!.id, name.trim(), edit!.sort_order),
     onSuccess: () => {
       hapticSuccess()
-      queryClient.invalidateQueries({ queryKey: ['spheres'] })
+      void queryClient.invalidateQueries({ queryKey: ['spheres'] })
       setEdit(null)
       setName('')
+      setFormError(null)
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setFormError(ruApiError(err, 'Не удалось сохранить сферу'))
+    },
   })
 
   const remove = useMutation({
     mutationFn: (id: string) => api.deleteSphere(id),
     onSuccess: () => {
       hapticSuccess()
-      queryClient.invalidateQueries({ queryKey: ['spheres'] })
+      setListError(null)
+      void queryClient.invalidateQueries({ queryKey: ['spheres'] })
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setListError(ruApiError(err, 'Не удалось удалить сферу'))
+    },
   })
 
   const onDelete = async (s: Sphere) => {
@@ -220,21 +287,29 @@ function SpheresSettings() {
     if (ok) remove.mutate(s.id)
   }
 
+  const openCreate = () => {
+    setName('')
+    setFormError(null)
+    setCreateOpen(true)
+  }
+
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">Сферы жизни</h2>
-        <Button
-          size="sm"
-          onClick={() => {
-            setName('')
-            setCreateOpen(true)
-          }}
-        >
-          <Plus size={16} className="mr-1" />
-          Сфера
-        </Button>
+        {(data ?? []).length > 0 && (
+          <Button size="sm" onClick={openCreate}>
+            <Plus size={16} className="mr-1" />
+            Сфера
+          </Button>
+        )}
       </div>
+
+      {listError && (
+        <p className="text-sm text-rose-400" role="alert">
+          {listError}
+        </p>
+      )}
 
       {isLoading && <Skeleton className="h-16 w-full" />}
       {isError && <QueryError message="Не удалось загрузить сферы" onRetry={() => void refetch()} />}
@@ -244,10 +319,7 @@ function SpheresSettings() {
           title="Сфер нет"
           description="Создай первую"
           actionLabel="Создать"
-          onAction={() => {
-            setName('')
-            setCreateOpen(true)
-          }}
+          onAction={openCreate}
         />
       )}
 
@@ -260,18 +332,19 @@ function SpheresSettings() {
             <span className="min-w-0 flex-1 truncate font-medium">{s.name}</span>
             <button
               type="button"
-              className="rounded-full p-2 text-[var(--tg-theme-hint-color,#94a3b8)]"
+              className="min-h-11 min-w-11 rounded-full p-2 text-[var(--tg-theme-hint-color,#94a3b8)]"
               aria-label="Изменить"
               onClick={() => {
                 setEdit(s)
                 setName(s.name)
+                setFormError(null)
               }}
             >
               <Pencil size={16} />
             </button>
             <button
               type="button"
-              className="rounded-full p-2 text-rose-400"
+              className="min-h-11 min-w-11 rounded-full p-2 text-rose-400"
               aria-label="Удалить"
               onClick={() => void onDelete(s)}
             >
@@ -281,13 +354,29 @@ function SpheresSettings() {
         ))}
       </div>
 
-      <Sheet open={createOpen} onClose={() => setCreateOpen(false)} title="Новая сфера">
+      <Sheet
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false)
+          setFormError(null)
+        }}
+        title="Новая сфера"
+      >
         <input
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value)
+            if (formError) setFormError(null)
+          }}
           placeholder="Название"
-          className="mb-4 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+          className="mb-3 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+          autoFocus
         />
+        {formError && (
+          <p className="mb-3 text-sm text-rose-400" role="alert">
+            {formError}
+          </p>
+        )}
         <Button
           className="w-full"
           disabled={!name.trim() || create.isPending}
@@ -297,12 +386,28 @@ function SpheresSettings() {
         </Button>
       </Sheet>
 
-      <Sheet open={Boolean(edit)} onClose={() => setEdit(null)} title="Редактировать сферу">
+      <Sheet
+        open={Boolean(edit)}
+        onClose={() => {
+          setEdit(null)
+          setFormError(null)
+        }}
+        title="Редактировать сферу"
+      >
         <input
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="mb-4 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+          onChange={(e) => {
+            setName(e.target.value)
+            if (formError) setFormError(null)
+          }}
+          className="mb-3 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+          autoFocus
         />
+        {formError && (
+          <p className="mb-3 text-sm text-rose-400" role="alert">
+            {formError}
+          </p>
+        )}
         <Button
           className="w-full"
           disabled={!name.trim() || update.isPending}

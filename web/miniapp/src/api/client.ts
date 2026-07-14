@@ -379,8 +379,8 @@ export const api = {
     }),
 
   /**
-   * Prefer GET /finance/overview (categories + period). Fall back to cash-flow
-   * only while overview is missing (404/501) — remove once Backend TASK-002 ships.
+   * Prefer GET /finance/overview (categories + period).
+   * Cash-flow only on 404/501 for older deploys — no “API missing” copy in UI.
    */
   financeOverview: async (period: Period): Promise<FinanceOverview> => {
     const key = periodKey(period)

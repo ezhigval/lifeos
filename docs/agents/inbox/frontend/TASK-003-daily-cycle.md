@@ -1,7 +1,7 @@
 # TASK-003: Stage 2.1 — Mini App daily-cycle polish
 
 - **Agent:** frontend
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P1
 - **Stage:** miniapp-depth (Stage 2.1)
 
@@ -27,7 +27,7 @@
 
 ## Acceptance
 
-- [ ] Habits / Calendar / Settings usable for daily flow without dead ends
-- [ ] `npm run build` (+ lint) green
-- [ ] Report: `docs/agents/reports/frontend/TASK-003.md`
-- [ ] Commit + push `cursor/docs-sync-orchestration-fe85`
+- [x] Habits / Calendar / Settings usable for daily flow without dead ends
+- [x] `npm run build` (+ lint) green
+- [x] Report: `docs/agents/reports/frontend/TASK-003.md`
+- [x] Commit + push `cursor/docs-sync-orchestration-fe85`
