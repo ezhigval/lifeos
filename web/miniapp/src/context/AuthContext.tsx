@@ -163,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setState({
             status: 'error',
             message: isTelegramEnv()
-              ? 'Нет initData. Закрой это окно и открой заново кнопкой «📱 Mini App» внизу чата (или Menu → Mini App). Не открывай URL из текста сообщения.'
+              ? 'Нет initData. Закрой окно и открой синей кнопкой «📱 Открыть Mini App» в чате (или Menu → Mini App). Reply-клавиатура и ссылка из текста не передают initData.'
               : 'Открой из Telegram или задай VITE_DEV_API_KEY и VITE_DEV_TELEGRAM_ID',
           })
         }
