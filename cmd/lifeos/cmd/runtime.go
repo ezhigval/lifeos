@@ -62,6 +62,7 @@ type runtime struct {
 	cancelReminder *notifapp.CancelReminder
 	settings       *settingsinfra.Repository
 	users          *identityinfra.Repository
+	ensureUser     *identityapp.EnsureUserByTelegram
 
 	listToday        *tasksapp.ListTasksToday
 	createTask       *tasksapp.CreateTask
@@ -272,6 +273,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		cfg.SeedTimezone,
 		bootstrapUserReviews,
 	)
+	rt.ensureUser = ensureUser
 
 	if cfg.TelegramBotToken != "" {
 		client := tg.NewClient(cfg.TelegramBotToken)

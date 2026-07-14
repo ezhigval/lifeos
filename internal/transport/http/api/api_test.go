@@ -9,28 +9,29 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
-	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
-	"github.com/valentinezhov/lifeos/internal/identity/domain"
-	"github.com/valentinezhov/lifeos/internal/platform/auth"
-	"github.com/valentinezhov/lifeos/internal/platform/events"
-	"github.com/valentinezhov/lifeos/internal/platform/ids"
-	"github.com/valentinezhov/lifeos/internal/transport/http/api"
 	financeapp "github.com/valentinezhov/lifeos/internal/finance/app"
 	financedomain "github.com/valentinezhov/lifeos/internal/finance/domain"
 	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
 	habitsdomain "github.com/valentinezhov/lifeos/internal/habits/domain"
+	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
+	"github.com/valentinezhov/lifeos/internal/identity/domain"
 	knowledgeapp "github.com/valentinezhov/lifeos/internal/knowledge/app"
 	knowledgedomain "github.com/valentinezhov/lifeos/internal/knowledge/domain"
+	"github.com/valentinezhov/lifeos/internal/platform/auth"
+	"github.com/valentinezhov/lifeos/internal/platform/events"
+	"github.com/valentinezhov/lifeos/internal/platform/ids"
 	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
 	projectsdomain "github.com/valentinezhov/lifeos/internal/projects/domain"
 	tasksapp "github.com/valentinezhov/lifeos/internal/tasks/app"
 	taskdomain "github.com/valentinezhov/lifeos/internal/tasks/domain"
+	"github.com/valentinezhov/lifeos/internal/transport/http/api"
 )
 
 const (
@@ -48,6 +49,11 @@ func (s *stubUserRepo) GetByTelegramID(_ context.Context, telegramID int64) (dom
 		return domain.User{}, domain.ErrNotFound
 	}
 	return s.user, nil
+}
+
+func (s *stubUserRepo) Upsert(_ context.Context, user domain.User) error {
+	s.user = user
+	return nil
 }
 
 type fakeTaskStore struct {
@@ -340,25 +346,29 @@ func newTestEnv(t *testing.T) testEnv {
 	habitStore := newFakeHabitStore()
 	debtStore := newFakeDebtStore()
 	noteStore := &fakeNoteStore{}
+	users := &stubUserRepo{user: user}
 
 	rt := api.NewRouter(api.Deps{
-		Log:        slog.Default(),
-		APIKey:     testAPIKey,
-		Tokens:     tokens,
-		GetUser:    identityapp.NewGetUserByTelegram(&stubUserRepo{user: user}),
-		ListToday:  listToday,
-		CreateTask: create,
-		Complete:   complete,
+		Log:           slog.Default(),
+		APIKey:        testAPIKey,
+		BotToken:      "123456:TESTTOKEN",
+		WebAppAuthTTL: time.Hour,
+		Tokens:        tokens,
+		GetUser:       identityapp.NewGetUserByTelegram(users),
+		EnsureUser:    identityapp.NewEnsureUserByTelegram(users, nil, "UTC", nil),
+		ListToday:     listToday,
+		CreateTask:    create,
+		Complete:      complete,
 		CreateProject: projectsapp.NewCreateProject(projectStore, fakeEvents{}, fakeTx{}),
 		ListProjects:  projectsapp.NewListProjects(projectStore),
 		ProjectProg:   projectsapp.NewGetProjectProgress(projectStore),
-		CreateHabit: habitsapp.NewCreateHabit(habitStore, fakeEvents{}, fakeTx{}),
-		CreateDebt:  financeapp.NewCreateDebt(debtStore, fakeEvents{}, fakeTx{}),
-		ListDebts:   financeapp.NewListDebts(debtStore),
-		CreateNote:  knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
-		ListNotes:   knowledgeapp.NewListNotes(noteStore),
-		SearchNotes: knowledgeapp.NewSearchNotes(noteStore),
-		DeleteNote:  knowledgeapp.NewDeleteNote(noteStore, fakeEvents{}, fakeTx{}),
+		CreateHabit:   habitsapp.NewCreateHabit(habitStore, fakeEvents{}, fakeTx{}),
+		CreateDebt:    financeapp.NewCreateDebt(debtStore, fakeEvents{}, fakeTx{}),
+		ListDebts:     financeapp.NewListDebts(debtStore),
+		CreateNote:    knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
+		ListNotes:     knowledgeapp.NewListNotes(noteStore),
+		SearchNotes:   knowledgeapp.NewSearchNotes(noteStore),
+		DeleteNote:    knowledgeapp.NewDeleteNote(noteStore, fakeEvents{}, fakeTx{}),
 	})
 	r := chi.NewRouter()
 	rt.Mount(r)
@@ -416,6 +426,45 @@ func TestIssueTokenRejectsMissingAPIKey(t *testing.T) {
 	)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status=%d want 401", rec.Code)
+	}
+}
+
+func TestAuthTelegramWebAppIssuesToken(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	const botToken = "123456:TESTTOKEN"
+	now := time.Now().UTC()
+	initData := auth.SignWebAppInitData(map[string]string{
+		"auth_date": strconv.FormatInt(now.Unix(), 10),
+		"user":      `{"id":900001,"first_name":"Test","username":"tester"}`,
+	}, botToken)
+
+	rec := doJSON(t, env.router, http.MethodPost, "/api/v1/auth/telegram-webapp", nil,
+		map[string]any{"init_data": initData},
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.AccessToken == "" || out.TokenType != "Bearer" {
+		t.Fatalf("token response=%+v", out)
+	}
+}
+
+func TestAuthTelegramWebAppRejectsBadInitData(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	rec := doJSON(t, env.router, http.MethodPost, "/api/v1/auth/telegram-webapp", nil,
+		map[string]any{"init_data": "auth_date=1&hash=deadbeef"},
+	)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d want 401 body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -530,8 +579,8 @@ func TestProjectHTTPFlow(t *testing.T) {
 	sphereID := ids.NewSphereID()
 
 	createRec := doJSON(t, env.router, http.MethodPost, "/api/v1/projects", auth, map[string]any{
-		"name":       "накопить 500к",
-		"sphere_ids": []string{sphereID.String()},
+		"name":         "накопить 500к",
+		"sphere_ids":   []string{sphereID.String()},
 		"target_value": "500000",
 		"unit":         "RUB",
 	})

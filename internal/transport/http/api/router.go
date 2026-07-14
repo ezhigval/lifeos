@@ -8,46 +8,49 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
 	calendarapp "github.com/valentinezhov/lifeos/internal/calendar/app"
+	careerapp "github.com/valentinezhov/lifeos/internal/career/app"
 	financeapp "github.com/valentinezhov/lifeos/internal/finance/app"
 	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
 	healthapp "github.com/valentinezhov/lifeos/internal/health/app"
-	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
-	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
-	notifapp "github.com/valentinezhov/lifeos/internal/notifications/app"
+	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
 	knowledgeapp "github.com/valentinezhov/lifeos/internal/knowledge/app"
-	careerapp "github.com/valentinezhov/lifeos/internal/career/app"
-	settingsapp "github.com/valentinezhov/lifeos/internal/settings/app"
+	notifapp "github.com/valentinezhov/lifeos/internal/notifications/app"
 	"github.com/valentinezhov/lifeos/internal/platform/auth"
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
+	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
 	"github.com/valentinezhov/lifeos/internal/query"
+	settingsapp "github.com/valentinezhov/lifeos/internal/settings/app"
+	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
 	tasksapp "github.com/valentinezhov/lifeos/internal/tasks/app"
 	taskdomain "github.com/valentinezhov/lifeos/internal/tasks/domain"
 )
 
 type Deps struct {
-	Log        *slog.Logger
-	APIKey     string
-	Tokens     *auth.TokenService
-	GetUser    *identityapp.GetUserByTelegram
-	ListToday  *tasksapp.ListTasksToday
-	CreateTask *tasksapp.CreateTask
-	Complete   *tasksapp.CompleteTask
-	ProjectProg *projectsapp.GetProjectProgress
-	Review     *query.Review
-	Priorities *query.GetTopPriorities
-	Analytics  *query.GetProductivitySummary
-	RecordIncome *financeapp.RecordIncome
-	RecordExpense *financeapp.RecordExpense
-	ListDebts  *financeapp.ListDebts
-	CreateDebt *financeapp.CreateDebt
-	PayDebt    *financeapp.PayDebt
-	CashFlow   *financeapp.CashFlowSummary
-	ListHabits *habitsapp.ListHabitsToday
-	CreateHabit *habitsapp.CreateHabit
-	TrackHabit *habitsapp.TrackHabit
+	Log              *slog.Logger
+	APIKey           string
+	BotToken         string
+	WebAppAuthTTL    time.Duration
+	Tokens           *auth.TokenService
+	GetUser          *identityapp.GetUserByTelegram
+	EnsureUser       *identityapp.EnsureUserByTelegram
+	ListToday        *tasksapp.ListTasksToday
+	CreateTask       *tasksapp.CreateTask
+	Complete         *tasksapp.CompleteTask
+	ProjectProg      *projectsapp.GetProjectProgress
+	Review           *query.Review
+	Priorities       *query.GetTopPriorities
+	Analytics        *query.GetProductivitySummary
+	RecordIncome     *financeapp.RecordIncome
+	RecordExpense    *financeapp.RecordExpense
+	ListDebts        *financeapp.ListDebts
+	CreateDebt       *financeapp.CreateDebt
+	PayDebt          *financeapp.PayDebt
+	CashFlow         *financeapp.CashFlowSummary
+	ListHabits       *habitsapp.ListHabitsToday
+	CreateHabit      *habitsapp.CreateHabit
+	TrackHabit       *habitsapp.TrackHabit
 	ScheduleReminder *notifapp.ScheduleReminder
 	ListReminders    *notifapp.ListReminders
 	CancelReminder   *notifapp.CancelReminder
@@ -76,16 +79,16 @@ type Deps struct {
 	RecordSleep      *healthapp.RecordSleep
 	GetLatestSleep   *healthapp.GetLatestSleep
 	ListSleep        *healthapp.ListSleep
-	ListCalendar *calendarapp.ListEventsToday
-	CreateEvent  *calendarapp.CreateEvent
-	ListProjects *projectsapp.ListProjects
-	CreateProject *projectsapp.CreateProject
+	ListCalendar     *calendarapp.ListEventsToday
+	CreateEvent      *calendarapp.CreateEvent
+	ListProjects     *projectsapp.ListProjects
+	CreateProject    *projectsapp.CreateProject
 	ListProjectTasks *tasksapp.ListTasksByProject
-	ArchiveProject *projectsapp.ArchiveProject
-	GetSettings  *settingsapp.GetSettings
-	UpdateMorning *settingsapp.UpdateMorningReview
-	UpdateEvening *settingsapp.UpdateEveningReview
-	UpdateQuiet  *settingsapp.UpdateQuietHours
+	ArchiveProject   *projectsapp.ArchiveProject
+	GetSettings      *settingsapp.GetSettings
+	UpdateMorning    *settingsapp.UpdateMorningReview
+	UpdateEvening    *settingsapp.UpdateEveningReview
+	UpdateQuiet      *settingsapp.UpdateQuietHours
 }
 
 type Router struct {
@@ -99,6 +102,7 @@ func NewRouter(deps Deps) *Router {
 func (rt *Router) Mount(r chi.Router) {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/auth/token", rt.issueToken)
+		r.Post("/auth/telegram-webapp", rt.authTelegramWebApp)
 		r.Group(func(r chi.Router) {
 			r.Use(rt.jwtMiddleware)
 			r.Get("/tasks/today", rt.listTasksToday)
@@ -366,15 +370,15 @@ func (rt *Router) analyticsSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"period_label":        summary.PeriodLabel,
-		"tasks_created":       summary.TasksCreated,
-		"tasks_completed":     summary.TasksCompleted,
-		"completion_rate":     summary.CompletionRate,
-		"open_tasks":          summary.OpenTasks,
-		"habit_consistency":   summary.HabitConsistency,
-		"habit_completions":   summary.HabitCompletions,
-		"habit_count":         summary.HabitCount,
-		"projects":            summary.Projects,
+		"period_label":      summary.PeriodLabel,
+		"tasks_created":     summary.TasksCreated,
+		"tasks_completed":   summary.TasksCompleted,
+		"completion_rate":   summary.CompletionRate,
+		"open_tasks":        summary.OpenTasks,
+		"habit_consistency": summary.HabitConsistency,
+		"habit_completions": summary.HabitCompletions,
+		"habit_count":       summary.HabitCount,
+		"projects":          summary.Projects,
 	})
 }
 

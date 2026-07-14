@@ -298,9 +298,12 @@ Append-only, не full event sourcing ([ADR-006](../adr/006-domain-event-log.md)
 | Method | Path | Auth |
 |--------|------|------|
 | GET | `/health`, `/ready`, `/metrics` | none |
-| POST | `/api/v1/auth/token` | API key |
-| POST | `/api/v1/auth/telegram-webapp` | initData |
+| POST | `/api/v1/auth/token` | API key (`X-API-Key`) → JWT по `telegram_id` |
+| POST | `/api/v1/auth/telegram-webapp` | Telegram Mini App `initData` → JWT |
 | * | `/api/v1/*` | JWT Bearer |
+
+**Mini App auth:** клиент шлёт `POST /api/v1/auth/telegram-webapp` с телом `{ "init_data": "<Telegram.WebApp.initData>" }`.
+Сервер проверяет HMAC-SHA256 (`secret_key = HMAC_SHA256(bot_token, key=WebAppData)`), отклоняет просроченный `auth_date` (TTL = `LIFEOS_JWT_TTL_HOURS`, по умолчанию 24h), делает `EnsureUserByTelegram` и выдаёт JWT.
 
 OpenAPI: [docs/api/openapi.yaml](../api/openapi.yaml).  
 Webhook `/webhook/telegram` — optional (см. `LIFEOS_TELEGRAM_MODE=webhook`).
