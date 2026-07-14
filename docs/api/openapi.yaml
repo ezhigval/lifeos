@@ -411,6 +411,32 @@ paths:
       responses:
         '200':
           description: Cash flow summary
+  /api/v1/finance/overview:
+    get:
+      summary: Finance overview for a calendar month
+      description: |
+        Period is `YYYY-MM` interpreted in the user's timezone.
+        Categories are expense totals for that month with percent of expense_cents (0–100).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: period
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+            example: '2026-07'
+          description: Calendar month key (YYYY-MM)
+      responses:
+        '200':
+          description: Finance overview matching Mini App FinanceOverview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinanceOverview'
+        '400':
+          description: Invalid or malformed period
   /api/v1/finance/debts:
     get:
       summary: List open debts
@@ -1102,6 +1128,46 @@ paths:
           description: Updated
 components:
   schemas:
+    FinanceOverview:
+      type: object
+      required: [period_label, income_cents, expense_cents, net_cents, currency, categories]
+      properties:
+        period_label:
+          type: string
+          description: Russian month name and year (e.g. "июль 2026")
+          example: июль 2026
+        income_cents:
+          type: integer
+          format: int64
+        expense_cents:
+          type: integer
+          format: int64
+        net_cents:
+          type: integer
+          format: int64
+        currency:
+          type: string
+          example: RUB
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinanceCategory'
+    FinanceCategory:
+      type: object
+      required: [name, amount_cents, percent]
+      properties:
+        name:
+          type: string
+        amount_cents:
+          type: integer
+          format: int64
+        percent:
+          type: number
+          format: double
+          description: Share of expense_cents (0–100)
+        color_hint:
+          type: string
+          description: Optional color hint for UI
     TokenResponse:
       type: object
       required: [access_token, expires_in, token_type]

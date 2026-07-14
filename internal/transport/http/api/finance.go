@@ -147,6 +147,64 @@ func (rt *Router) cashFlow(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type financeCategoryJSON struct {
+	Name        string  `json:"name"`
+	AmountCents int64   `json:"amount_cents"`
+	Percent     float64 `json:"percent"`
+	ColorHint   *string `json:"color_hint,omitempty"`
+}
+
+type financeOverviewJSON struct {
+	PeriodLabel  string                `json:"period_label"`
+	IncomeCents  int64                 `json:"income_cents"`
+	ExpenseCents int64                 `json:"expense_cents"`
+	NetCents     int64                 `json:"net_cents"`
+	Currency     string                `json:"currency"`
+	Categories   []financeCategoryJSON `json:"categories"`
+}
+
+func (rt *Router) financeOverview(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.FinanceOverview == nil {
+		writeError(w, http.StatusNotImplemented, "finance overview is not configured")
+		return
+	}
+	period := strings.TrimSpace(r.URL.Query().Get("period"))
+	dto, err := rt.deps.FinanceOverview.Execute(r.Context(), financeapp.FinanceOverviewInput{
+		UserID: userID,
+		Period: period,
+	})
+	if errors.Is(err, financeapp.ErrInvalidPeriod) {
+		writeError(w, http.StatusBadRequest, "invalid period, use YYYY-MM")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	categories := make([]financeCategoryJSON, 0, len(dto.Categories))
+	for _, c := range dto.Categories {
+		categories = append(categories, financeCategoryJSON{
+			Name:        c.Name,
+			AmountCents: c.AmountCents,
+			Percent:     c.Percent,
+			ColorHint:   c.ColorHint,
+		})
+	}
+	writeJSON(w, http.StatusOK, financeOverviewJSON{
+		PeriodLabel:  dto.PeriodLabel,
+		IncomeCents:  dto.IncomeCents,
+		ExpenseCents: dto.ExpenseCents,
+		NetCents:     dto.NetCents,
+		Currency:     dto.Currency,
+		Categories:   categories,
+	})
+}
+
 func (rt *Router) listDebts(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {

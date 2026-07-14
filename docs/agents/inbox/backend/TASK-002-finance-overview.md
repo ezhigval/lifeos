@@ -1,7 +1,7 @@
 # TASK-002: Finance overview API for Mini App
 
 - **Agent:** backend
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P1
 - **Stage:** miniapp-functionality (Stage 2)
 - **Source:** Frontend TASK-001 ask
@@ -47,8 +47,8 @@ Response JSON:
 
 ## Acceptance
 
-- [ ] Endpoint live and matches client type `FinanceOverview`
-- [ ] OpenAPI synced
-- [ ] Tests green
-- [ ] Report: `docs/agents/reports/backend/TASK-002.md`
-- [ ] Commit + push `cursor/docs-sync-orchestration-fe85`
+- [x] Endpoint live and matches client type `FinanceOverview`
+- [x] OpenAPI synced
+- [x] Tests green
+- [x] Report: `docs/agents/reports/backend/TASK-002.md`
+- [x] Commit + push `cursor/docs-sync-orchestration-fe85`

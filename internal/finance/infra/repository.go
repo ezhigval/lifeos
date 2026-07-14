@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/valentinezhov/lifeos/internal/finance/app"
 	"github.com/valentinezhov/lifeos/internal/finance/domain"
 	"github.com/valentinezhov/lifeos/internal/platform/db"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
@@ -91,6 +92,25 @@ func (r *Repository) SumExpenseBetween(ctx context.Context, userID ids.UserID, f
 		return 0, fmt.Errorf("sum expense: %w", err)
 	}
 	return total, nil
+}
+
+func (r *Repository) SumExpensesByCategoryBetween(ctx context.Context, userID ids.UserID, from, to time.Time) ([]app.CategoryExpenseTotal, error) {
+	rows, err := r.queries(ctx).SumExpensesByCategoryBetween(ctx, db.SumExpensesByCategoryBetweenParams{
+		UserID:       pgconv.UserID(userID),
+		OccurredAt:   pgconv.TimestamptzValue(from),
+		OccurredAt_2: pgconv.TimestamptzValue(to),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("sum expenses by category: %w", err)
+	}
+	out := make([]app.CategoryExpenseTotal, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, app.CategoryExpenseTotal{
+			Name:        row.Name,
+			AmountCents: row.AmountCents,
+		})
+	}
+	return out, nil
 }
 
 func (r *Repository) SaveDebt(ctx context.Context, debt domain.Debt) error {

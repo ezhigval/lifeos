@@ -57,6 +57,7 @@ type Deps struct {
 	CreateDebt       *financeapp.CreateDebt
 	PayDebt          *financeapp.PayDebt
 	CashFlow         *financeapp.CashFlowSummary
+	FinanceOverview  *financeapp.FinanceOverview
 	ListHabits       *habitsapp.ListHabitsToday
 	CreateHabit      *habitsapp.CreateHabit
 	TrackHabit       *habitsapp.TrackHabit
@@ -134,6 +135,7 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Post("/finance/income", rt.recordIncome)
 			r.Post("/finance/expense", rt.recordExpense)
 			r.Get("/finance/cash-flow", rt.cashFlow)
+			r.Get("/finance/overview", rt.financeOverview)
 			r.Get("/finance/debts", rt.listDebts)
 			r.Post("/finance/debts", rt.createDebt)
 			r.Post("/finance/debts/{id}/pay", rt.payDebt)

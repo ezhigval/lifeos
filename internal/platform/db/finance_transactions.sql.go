@@ -66,6 +66,49 @@ func (q *Queries) SumExpenseBetween(ctx context.Context, arg SumExpenseBetweenPa
 	return total, err
 }
 
+const sumExpensesByCategoryBetween = `-- name: SumExpensesByCategoryBetween :many
+SELECT c.name AS name, COALESCE(SUM(t.amount_cents), 0)::bigint AS amount_cents
+FROM finance_transactions t
+JOIN finance_categories c ON c.id = t.category_id
+WHERE t.user_id = $1
+  AND t.kind = 'expense'
+  AND t.occurred_at >= $2
+  AND t.occurred_at < $3
+GROUP BY c.name
+ORDER BY amount_cents DESC, c.name ASC
+`
+
+type SumExpensesByCategoryBetweenParams struct {
+	UserID       pgtype.UUID
+	OccurredAt   pgtype.Timestamptz
+	OccurredAt_2 pgtype.Timestamptz
+}
+
+type SumExpensesByCategoryBetweenRow struct {
+	Name        string
+	AmountCents int64
+}
+
+func (q *Queries) SumExpensesByCategoryBetween(ctx context.Context, arg SumExpensesByCategoryBetweenParams) ([]SumExpensesByCategoryBetweenRow, error) {
+	rows, err := q.db.Query(ctx, sumExpensesByCategoryBetween, arg.UserID, arg.OccurredAt, arg.OccurredAt_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SumExpensesByCategoryBetweenRow{}
+	for rows.Next() {
+		var i SumExpensesByCategoryBetweenRow
+		if err := rows.Scan(&i.Name, &i.AmountCents); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const sumIncomeBetween = `-- name: SumIncomeBetween :one
 SELECT COALESCE(SUM(amount_cents), 0)::bigint AS total
 FROM finance_transactions

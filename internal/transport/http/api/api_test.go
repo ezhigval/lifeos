@@ -843,6 +843,93 @@ func TestCreateDebtHTTP(t *testing.T) {
 	}
 }
 
+type fakeOverviewStore struct {
+	income     int64
+	expense    int64
+	categories []financeapp.CategoryExpenseTotal
+}
+
+func (s *fakeOverviewStore) SumIncomeBetween(context.Context, ids.UserID, time.Time, time.Time) (int64, error) {
+	return s.income, nil
+}
+
+func (s *fakeOverviewStore) SumExpenseBetween(context.Context, ids.UserID, time.Time, time.Time) (int64, error) {
+	return s.expense, nil
+}
+
+func (s *fakeOverviewStore) SumExpensesByCategoryBetween(context.Context, ids.UserID, time.Time, time.Time) ([]financeapp.CategoryExpenseTotal, error) {
+	return s.categories, nil
+}
+
+func TestFinanceOverviewHTTP(t *testing.T) {
+	t.Parallel()
+	user, err := domain.NewUser(testTelegram, "API User", "UTC", time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokens, err := auth.NewTokenService(testJWTSecret, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	users := &stubUserRepo{user: user}
+	store := &fakeOverviewStore{
+		income:  10_000,
+		expense: 5_000,
+		categories: []financeapp.CategoryExpenseTotal{
+			{Name: "Еда", AmountCents: 3_000},
+			{Name: "Транспорт", AmountCents: 2_000},
+		},
+	}
+	rt := api.NewRouter(api.Deps{
+		Log:             slog.Default(),
+		APIKey:          testAPIKey,
+		Tokens:          tokens,
+		GetUser:         identityapp.NewGetUserByTelegram(users),
+		FinanceOverview: financeapp.NewFinanceOverview(store, fakeTZ{}),
+	})
+	r := chi.NewRouter()
+	rt.Mount(r)
+	env := testEnv{user: user, router: r}
+	token := issueToken(t, env)
+	authHdr := map[string]string{"Authorization": "Bearer " + token}
+
+	okRec := doJSON(t, env.router, http.MethodGet, "/api/v1/finance/overview?period=2026-07", authHdr, nil)
+	if okRec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", okRec.Code, okRec.Body.String())
+	}
+	var body struct {
+		PeriodLabel  string  `json:"period_label"`
+		IncomeCents  int64   `json:"income_cents"`
+		ExpenseCents int64   `json:"expense_cents"`
+		NetCents     int64   `json:"net_cents"`
+		Currency     string  `json:"currency"`
+		Categories   []struct {
+			Name        string  `json:"name"`
+			AmountCents int64   `json:"amount_cents"`
+			Percent     float64 `json:"percent"`
+		} `json:"categories"`
+	}
+	if err := json.Unmarshal(okRec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.PeriodLabel != "июль 2026" || body.Currency != "RUB" || body.NetCents != 5_000 {
+		t.Fatalf("body=%+v", body)
+	}
+	if len(body.Categories) != 2 || body.Categories[0].Percent != 60 {
+		t.Fatalf("categories=%+v", body.Categories)
+	}
+
+	badRec := doJSON(t, env.router, http.MethodGet, "/api/v1/finance/overview?period=2026-7", authHdr, nil)
+	if badRec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid period status=%d", badRec.Code)
+	}
+
+	emptyRec := doJSON(t, env.router, http.MethodGet, "/api/v1/finance/overview", authHdr, nil)
+	if emptyRec.Code != http.StatusBadRequest {
+		t.Fatalf("missing period status=%d", emptyRec.Code)
+	}
+}
+
 func TestNoteHTTPFlow(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)

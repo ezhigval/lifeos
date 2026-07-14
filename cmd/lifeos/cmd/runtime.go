@@ -87,6 +87,7 @@ type runtime struct {
 	createDebt       *financeapp.CreateDebt
 	payDebt          *financeapp.PayDebt
 	cashFlow         *financeapp.CashFlowSummary
+	financeOverview  *financeapp.FinanceOverview
 	listHabits       *habitsapp.ListHabitsToday
 	createHabit      *habitsapp.CreateHabit
 	trackHabit       *habitsapp.TrackHabit
@@ -163,6 +164,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	listDebts := financeapp.NewListDebts(financeRepo)
 	payDebt := financeapp.NewPayDebt(financeRepo, eventPub, transactor)
 	cashFlow := financeapp.NewCashFlowSummary(financeRepo, tzReader)
+	financeOverview := financeapp.NewFinanceOverview(financeRepo, tzReader)
 	habitRepo := habitsinfra.NewRepository(p)
 	createHabit := habitsapp.NewCreateHabit(habitRepo, eventPub, transactor)
 	trackHabit := habitsapp.NewTrackHabit(habitRepo, habitRepo, eventPub, transactor, tzReader)
@@ -254,6 +256,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		createDebt:       createDebt,
 		payDebt:          payDebt,
 		cashFlow:         cashFlow,
+		financeOverview:  financeOverview,
 		listHabits:       listHabits,
 		createHabit:      createHabit,
 		trackHabit:       trackHabit,
