@@ -238,6 +238,7 @@ func (h *MessageHandler) HandleUpdate(ctx context.Context, update Update) error 
 	}
 
 	chatID := update.Message.Chat.ID
+	userMsgID := update.Message.MessageID
 	text := strings.TrimSpace(update.Message.Text)
 
 	out, err := h.handleText(ctx, user.ID, text)
@@ -246,6 +247,11 @@ func (h *MessageHandler) HandleUpdate(ctx context.Context, update Update) error 
 	}
 	if err := h.present(ctx, user.ID, chatID, out); err != nil {
 		return err
+	}
+	// Reply-keyboard presses and free-text intents update the single screen;
+	// delete the user's message so the chat does not fill with labels/spam.
+	if err := h.client.DeleteMessage(ctx, chatID, userMsgID); err != nil {
+		h.log.Debug("delete user message failed", "chat_id", chatID, "message_id", userMsgID, "error", err)
 	}
 	return h.processed.Mark(ctx, update.UpdateID)
 }

@@ -182,8 +182,25 @@ func (c *Client) SetReplyKeyboard(ctx context.Context, chatID int64, keyboard []
 			"one_time_keyboard": false,
 		},
 	}
-	_, err := c.postMessage(ctx, payload)
-	return err
+	id, err := c.postMessage(ctx, payload)
+	if err != nil {
+		return err
+	}
+	// Reply keyboard stays attached to the chat after the toast is removed.
+	_ = c.DeleteMessage(ctx, chatID, id)
+	return nil
+}
+
+// DeleteMessage removes a chat message. Best-effort: callers may ignore errors
+// (e.g. message already gone / too old).
+func (c *Client) DeleteMessage(ctx context.Context, chatID, messageID int64) error {
+	if messageID <= 0 {
+		return nil
+	}
+	return c.postAPI(ctx, "deleteMessage", map[string]any{
+		"chat_id":    chatID,
+		"message_id": messageID,
+	})
 }
 
 func (c *Client) SendMessageWithKeyboard(ctx context.Context, chatID int64, text string, keyboard [][]InlineButton) error {
