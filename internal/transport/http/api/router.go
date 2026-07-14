@@ -36,6 +36,7 @@ type Deps struct {
 	WebAppAuthTTL    time.Duration
 	Tokens           *auth.TokenService
 	GetUser          *identityapp.GetUserByTelegram
+	GetUserByID      *identityapp.GetUserByID
 	EnsureUser       *identityapp.EnsureUserByTelegram
 	ListToday        *tasksapp.ListTasksToday
 	CreateTask       *tasksapp.CreateTask
@@ -210,6 +211,14 @@ func (rt *Router) jwtMiddleware(next http.Handler) http.Handler {
 		if err != nil {
 			writeError(w, http.StatusUnauthorized, "invalid token")
 			return
+		}
+		// After /delete the JWT may still name a wiped user id. Force re-auth
+		// (401) so Mini App issues a fresh token for the recreated account.
+		if rt.deps.GetUserByID != nil {
+			if _, err := rt.deps.GetUserByID.Execute(r.Context(), userID); err != nil {
+				writeError(w, http.StatusUnauthorized, "user not found")
+				return
+			}
 		}
 		next.ServeHTTP(w, r.WithContext(WithUserID(r.Context(), userID)))
 	})

@@ -65,6 +65,13 @@ func (s *stubUserRepo) GetByTelegramID(_ context.Context, telegramID int64) (dom
 	return s.user, nil
 }
 
+func (s *stubUserRepo) GetByID(_ context.Context, userID ids.UserID) (domain.User, error) {
+	if userID != s.user.ID {
+		return domain.User{}, domain.ErrNotFound
+	}
+	return s.user, nil
+}
+
 func (s *stubUserRepo) Upsert(_ context.Context, user domain.User) error {
 	s.user = user
 	return nil
@@ -895,6 +902,7 @@ func newTestEnv(t *testing.T) testEnv {
 		WebAppAuthTTL:  time.Hour,
 		Tokens:         tokens,
 		GetUser:        identityapp.NewGetUserByTelegram(users),
+		GetUserByID:    identityapp.NewGetUserByID(users),
 		EnsureUser:     identityapp.NewEnsureUserByTelegram(users, nil, "UTC", nil),
 		ListToday:      listToday,
 		CreateTask:     create,

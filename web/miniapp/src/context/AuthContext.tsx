@@ -161,10 +161,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         initTelegram()
 
-        // 1) Prefer persisted JWT — do NOT touch initData if session is fresh.
+        // 1) Prefer persisted JWT — but reject wiped user ids (after /delete).
         if (tryRestoreSession()) {
-          if (!cancelled) setState({ status: 'ready' })
-          return
+          try {
+            const token = loadSession()?.accessToken
+            const res = await fetch('/api/v1/settings', {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            })
+            if (res.status === 401) {
+              clearSession()
+              setAccessToken(null)
+            } else {
+              if (!cancelled) setState({ status: 'ready' })
+              return
+            }
+          } catch {
+            if (!cancelled) setState({ status: 'ready' })
+            return
+          }
         }
 
         // 2) One-shot Telegram bootstrap when we have no/expired session.
