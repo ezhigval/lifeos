@@ -1,7 +1,7 @@
 # TASK-005: Stage 3.0 — Post-2.2 dogfood free-audit
 
 - **Agent:** frontend
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P0
 - **Stage:** stabilization (3.0)
 
@@ -22,7 +22,7 @@ Free-audit Mini App after Stage 2.2. Find and fix P0/P1 bugs in real daily flows
 
 ## Acceptance
 
-- [ ] P0/P1 in zone fixed or BLOCKED with ask
-- [ ] build/lint green
-- [ ] Report `docs/agents/reports/frontend/TASK-005.md`
-- [ ] Commit + push
+- [x] P0/P1 in zone fixed or BLOCKED with ask
+- [x] build/lint green
+- [x] Report `docs/agents/reports/frontend/TASK-005.md`
+- [x] Commit + push

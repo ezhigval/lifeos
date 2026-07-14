@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/Button'
 import { QueryError } from '@/components/ui/QueryError'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { ruApiError } from '@/lib/apiError'
 import { cn } from '@/lib/cn'
 import {
   confirmAction,
@@ -26,6 +27,7 @@ export function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['task', taskId],
@@ -69,39 +71,55 @@ export function TaskDetailPage() {
     onSuccess: () => {
       hapticSuccess()
       setDirty(false)
+      setActionError(null)
       invalidateLists()
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setActionError(ruApiError(err, 'Не удалось сохранить'))
+    },
   })
 
   const complete = useMutation({
     mutationFn: () => api.completeTask(taskId!),
     onSuccess: () => {
       hapticSuccess()
+      setActionError(null)
       invalidateLists()
       navigate(-1)
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setActionError(ruApiError(err, 'Не удалось выполнить'))
+    },
   })
 
   const archive = useMutation({
     mutationFn: () => api.archiveTask(taskId!),
     onSuccess: () => {
       hapticSuccess()
+      setActionError(null)
       invalidateLists()
       navigate(-1)
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setActionError(ruApiError(err, 'Не удалось архивировать'))
+    },
   })
 
   const remove = useMutation({
     mutationFn: () => api.deleteTask(taskId!),
     onSuccess: () => {
       hapticSuccess()
+      setActionError(null)
       invalidateLists()
       navigate(-1)
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setActionError(ruApiError(err, 'Не удалось удалить'))
+    },
   })
 
   const onArchive = async () => {
@@ -149,6 +167,12 @@ export function TaskDetailPage() {
         subtitle={statusLabel(data.status)}
       />
       <div className="space-y-5 px-4 pb-8">
+        {actionError && (
+          <p className="text-sm text-rose-400" role="alert">
+            {actionError}
+          </p>
+        )}
+
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">
             Название
@@ -159,6 +183,7 @@ export function TaskDetailPage() {
             onChange={(e) => {
               setTitle(e.target.value)
               setDirty(true)
+              if (actionError) setActionError(null)
             }}
             className="w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none disabled:opacity-60"
           />
@@ -175,6 +200,7 @@ export function TaskDetailPage() {
                 onClick={() => {
                   setPriority(p.value)
                   setDirty(true)
+                  if (actionError) setActionError(null)
                 }}
                 className={cn(
                   'rounded-full px-3 py-1.5 text-sm disabled:opacity-50',
@@ -200,6 +226,7 @@ export function TaskDetailPage() {
             onChange={(e) => {
               setDueDate(e.target.value)
               setDirty(true)
+              if (actionError) setActionError(null)
             }}
             className="w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none disabled:opacity-60"
           />
@@ -216,6 +243,7 @@ export function TaskDetailPage() {
             onChange={(e) => {
               setDescription(e.target.value)
               setDirty(true)
+              if (actionError) setActionError(null)
             }}
             placeholder="Опционально"
             className="w-full resize-none rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none disabled:opacity-60"

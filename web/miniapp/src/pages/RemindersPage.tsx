@@ -40,9 +40,16 @@ export function RemindersPage() {
       }
       return api.createReminder(message.trim(), fireAt)
     },
-    onSuccess: () => {
+    onSuccess: (reminder) => {
       hapticSuccess()
-      // Create response has no id — refresh list.
+      // POST /reminders returns full Reminder (id/status) — insert before refetch.
+      if (reminder?.id) {
+        queryClient.setQueryData<Reminder[]>(['reminders'], (old) => {
+          const list = old ?? []
+          if (list.some((r) => r.id === reminder.id)) return list
+          return [reminder, ...list]
+        })
+      }
       void queryClient.invalidateQueries({ queryKey: ['reminders'] })
       setCreateOpen(false)
       setMessage('')

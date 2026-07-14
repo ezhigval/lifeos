@@ -5,13 +5,16 @@ import { TaskCard } from '@/components/tasks/TaskCard'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { QueryError } from '@/components/ui/QueryError'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { ruApiError } from '@/lib/apiError'
 import { hapticError, hapticLight, hapticSuccess } from '@/lib/telegram'
+import { useState } from 'react'
 
 const LIMIT = 7
 
 export function UpcomingTasks() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const {
     data: priorities,
@@ -20,7 +23,10 @@ export function UpcomingTasks() {
     refetch: refetchP,
   } = useQuery({
     queryKey: ['priorities'],
-    queryFn: async () => (await api.priorities()).priorities,
+    queryFn: async () => {
+      const res = await api.priorities()
+      return Array.isArray(res.priorities) ? res.priorities : []
+    },
   })
 
   const {
@@ -30,17 +36,24 @@ export function UpcomingTasks() {
     refetch: refetchT,
   } = useQuery({
     queryKey: ['tasks', 'today'],
-    queryFn: async () => (await api.tasksToday()).tasks,
+    queryFn: async () => {
+      const res = await api.tasksToday()
+      return Array.isArray(res.tasks) ? res.tasks : []
+    },
   })
 
   const complete = useMutation({
     mutationFn: (id: string) => api.completeTask(id),
     onSuccess: () => {
       hapticSuccess()
+      setActionError(null)
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: ['priorities'] })
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setActionError(ruApiError(err, 'Не удалось выполнить задачу'))
+    },
   })
 
   const isLoading = loadingP || loadingT
@@ -76,6 +89,12 @@ export function UpcomingTasks() {
           />
         )}
 
+        {actionError && !isError && (
+          <p className="text-sm text-rose-400" role="alert">
+            {actionError}
+          </p>
+        )}
+
         {!isLoading && !isError && items.length === 0 && (
           <EmptyState
             title="Всё чисто на ближайшие дни"
@@ -95,6 +114,7 @@ export function UpcomingTasks() {
               item.taskId
                 ? () => {
                     hapticLight()
+                    setActionError(null)
                     complete.mutate(item.taskId!)
                   }
                 : undefined

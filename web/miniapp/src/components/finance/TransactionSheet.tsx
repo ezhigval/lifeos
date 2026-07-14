@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Sheet } from '@/components/ui/Sheet'
 import { Button } from '@/components/ui/Button'
 import { parseMoneyInput } from '@/lib/money'
@@ -18,12 +18,22 @@ type Props = {
   onClose: () => void
   onSubmit: (amountCents: number, extra?: string) => void
   loading?: boolean
+  error?: string | null
 }
 
-export function TransactionSheet({ type, open, onClose, onSubmit, loading }: Props) {
+export function TransactionSheet({ type, open, onClose, onSubmit, loading, error }: Props) {
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('Прочее')
+
+  // Reset form when sheet closes (success or dismiss) so retries keep input on error.
+  useEffect(() => {
+    if (!open) {
+      setAmount('')
+      setDescription('')
+      setCategory('Прочее')
+    }
+  }, [open])
 
   const title = type === 'income' ? 'Добавить доход' : 'Добавить расход'
 
@@ -35,9 +45,6 @@ export function TransactionSheet({ type, open, onClose, onSubmit, loading }: Pro
     } else {
       onSubmit(cents, category)
     }
-    setAmount('')
-    setDescription('')
-    setCategory('Прочее')
   }
 
   const appendDigit = (d: string) => setAmount((a) => (a + d).replace(/^0+/, '') || d)
@@ -102,6 +109,12 @@ export function TransactionSheet({ type, open, onClose, onSubmit, loading }: Pro
             </button>
           ))}
         </div>
+
+        {error && (
+          <p className="text-sm text-rose-400" role="alert">
+            {error}
+          </p>
+        )}
 
         <Button
           className="w-full"

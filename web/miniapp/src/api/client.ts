@@ -315,7 +315,7 @@ export const api = {
     request<{ reminders: import('@/api/types').Reminder[] }>('/api/v1/reminders'),
 
   createReminder: (message: string, fire_at: string) =>
-    request('/api/v1/reminders', {
+    request<import('@/api/types').Reminder>('/api/v1/reminders', {
       method: 'POST',
       body: JSON.stringify({ message, fire_at }),
     }),

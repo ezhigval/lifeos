@@ -9,6 +9,7 @@ import { PeriodPicker } from '@/components/finance/PeriodPicker'
 import { TransactionSheet } from '@/components/finance/TransactionSheet'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { ruApiError } from '@/lib/apiError'
 import { formatMoneyPlain } from '@/lib/money'
 import {
   currentPeriod,
@@ -17,7 +18,7 @@ import {
   type Period,
 } from '@/lib/periods'
 import { getSavedPeriod, savePeriod } from '@/lib/storage'
-import { hapticSuccess } from '@/lib/telegram'
+import { hapticError, hapticSuccess } from '@/lib/telegram'
 
 type Props = {
   /** Prefer overview from GET /finance/overview (enriched); cash-flow fallback OK until then. */
@@ -29,6 +30,7 @@ type Props = {
 
 export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Props) {
   const [sheet, setSheet] = useState<'income' | 'expense' | null>(null)
+  const [txError, setTxError] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   const mutation = useMutation({
@@ -40,10 +42,20 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
     },
     onSuccess: () => {
       hapticSuccess()
+      setTxError(null)
       queryClient.invalidateQueries({ queryKey: ['finance'] })
       setSheet(null)
     },
+    onError: (err) => {
+      hapticError()
+      setTxError(ruApiError(err, 'Не удалось записать операцию'))
+    },
   })
+
+  const openSheet = (type: 'income' | 'expense') => {
+    setTxError(null)
+    setSheet(type)
+  }
 
   return (
     <section className="rounded-3xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] p-4">
@@ -112,11 +124,17 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
         </>
       ) : null}
 
+      {txError && sheet === null && (
+        <p className="mt-3 text-sm text-rose-400" role="alert">
+          {txError}
+        </p>
+      )}
+
       <div className="mt-4 grid grid-cols-2 gap-3">
-        <Button variant="income" size="lg" className="w-full" onClick={() => setSheet('income')}>
+        <Button variant="income" size="lg" className="w-full" onClick={() => openSheet('income')}>
           + Доход
         </Button>
-        <Button variant="expense" size="lg" className="w-full" onClick={() => setSheet('expense')}>
+        <Button variant="expense" size="lg" className="w-full" onClick={() => openSheet('expense')}>
           − Расход
         </Button>
       </div>
@@ -124,10 +142,14 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
       <TransactionSheet
         type={sheet}
         open={sheet !== null}
-        onClose={() => setSheet(null)}
+        onClose={() => {
+          setSheet(null)
+        }}
         loading={mutation.isPending}
+        error={txError}
         onSubmit={(amount, extra) => {
           if (!sheet) return
+          setTxError(null)
           mutation.mutate({ type: sheet, amount, extra })
         }}
       />

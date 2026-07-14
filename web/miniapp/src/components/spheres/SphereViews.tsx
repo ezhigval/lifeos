@@ -9,13 +9,14 @@ import {
   Plus,
 } from 'lucide-react'
 import { api } from '@/api/client'
-import type { Project, Sphere } from '@/api/types'
+import type { Project, Sphere, Task } from '@/api/types'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { Button } from '@/components/ui/Button'
 import { Sheet } from '@/components/ui/Sheet'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { QueryError } from '@/components/ui/QueryError'
+import { ruApiError } from '@/lib/apiError'
 import { cn } from '@/lib/cn'
 import {
   getExpandedProjects,
@@ -38,7 +39,10 @@ export function SphereTree() {
 
   const { data: spheres, isLoading, isError, refetch } = useQuery({
     queryKey: ['spheres'],
-    queryFn: async () => (await api.spheres()).spheres,
+    queryFn: async () => {
+      const res = await api.spheres()
+      return Array.isArray(res.spheres) ? res.spheres : []
+    },
   })
 
   const toggleSphere = (id: string) => {
@@ -106,15 +110,27 @@ function CreateSphereEmpty() {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
   const create = useMutation({
     mutationFn: () => api.createSphere(name.trim()),
-    onSuccess: () => {
+    onSuccess: (sphere) => {
       hapticSuccess()
-      queryClient.invalidateQueries({ queryKey: ['spheres'] })
+      if (sphere?.id) {
+        queryClient.setQueryData<Sphere[]>(['spheres'], (old) => {
+          const list = old ?? []
+          if (list.some((s) => s.id === sphere.id)) return list
+          return [...list, sphere]
+        })
+      }
+      void queryClient.invalidateQueries({ queryKey: ['spheres'] })
       setOpen(false)
       setName('')
+      setFormError(null)
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setFormError(ruApiError(err, 'Не удалось создать сферу'))
+    },
   })
 
   return (
@@ -123,15 +139,34 @@ function CreateSphereEmpty() {
         title="Сфер пока нет"
         description="Создай первую сферу жизни"
         actionLabel="Создать сферу"
-        onAction={() => setOpen(true)}
+        onAction={() => {
+          setFormError(null)
+          setName('')
+          setOpen(true)
+        }}
       />
-      <Sheet open={open} onClose={() => setOpen(false)} title="Новая сфера">
+      <Sheet
+        open={open}
+        onClose={() => {
+          setOpen(false)
+          setFormError(null)
+        }}
+        title="Новая сфера"
+      >
         <input
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value)
+            if (formError) setFormError(null)
+          }}
           placeholder="Работа, Здоровье…"
           className="mb-4 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
         />
+        {formError && (
+          <p className="mb-3 text-sm text-rose-400" role="alert">
+            {formError}
+          </p>
+        )}
         <Button
           className="w-full"
           disabled={!name.trim() || create.isPending}
@@ -163,7 +198,10 @@ function SphereNode({
 }) {
   const { data: projects } = useQuery({
     queryKey: ['projects', sphere.id],
-    queryFn: async () => (await api.projects(sphere.id)).projects,
+    queryFn: async () => {
+      const res = await api.projects(sphere.id)
+      return Array.isArray(res.projects) ? res.projects : []
+    },
     enabled: expanded,
   })
 
@@ -213,7 +251,10 @@ function ProjectNode({
   const queryClient = useQueryClient()
   const { data: tasks } = useQuery({
     queryKey: ['project-tasks', project.id],
-    queryFn: async () => (await api.projectTasks(project.id)).tasks,
+    queryFn: async () => {
+      const res = await api.projectTasks(project.id)
+      return Array.isArray(res.tasks) ? res.tasks : []
+    },
     enabled: expanded,
   })
 
@@ -276,16 +317,24 @@ export function SphereDetailPage() {
   const [showArchive, setShowArchive] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [newName, setNewName] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const { data: spheres } = useQuery({
     queryKey: ['spheres'],
-    queryFn: async () => (await api.spheres()).spheres,
+    queryFn: async () => {
+      const res = await api.spheres()
+      return Array.isArray(res.spheres) ? res.spheres : []
+    },
   })
   const sphere = spheres?.find((s) => s.id === sphereId)
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects', sphereId],
-    queryFn: async () => (await api.projects(sphereId!)).projects,
+    queryFn: async () => {
+      const res = await api.projects(sphereId!)
+      return Array.isArray(res.projects) ? res.projects : []
+    },
     enabled: Boolean(sphereId),
   })
 
@@ -295,11 +344,23 @@ export function SphereDetailPage() {
   const createProject = useMutation({
     mutationFn: () =>
       api.createProject({ name: newName.trim(), sphere_ids: [sphereId!] }),
-    onSuccess: () => {
+    onSuccess: (project) => {
       hapticSuccess()
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      if (project?.id) {
+        queryClient.setQueryData<Project[]>(['projects', sphereId], (old) => {
+          const list = old ?? []
+          if (list.some((p) => p.id === project.id)) return list
+          return [project, ...list]
+        })
+      }
+      void queryClient.invalidateQueries({ queryKey: ['projects'] })
       setCreateOpen(false)
       setNewName('')
+      setFormError(null)
+    },
+    onError: (err) => {
+      hapticError()
+      setFormError(ruApiError(err, 'Не удалось создать проект'))
     },
   })
 
@@ -307,9 +368,13 @@ export function SphereDetailPage() {
     mutationFn: (id: string) => api.archiveProject(id),
     onSuccess: () => {
       hapticSuccess()
+      setActionError(null)
       queryClient.invalidateQueries({ queryKey: ['projects'] })
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setActionError(ruApiError(err, 'Не удалось архивировать'))
+    },
   })
 
   const onArchive = async (id: string, name: string) => {
@@ -327,11 +392,25 @@ export function SphereDetailPage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold">Активные проекты</h2>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus size={16} className="mr-1" />
-            Проект
-          </Button>
+          {(active.length > 0 || archived.length > 0) && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setFormError(null)
+                setNewName('')
+                setCreateOpen(true)
+              }}
+            >
+              <Plus size={16} className="mr-1" />
+              Проект
+            </Button>
+          )}
         </div>
+        {actionError && (
+          <p className="mb-2 text-sm text-rose-400" role="alert">
+            {actionError}
+          </p>
+        )}
         {isLoading && <Skeleton className="h-20 w-full" />}
         <div className="space-y-2">
           {active.map((p) => (
@@ -343,7 +422,16 @@ export function SphereDetailPage() {
             />
           ))}
           {!isLoading && active.length === 0 && (
-            <p className="text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Нет активных проектов</p>
+            <EmptyState
+              title="Нет активных проектов"
+              description="Создай проект в этой сфере"
+              actionLabel="Создать"
+              onAction={() => {
+                setFormError(null)
+                setNewName('')
+                setCreateOpen(true)
+              }}
+            />
           )}
         </div>
       </section>
@@ -389,13 +477,28 @@ export function SphereDetailPage() {
         )}
       </section>
 
-      <Sheet open={createOpen} onClose={() => setCreateOpen(false)} title="Новый проект">
+      <Sheet
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false)
+          setFormError(null)
+        }}
+        title="Новый проект"
+      >
         <input
           value={newName}
-          onChange={(e) => setNewName(e.target.value)}
+          onChange={(e) => {
+            setNewName(e.target.value)
+            if (formError) setFormError(null)
+          }}
           placeholder="Название проекта"
           className="mb-4 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
         />
+        {formError && (
+          <p className="mb-3 text-sm text-rose-400" role="alert">
+            {formError}
+          </p>
+        )}
         <Button
           className="w-full"
           disabled={!newName.trim() || createProject.isPending}
@@ -471,16 +574,24 @@ export function ProjectDetailPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [priority, setPriority] = useState('medium')
+  const [formError, setFormError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const { data: projects } = useQuery({
     queryKey: ['projects', sphereId],
-    queryFn: async () => (await api.projects(sphereId!)).projects,
+    queryFn: async () => {
+      const res = await api.projects(sphereId!)
+      return Array.isArray(res.projects) ? res.projects : []
+    },
   })
   const project = projects?.find((p) => p.id === projectId)
 
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['project-tasks', projectId],
-    queryFn: async () => (await api.projectTasks(projectId!)).tasks,
+    queryFn: async () => {
+      const res = await api.projectTasks(projectId!)
+      return Array.isArray(res.tasks) ? res.tasks : []
+    },
     enabled: Boolean(projectId),
   })
 
@@ -494,10 +605,14 @@ export function ProjectDetailPage() {
     mutationFn: (id: string) => api.completeTask(id),
     onSuccess: () => {
       hapticSuccess()
+      setActionError(null)
       queryClient.invalidateQueries({ queryKey: ['project-tasks', projectId] })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setActionError(ruApiError(err, 'Не удалось выполнить задачу'))
+    },
   })
 
   const createTask = useMutation({
@@ -507,15 +622,29 @@ export function ProjectDetailPage() {
         priority,
         project_ids: [projectId!],
       }),
-    onSuccess: () => {
+    onSuccess: (task) => {
       hapticSuccess()
-      queryClient.invalidateQueries({ queryKey: ['project-tasks', projectId] })
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      if (task?.id) {
+        queryClient.setQueryData<Task[]>(
+          ['project-tasks', projectId],
+          (old) => {
+            const list = old ?? []
+            if (list.some((t) => t.id === task.id)) return list
+            return [task, ...list]
+          },
+        )
+      }
+      void queryClient.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      void queryClient.invalidateQueries({ queryKey: ['tasks'] })
       setCreateOpen(false)
       setNewTitle('')
       setPriority('medium')
+      setFormError(null)
     },
-    onError: () => hapticError(),
+    onError: (err) => {
+      hapticError()
+      setFormError(ruApiError(err, 'Не удалось создать задачу'))
+    },
   })
 
   const active = (tasks ?? []).filter((t) => t.status !== 'done' && t.status !== 'cancelled')
@@ -525,16 +654,30 @@ export function ProjectDetailPage() {
     return <p className="p-4">Проект не найден</p>
   }
 
+  const openCreate = () => {
+    setFormError(null)
+    setNewTitle('')
+    setPriority('medium')
+    setCreateOpen(true)
+  }
+
   return (
     <div className="space-y-4 px-4">
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold">Активные задачи</h2>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus size={16} className="mr-1" />
-            Задача
-          </Button>
+          {active.length > 0 && (
+            <Button size="sm" onClick={openCreate}>
+              <Plus size={16} className="mr-1" />
+              Задача
+            </Button>
+          )}
         </div>
+        {actionError && (
+          <p className="mb-2 text-sm text-rose-400" role="alert">
+            {actionError}
+          </p>
+        )}
         {isLoading && <Skeleton className="h-14 w-full" />}
         <div className="space-y-2">
           {active.map((t) => (
@@ -551,7 +694,7 @@ export function ProjectDetailPage() {
               title="Нет активных задач"
               description="Добавь задачу в проект"
               actionLabel="Создать"
-              onAction={() => setCreateOpen(true)}
+              onAction={openCreate}
             />
           )}
         </div>
@@ -587,12 +730,18 @@ export function ProjectDetailPage() {
 
       <Sheet
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
+        onClose={() => {
+          setCreateOpen(false)
+          setFormError(null)
+        }}
         title="Новая задача"
       >
         <input
           value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
+          onChange={(e) => {
+            setNewTitle(e.target.value)
+            if (formError) setFormError(null)
+          }}
           placeholder="Название задачи"
           className="mb-3 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
         />
@@ -614,6 +763,11 @@ export function ProjectDetailPage() {
             </button>
           ))}
         </div>
+        {formError && (
+          <p className="mb-3 text-sm text-rose-400" role="alert">
+            {formError}
+          </p>
+        )}
         <Button
           className="w-full"
           disabled={!newTitle.trim() || createTask.isPending}

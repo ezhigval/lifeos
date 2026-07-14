@@ -18,6 +18,7 @@ export function HabitsPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [name, setName] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['habits', 'today'],
@@ -30,6 +31,7 @@ export function HabitsPage() {
   const track = useMutation({
     mutationFn: (id: string) => api.trackHabit(id),
     onMutate: async (id) => {
+      setActionError(null)
       await queryClient.cancelQueries({ queryKey: ['habits', 'today'] })
       const prev = queryClient.getQueryData<HabitDay[]>(['habits', 'today'])
       queryClient.setQueryData<HabitDay[]>(['habits', 'today'], (old) =>
@@ -49,9 +51,10 @@ export function HabitsPage() {
         ),
       )
     },
-    onError: (_err, _id, ctx) => {
+    onError: (err, _id, ctx) => {
       hapticError()
       if (ctx?.prev) queryClient.setQueryData(['habits', 'today'], ctx.prev)
+      setActionError(ruApiError(err, 'Не удалось отметить привычку'))
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['habits'] })
@@ -101,6 +104,12 @@ export function HabitsPage() {
               Привычка
             </Button>
           </div>
+        )}
+
+        {actionError && (
+          <p className="text-sm text-rose-400" role="alert">
+            {actionError}
+          </p>
         )}
 
         {isLoading && (

@@ -13,13 +13,19 @@ export function SpheresPage() {
 
   const { data: spheres } = useQuery({
     queryKey: ['spheres'],
-    queryFn: async () => (await api.spheres()).spheres,
+    queryFn: async () => {
+      const res = await api.spheres()
+      return Array.isArray(res.spheres) ? res.spheres : []
+    },
   })
 
   const sphere = spheres?.find((s) => s.id === sphereId)
   const { data: projects } = useQuery({
     queryKey: ['projects', sphereId],
-    queryFn: async () => (await api.projects(sphereId!)).projects,
+    queryFn: async () => {
+      const res = await api.projects(sphereId!)
+      return Array.isArray(res.projects) ? res.projects : []
+    },
     enabled: Boolean(sphereId),
   })
   const project = projects?.find((p) => p.id === projectId)
