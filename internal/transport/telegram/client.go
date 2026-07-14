@@ -147,7 +147,7 @@ func (c *Client) SendScreen(ctx context.Context, chatID int64, text string, inli
 		ChatID:      chatID,
 		Text:        text,
 		ParseMode:   "HTML",
-		ReplyMarkup: map[string]any{"inline_keyboard": inline},
+		ReplyMarkup: inlineKeyboardMarkup(inline),
 	})
 }
 
@@ -161,7 +161,7 @@ func (c *Client) EditScreen(ctx context.Context, chatID, messageID int64, text s
 		"message_id":   messageID,
 		"text":         text,
 		"parse_mode":   "HTML",
-		"reply_markup": map[string]any{"inline_keyboard": inline},
+		"reply_markup": inlineKeyboardMarkup(inline),
 	}
 	return withRetry(ctx, func() error {
 		data, err := json.Marshal(payload)
@@ -343,9 +343,31 @@ func (c *Client) postMessage(ctx context.Context, payload sendMessageRequest) (i
 	return id, err
 }
 
+// InlineButton is a Telegram inline keyboard button (callback or web_app).
+// Prefer web_app on inline (not reply) keyboards — reply web_app often yields empty initData.
 type InlineButton struct {
-	Text         string `json:"text"`
-	CallbackData string `json:"callback_data"`
+	Text         string
+	CallbackData string
+	WebApp       string // when set, Telegram opens this HTTPS Mini App URL with initData
+}
+
+func inlineKeyboardMarkup(rows [][]InlineButton) map[string]any {
+	kb := make([][]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		buttons := make([]map[string]any, 0, len(row))
+		for _, btn := range row {
+			item := map[string]any{"text": btn.Text}
+			switch {
+			case strings.TrimSpace(btn.WebApp) != "":
+				item["web_app"] = map[string]string{"url": strings.TrimSpace(btn.WebApp)}
+			case btn.CallbackData != "":
+				item["callback_data"] = btn.CallbackData
+			}
+			buttons = append(buttons, item)
+		}
+		kb = append(kb, buttons)
+	}
+	return map[string]any{"inline_keyboard": kb}
 }
 
 func (c *Client) AnswerCallback(ctx context.Context, callbackID string) error {

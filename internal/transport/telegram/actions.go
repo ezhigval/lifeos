@@ -2,7 +2,6 @@ package telegram
 
 import (
 	"context"
-	"html"
 
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
 	tginfra "github.com/valentinezhov/lifeos/internal/transport/telegram/infra"
@@ -32,7 +31,11 @@ func (h *MessageHandler) runAction(ctx context.Context, userID ids.UserID, actio
 		if err != nil {
 			return dispatchResult{}, err
 		}
-		return dispatchResult{text: FormatHomeSummary(len(items)), inline: InlineHomeActions()}, nil
+		inline := InlineHomeActions()
+		if open := InlineOpenMiniApp(h.miniAppURL); len(open) > 0 {
+			inline = append(inline, open...)
+		}
+		return dispatchResult{text: FormatHomeSummary(len(items)), inline: inline}, nil
 	case ActionTasksToday:
 		return h.tasksTodayView(ctx, userID)
 	case ActionPriorities:
@@ -75,7 +78,11 @@ func (h *MessageHandler) runAction(ctx context.Context, userID ids.UserID, actio
 		if h.miniAppURL == "" {
 			return dispatchResult{text: "Mini App ещё не настроен (нет LIFEOS_MINIAPP_URL)."}, nil
 		}
-		return dispatchResult{text: "📱 Mini App: " + html.EscapeString(h.miniAppURL) + "\nНажми кнопку <b>📱 Mini App</b> на клавиатуре, чтобы открыть."}, nil
+		// Reply web_app often yields empty initData — send inline web_app instead.
+		return dispatchResult{
+			text:   "Открой Mini App <b>синей кнопкой ниже</b>.\nТак Telegram передаёт initData (вход работает).\n\nMenu → Mini App тоже ок. Не открывай голый URL из текста.",
+			inline: InlineOpenMiniApp(h.miniAppURL),
+		}, nil
 	default:
 		return dispatchResult{text: FormatFallback()}, nil
 	}

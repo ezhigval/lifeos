@@ -99,12 +99,17 @@ func TestReplyKeyboardInstalled(t *testing.T) {
 func TestReplyKeyboardHasMiniApp(t *testing.T) {
 	t.Parallel()
 	if replyKeyboardHasMiniApp(MainReplyKeyboard("")) {
-		t.Fatal("empty URL must omit web_app")
+		t.Fatal("empty URL must omit mini app row")
 	}
 	if !replyKeyboardHasMiniApp(MainReplyKeyboard("https://example.com/app/")) {
-		t.Fatal("URL must add web_app row")
+		t.Fatal("URL must add mini app text row")
 	}
-	if got := replyKeyboardMiniAppURL(MainReplyKeyboard("https://example.com/app/")); got != "https://example.com/app/" {
-		t.Fatalf("url=%q", got)
+	kb := MainReplyKeyboard("https://example.com/app/")
+	for _, row := range kb {
+		for _, btn := range row {
+			if btn.WebApp != "" {
+				t.Fatalf("reply keyboard must not carry web_app URL, got %+v", btn)
+			}
+		}
 	}
 }

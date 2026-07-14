@@ -455,7 +455,7 @@ func (h *MessageHandler) present(ctx context.Context, userID ids.UserID, chatID 
 		payload["defer_tasks"] = strs
 		_ = h.sessions.SetState(ctx, userID, tginfra.StateIdle, payload)
 	}
-	return h.screen.Show(ctx, userID, chatID, out.text, out.inline, MainReplyKeyboard(h.miniAppURL))
+	return h.screen.Show(ctx, userID, chatID, out.text, out.inline, MainReplyKeyboard(h.miniAppURL), h.miniAppURL)
 }
 
 func (h *MessageHandler) settingsView(ctx context.Context, userID ids.UserID) (dispatchResult, error) {
@@ -474,22 +474,19 @@ const (
 	replyKBMiniAppKey    = "reply_kb_miniapp"
 	replyKBMiniAppURLKey = "reply_kb_miniapp_url"
 	// Bump when MainReplyKeyboard layout or URL-tracking strategy changes.
-	replyKBVersion = 6
+	// v7: Mini App reply row is plain text; launch via inline web_app (initData).
+	replyKBVersion = 7
 )
 
 func replyKeyboardHasMiniApp(rows [][]ReplyButton) bool {
-	return replyKeyboardMiniAppURL(rows) != ""
-}
-
-func replyKeyboardMiniAppURL(rows [][]ReplyButton) string {
 	for _, row := range rows {
 		for _, btn := range row {
-			if u := strings.TrimSpace(btn.WebApp); u != "" {
-				return u
+			if btn.Text == MenuMiniApp {
+				return true
 			}
 		}
 	}
-	return ""
+	return false
 }
 
 func replyKeyboardInstalled(payload map[string]any, wantMiniApp bool, wantURL string) bool {

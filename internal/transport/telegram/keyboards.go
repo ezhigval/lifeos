@@ -1,5 +1,7 @@
 package telegram
 
+import "strings"
+
 // Reply menu — основная навигация (разделы + настройки + Mini App).
 const (
 	MenuHome       = "🏠 Главная"
@@ -52,6 +54,9 @@ type ReplyButton struct {
 }
 
 // MainReplyKeyboard — постоянная reply-клавиатура: разделы, настройки и Mini App.
+// Mini App на reply-клавиатуре — обычный текст (без web_app): на многих клиентах
+// reply web_app открывает WebView с пустым initData. Реальный launch — inline web_app
+// (см. InlineOpenMiniApp) или Menu Button.
 func MainReplyKeyboard(miniAppURL string) [][]ReplyButton {
 	rows := [][]ReplyButton{
 		{{Text: MenuHome}, {Text: MenuTasksToday}},
@@ -59,10 +64,19 @@ func MainReplyKeyboard(miniAppURL string) [][]ReplyButton {
 		{{Text: MenuCalendar}, {Text: MenuAnalytics}},
 		{{Text: MenuSettings}},
 	}
-	if miniAppURL != "" {
-		rows = append(rows, []ReplyButton{{Text: MenuMiniApp, WebApp: miniAppURL}})
+	if strings.TrimSpace(miniAppURL) != "" {
+		rows = append(rows, []ReplyButton{{Text: MenuMiniApp}})
 	}
 	return rows
+}
+
+// InlineOpenMiniApp — единственный надёжный launch Mini App из чата (initData OK).
+func InlineOpenMiniApp(miniAppURL string) [][]InlineButton {
+	url := strings.TrimSpace(miniAppURL)
+	if url == "" {
+		return nil
+	}
+	return [][]InlineButton{{{Text: "📱 Открыть Mini App", WebApp: url}}}
 }
 
 // InlineHomeActions — быстрые действия на главной.

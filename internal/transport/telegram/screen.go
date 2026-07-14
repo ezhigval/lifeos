@@ -25,6 +25,7 @@ func (s *Screen) Show(
 	body string,
 	extraInline [][]InlineButton,
 	replyKB [][]ReplyButton,
+	miniAppURL string,
 ) error {
 	sess, err := s.sessions.Get(ctx, userID)
 	if err != nil {
@@ -40,8 +41,8 @@ func (s *Screen) Show(
 
 	// When reply keyboard must be (re)installed, force a new dashboard message:
 	// editMessage* cannot attach ReplyKeyboardMarkup.
-	wantURL := replyKeyboardMiniAppURL(replyKB)
-	wantMiniApp := wantURL != ""
+	wantURL := strings.TrimSpace(miniAppURL)
+	wantMiniApp := replyKeyboardHasMiniApp(replyKB)
 	forceNew := len(replyKB) > 0 && !replyKeyboardInstalled(sess.StatePayload, wantMiniApp, wantURL)
 
 	if sess.DashboardMessageID > 0 && !forceNew {
