@@ -31,9 +31,16 @@ function Root() {
 
   if (auth.status === 'error') {
     return (
-      <div className="flex min-h-full flex-col items-center justify-center gap-2 p-8 text-center">
+      <div className="flex min-h-full flex-col items-center justify-center gap-3 p-8 text-center">
         <p className="text-lg font-medium">Не удалось войти</p>
-        <p className="text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">{auth.message}</p>
+        <p className="max-w-sm text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">{auth.message}</p>
+        <button
+          type="button"
+          className="mt-2 rounded-2xl bg-[var(--tg-theme-button-color,#22c55e)] px-4 py-2 text-sm font-medium text-[var(--tg-theme-button-text-color,#fff)]"
+          onClick={() => window.location.reload()}
+        >
+          Повторить
+        </button>
       </div>
     )
   }

@@ -1,9 +1,10 @@
 # LifeOS Mini App — UX/UI Plan
 
-**Version:** 0.1  
+**Version:** 0.2  
 **Status:** Draft  
 **Scope:** Telegram Mini App (`web/miniapp/`)  
-**Related:** [ROADMAP.md](../roadmap/ROADMAP.md) · [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) · [BACKLOG.md](../roadmap/BACKLOG.md)
+**Related:** [ROADMAP.md](../roadmap/ROADMAP.md) · [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) · [BACKLOG.md](../roadmap/BACKLOG.md)  
+**Backend этап (отдельный промпт):** [BACKEND_PROMPT.md](BACKEND_PROMPT.md) — auth, overview API, HTTPS / static IP / ngrok. Фронт и бэкенд вести раздельно.
 
 ---
 
@@ -219,8 +220,10 @@ Dev: API key + telegram_id (как сейчас).
 | `GET /api/v1/finance/overview` (или расширить cash-flow) | ring + categories по периодам |
 | OpenAPI sync для spheres | контракт клиента |
 | JWT expiry handling | тихий re-auth через initData |
+| Публичный HTTPS (static IP / port-forward / ngrok) | Telegram WebApp URL |
 
-Без auth endpoint Mini App в Telegram нестабилен — **P0 перед любым UI polish.**
+Полный промпт и чеклист деплоя: **[BACKEND_PROMPT.md](BACKEND_PROMPT.md)**.  
+Без auth endpoint Mini App в Telegram нестабилен — **P0 на бэкенд-этапе**; фронт может полироваться параллельно на dev-auth.
 
 ---
 

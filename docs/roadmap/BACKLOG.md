@@ -150,10 +150,12 @@
 
 | ID | Story | Priority | Phase |
 |----|-------|----------|-------|
-| MA-A1 | Auth `POST /auth/telegram-webapp` | P0 | A |
-| MA-A2 | Telegram BackButton on nested routes | P0 | A |
-| MA-A4 | Finance overview API + Mini App wire | P0 | A |
-| MA-A3 | Tab «Ещё» + Settings stub | P1 | A |
+| MA-A1 | Auth `POST /auth/telegram-webapp` | P0 | A (backend) |
+| MA-A2 | Telegram BackButton on nested routes | P0 | A ✅ frontend |
+| MA-A4 | Finance overview API + Mini App wire | P0 | A (backend) |
+| MA-A3 | Tab «Ещё» + Settings stub | P1 | A ✅ frontend |
+| MA-A5 | Sheet motion | P1 | A ✅ frontend |
+| MA-A6 | Query error/retry | P1 | A ✅ frontend |
 | MA-B4 | Habits today + track | P1 | B |
 | MA-B1 | CreateTask sheet (priority/due) | P1 | B |
 

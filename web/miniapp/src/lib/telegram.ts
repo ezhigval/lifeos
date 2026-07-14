@@ -3,8 +3,12 @@ import WebApp from '@twa-dev/sdk'
 export function initTelegram() {
   WebApp.ready()
   WebApp.expand()
-  WebApp.setHeaderColor('secondary_bg_color')
-  WebApp.setBackgroundColor('bg_color')
+  try {
+    WebApp.setHeaderColor('secondary_bg_color')
+    WebApp.setBackgroundColor('bg_color')
+  } catch {
+    /* older clients */
+  }
 }
 
 export function getInitData(): string {
@@ -23,6 +27,38 @@ export function hapticSuccess() {
   WebApp.HapticFeedback?.notificationOccurred('success')
 }
 
+export function hapticError() {
+  WebApp.HapticFeedback?.notificationOccurred('error')
+}
+
+export function hapticWarning() {
+  WebApp.HapticFeedback?.notificationOccurred('warning')
+}
+
 export function tgUser() {
   return WebApp.initDataUnsafe?.user
+}
+
+export function showTelegramBackButton(onClick: () => void) {
+  const btn = WebApp.BackButton
+  if (!btn) return () => undefined
+  btn.onClick(onClick)
+  btn.show()
+  return () => {
+    btn.offClick(onClick)
+    btn.hide()
+  }
+}
+
+export function hideTelegramBackButton() {
+  WebApp.BackButton?.hide()
+}
+
+export async function confirmAction(message: string): Promise<boolean> {
+  if (typeof WebApp.showConfirm === 'function') {
+    return new Promise((resolve) => {
+      WebApp.showConfirm(message, (ok) => resolve(Boolean(ok)))
+    })
+  }
+  return window.confirm(message)
 }

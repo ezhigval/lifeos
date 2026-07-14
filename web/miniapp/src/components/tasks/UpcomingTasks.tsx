@@ -2,20 +2,32 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '@/api/client'
 import { TaskCard } from '@/components/tasks/TaskCard'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { QueryError } from '@/components/ui/QueryError'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { hapticLight, hapticSuccess } from '@/lib/telegram'
+import { hapticError, hapticLight, hapticSuccess } from '@/lib/telegram'
 
 const LIMIT = 7
 
 export function UpcomingTasks() {
   const queryClient = useQueryClient()
 
-  const { data: priorities, isLoading: loadingP } = useQuery({
+  const {
+    data: priorities,
+    isLoading: loadingP,
+    isError: errorP,
+    refetch: refetchP,
+  } = useQuery({
     queryKey: ['priorities'],
     queryFn: async () => (await api.priorities()).priorities,
   })
 
-  const { data: todayTasks, isLoading: loadingT } = useQuery({
+  const {
+    data: todayTasks,
+    isLoading: loadingT,
+    isError: errorT,
+    refetch: refetchT,
+  } = useQuery({
     queryKey: ['tasks', 'today'],
     queryFn: async () => (await api.tasksToday()).tasks,
   })
@@ -27,9 +39,11 @@ export function UpcomingTasks() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: ['priorities'] })
     },
+    onError: () => hapticError(),
   })
 
   const isLoading = loadingP || loadingT
+  const isError = errorP || errorT
 
   const items = buildUpcomingList(priorities ?? [], todayTasks ?? [])
 
@@ -51,29 +65,41 @@ export function UpcomingTasks() {
             <Skeleton key={i} className="h-14 w-full" />
           ))}
 
-        {!isLoading && items.length === 0 && (
-          <p className="rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] p-6 text-center text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">
-            Всё чисто на ближайшие дни
-          </p>
+        {isError && !isLoading && (
+          <QueryError
+            message="Не удалось загрузить задачи"
+            onRetry={() => {
+              void refetchP()
+              void refetchT()
+            }}
+          />
         )}
 
-        {items.map((item) => (
-          <TaskCard
-            key={item.key}
-            title={item.title}
-            detail={item.detail}
-            priority={item.priority}
-            done={item.done}
-            onComplete={
-              item.taskId
-                ? () => {
-                    hapticLight()
-                    complete.mutate(item.taskId!)
-                  }
-                : undefined
-            }
+        {!isLoading && !isError && items.length === 0 && (
+          <EmptyState
+            title="Всё чисто на ближайшие дни"
+            description="Новые задачи — в боте или в проекте сферы"
           />
-        ))}
+        )}
+
+        {!isError &&
+          items.map((item) => (
+            <TaskCard
+              key={item.key}
+              title={item.title}
+              detail={item.detail}
+              priority={item.priority}
+              done={item.done}
+              onComplete={
+                item.taskId
+                  ? () => {
+                      hapticLight()
+                      complete.mutate(item.taskId!)
+                    }
+                  : undefined
+              }
+            />
+          ))}
       </div>
     </section>
   )
@@ -113,8 +139,16 @@ function buildUpcomingList(
     const key = p.title.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
+    // Match priority title to today's task when possible so checkbox works
+    const matched = tasks.find(
+      (t) =>
+        t.status !== 'done' &&
+        t.status !== 'cancelled' &&
+        t.title.toLowerCase() === key,
+    )
     out.push({
-      key: `p-${p.title}`,
+      key: matched?.id ?? `p-${p.title}`,
+      taskId: matched?.id,
       title: p.title,
       detail: p.detail,
       priority: scoreToPriority(p.score),
