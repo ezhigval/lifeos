@@ -267,7 +267,8 @@ Append-only, не full event sourcing ([ADR-006](../adr/006-domain-event-log.md)
 | Port | Interface location | Adapter v1 | Future |
 |------|-------------------|------------|--------|
 | TaskRepository | tasks/domain or infra | SQLC/Postgres | same |
-| IntentResolver | ai/ports | RuleBased (+ optional Ollama) | API LLM |
+| IntentResolver | ai/ports | RuleBased first; optional Ollama on unknown (LIFEOS_LLM_ENABLED) | API LLM |
+| Assistant | ai/ports | Template; optional Ollama with HTML-safe `<b>` + template fallback | — |
 | Notifier | notifications/app | Telegram | Email, Push |
 | Clock | platform/clock | System | Fake (tests) |
 | ProjectReader / SphereReader | consumer `app` ports | projects/spheres infra | same |
@@ -360,7 +361,7 @@ LIFEOS_JWT_TTL_HOURS=168        # Mini App session TTL
 LIFEOS_API_KEY=
 LIFEOS_MINIAPP_URL=             # public HTTPS …/app/ for web_app button
 LIFEOS_STATIC_DIR=web/miniapp/dist
-LIFEOS_LLM_ENABLED=false        # optional Ollama resolver
+LIFEOS_LLM_ENABLED=false        # optional Ollama (rule-based first; degrade on down)
 LIFEOS_OTEL_ENABLED=false
 ```
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/valentinezhov/lifeos/internal/ai"
+	"github.com/valentinezhov/lifeos/internal/ai/reviewsafe"
 )
 
 type Assistant struct {
@@ -24,7 +25,7 @@ func (a *Assistant) Summarize(ctx context.Context, req ai.SummaryRequest) (strin
 	if err != nil {
 		return "", err
 	}
-	text = strings.TrimSpace(text)
+	text = reviewsafe.SanitizeHTML(text)
 	if text == "" {
 		return "", fmt.Errorf("empty summary")
 	}

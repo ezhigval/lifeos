@@ -43,7 +43,7 @@ Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST +
 
 - [x] **3.0 TASK-005:** Dogfood free-audit (Frontend / Backend / Telegram)
 - [x] **3.1 TASK-006:** Thin Telegram handler (strangler)
-- [ ] **3.2 TASK-007:** Intelligence polish (LLM composite + assistant) — OPEN
+- [x] **3.2 TASK-007:** Intelligence polish (LLM composite + assistant) — DONE
 
 ## Stage 3 — Stabilization (as needed)
 

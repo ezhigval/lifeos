@@ -1,7 +1,7 @@
 # TASK-007: Stage 3.2 — Intelligence polish
 
 - **Agent:** backend
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P1
 - **Stage:** intelligence (3.2)
 
@@ -22,7 +22,7 @@ Make LLM path production-ready as optional: composite resolver fallback, assista
 
 ## Acceptance
 
-- [ ] Composite reliably falls back
-- [ ] Tests cover failure paths
-- [ ] Report `docs/agents/reports/backend/TASK-007.md`
-- [ ] Commit + push
+- [x] Composite reliably falls back
+- [x] Tests cover failure paths
+- [x] Report `docs/agents/reports/backend/TASK-007.md`
+- [x] Commit + push
