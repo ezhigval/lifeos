@@ -502,7 +502,17 @@ paths:
         - bearerAuth: []
       responses:
         '200':
-          description: Habit list
+          description: Habit list with today completion and streak
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [habits]
+                properties:
+                  habits:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HabitDay'
   /api/v1/habits:
     post:
       summary: Create habit
@@ -521,6 +531,12 @@ paths:
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Habit'
+        '400':
+          description: Invalid name
   /api/v1/habits/{id}/track:
     post:
       summary: Track habit completion
@@ -536,6 +552,20 @@ paths:
       responses:
         '200':
           description: Tracked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name, streak]
+                properties:
+                  name:
+                    type: string
+                  streak:
+                    type: integer
+        '400':
+          description: Invalid habit id
+        '404':
+          description: Habit not found
   /api/v1/reminders:
     get:
       summary: List pending reminders
@@ -865,6 +895,16 @@ paths:
       responses:
         '200':
           description: Event list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events]
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CalendarEvent'
   /api/v1/calendar/events:
     post:
       summary: Create calendar event
@@ -883,9 +923,16 @@ paths:
                 starts_at:
                   type: string
                   format: date-time
+                  description: RFC3339 timestamp
       responses:
         '201':
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarEvent'
+        '400':
+          description: Invalid title or starts_at
   /api/v1/projects:
     get:
       summary: List active projects
@@ -969,6 +1016,10 @@ paths:
       responses:
         '200':
           description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSettings'
   /api/v1/settings/spheres:
     get:
       summary: List life spheres
@@ -981,6 +1032,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [spheres]
                 properties:
                   spheres:
                     type: array
@@ -1058,10 +1110,16 @@ paths:
             type: string
             format: uuid
       responses:
-        '204':
-          description: Deleted
+        '200':
+          description: Deleted sphere (body returned for Mini App)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sphere'
         '404':
           description: Not found
+        '409':
+          description: Sphere has linked projects
   /api/v1/settings/morning-review:
     put:
       summary: Update morning review time
@@ -1082,6 +1140,16 @@ paths:
       responses:
         '200':
           description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [morning_review_at]
+                properties:
+                  morning_review_at:
+                    $ref: '#/components/schemas/TimeOfDay'
+        '400':
+          description: Invalid time
   /api/v1/settings/evening-review:
     put:
       summary: Update evening review time
@@ -1102,6 +1170,16 @@ paths:
       responses:
         '200':
           description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [evening_review_at]
+                properties:
+                  evening_review_at:
+                    $ref: '#/components/schemas/TimeOfDay'
+        '400':
+          description: Invalid time
   /api/v1/settings/quiet-hours:
     put:
       summary: Update quiet hours
@@ -1126,6 +1204,18 @@ paths:
       responses:
         '200':
           description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [quiet_hours_start, quiet_hours_end]
+                properties:
+                  quiet_hours_start:
+                    $ref: '#/components/schemas/TimeOfDay'
+                  quiet_hours_end:
+                    $ref: '#/components/schemas/TimeOfDay'
+        '400':
+          description: Invalid time
 components:
   schemas:
     FinanceOverview:
@@ -1198,6 +1288,86 @@ components:
         created_at:
           type: string
           format: date-time
+    Habit:
+      type: object
+      required: [id, name, frequency]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        frequency:
+          type: string
+          example: daily
+    HabitDay:
+      type: object
+      required: [id, name, today_completed, streak]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        today_completed:
+          type: boolean
+        streak:
+          type: integer
+    CalendarEvent:
+      type: object
+      required: [id, title, starts_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+          description: RFC3339 UTC
+    TimeOfDay:
+      type: object
+      required: [hour, minute]
+      properties:
+        hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+        minute:
+          type: integer
+          minimum: 0
+          maximum: 59
+    UserSettings:
+      type: object
+      required:
+        - morning_review_at
+        - evening_review_at
+        - weekly_review_at
+        - monthly_review_at
+        - quiet_hours_start
+        - quiet_hours_end
+        - language
+      properties:
+        morning_review_at:
+          $ref: '#/components/schemas/TimeOfDay'
+        evening_review_at:
+          $ref: '#/components/schemas/TimeOfDay'
+        weekly_review_at:
+          $ref: '#/components/schemas/TimeOfDay'
+        monthly_review_at:
+          $ref: '#/components/schemas/TimeOfDay'
+        quiet_hours_start:
+          oneOf:
+            - $ref: '#/components/schemas/TimeOfDay'
+            - type: 'null'
+        quiet_hours_end:
+          oneOf:
+            - $ref: '#/components/schemas/TimeOfDay'
+            - type: 'null'
+        language:
+          type: string
+          example: ru
   securitySchemes:
     bearerAuth:
       type: http

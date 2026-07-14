@@ -16,6 +16,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	calendarapp "github.com/valentinezhov/lifeos/internal/calendar/app"
+	calendardomain "github.com/valentinezhov/lifeos/internal/calendar/domain"
 	financeapp "github.com/valentinezhov/lifeos/internal/finance/app"
 	financedomain "github.com/valentinezhov/lifeos/internal/finance/domain"
 	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
@@ -29,6 +31,11 @@ import (
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
 	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
 	projectsdomain "github.com/valentinezhov/lifeos/internal/projects/domain"
+	settingsapp "github.com/valentinezhov/lifeos/internal/settings/app"
+	settingsdomain "github.com/valentinezhov/lifeos/internal/settings/domain"
+	settingsinfra "github.com/valentinezhov/lifeos/internal/settings/infra"
+	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
+	spheresdomain "github.com/valentinezhov/lifeos/internal/spheres/domain"
 	tasksapp "github.com/valentinezhov/lifeos/internal/tasks/app"
 	taskdomain "github.com/valentinezhov/lifeos/internal/tasks/domain"
 	"github.com/valentinezhov/lifeos/internal/transport/http/api"
@@ -328,10 +335,14 @@ func (s *fakeNoteStore) Delete(_ context.Context, userID ids.UserID, noteID ids.
 
 type fakeHabitStore struct {
 	habits map[ids.HabitID]habitsdomain.Habit
+	logs   map[ids.HabitID][]habitsdomain.HabitLog
 }
 
 func newFakeHabitStore() *fakeHabitStore {
-	return &fakeHabitStore{habits: make(map[ids.HabitID]habitsdomain.Habit)}
+	return &fakeHabitStore{
+		habits: make(map[ids.HabitID]habitsdomain.Habit),
+		logs:   make(map[ids.HabitID][]habitsdomain.HabitLog),
+	}
 }
 
 func (s *fakeHabitStore) Save(_ context.Context, habit habitsdomain.Habit) error {
@@ -351,8 +362,181 @@ func (s *fakeHabitStore) FindByName(context.Context, ids.UserID, string) (habits
 	return habitsdomain.Habit{}, habitsdomain.ErrNotFound
 }
 
-func (s *fakeHabitStore) ListWithToday(context.Context, ids.UserID, time.Time) ([]habitsapp.HabitDayRow, error) {
-	return nil, nil
+func (s *fakeHabitStore) ListWithToday(_ context.Context, userID ids.UserID, today time.Time) ([]habitsapp.HabitDayRow, error) {
+	day := today.Format("2006-01-02")
+	out := make([]habitsapp.HabitDayRow, 0, len(s.habits))
+	for _, habit := range s.habits {
+		if habit.UserID != userID {
+			continue
+		}
+		completed := false
+		for _, log := range s.logs[habit.ID] {
+			if log.Completed && log.LogDate.Format("2006-01-02") == day {
+				completed = true
+				break
+			}
+		}
+		out = append(out, habitsapp.HabitDayRow{Habit: habit, TodayCompleted: completed})
+	}
+	return out, nil
+}
+
+func (s *fakeHabitStore) Upsert(_ context.Context, log habitsdomain.HabitLog) error {
+	logs := s.logs[log.HabitID]
+	for i, existing := range logs {
+		if existing.LogDate.Format("2006-01-02") == log.LogDate.Format("2006-01-02") {
+			logs[i] = log
+			s.logs[log.HabitID] = logs
+			return nil
+		}
+	}
+	s.logs[log.HabitID] = append(logs, log)
+	return nil
+}
+
+func (s *fakeHabitStore) ListSince(_ context.Context, habitID ids.HabitID, since time.Time) ([]habitsdomain.HabitLog, error) {
+	var out []habitsdomain.HabitLog
+	for _, log := range s.logs[habitID] {
+		if !log.LogDate.Before(since) {
+			out = append(out, log)
+		}
+	}
+	return out, nil
+}
+
+type fakeCalendarStore struct {
+	events []calendardomain.Event
+}
+
+func (s *fakeCalendarStore) Save(_ context.Context, event calendardomain.Event) error {
+	s.events = append(s.events, event)
+	return nil
+}
+
+func (s *fakeCalendarStore) ListBetween(_ context.Context, userID ids.UserID, from, to time.Time) ([]calendardomain.Event, error) {
+	var out []calendardomain.Event
+	for _, e := range s.events {
+		if e.UserID != userID {
+			continue
+		}
+		if !e.StartsAt.Before(from) && e.StartsAt.Before(to) {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+type fakeSettingsStore struct {
+	byUser map[ids.UserID]settingsdomain.UserSettings
+}
+
+func newFakeSettingsStore() *fakeSettingsStore {
+	return &fakeSettingsStore{byUser: make(map[ids.UserID]settingsdomain.UserSettings)}
+}
+
+func (s *fakeSettingsStore) Get(_ context.Context, userID ids.UserID) (settingsdomain.UserSettings, error) {
+	if settings, ok := s.byUser[userID]; ok {
+		return settings, nil
+	}
+	settings := settingsdomain.DefaultSettings(userID)
+	s.byUser[userID] = settings
+	return settings, nil
+}
+
+func (s *fakeSettingsStore) UpdateMorningReview(_ context.Context, userID ids.UserID, at settingsdomain.TimeOfDay) error {
+	settings, _ := s.Get(context.Background(), userID)
+	settings.MorningReviewAt = at
+	s.byUser[userID] = settings
+	return nil
+}
+
+func (s *fakeSettingsStore) UpdateEveningReview(_ context.Context, userID ids.UserID, at settingsdomain.TimeOfDay) error {
+	settings, _ := s.Get(context.Background(), userID)
+	settings.EveningReviewAt = at
+	s.byUser[userID] = settings
+	return nil
+}
+
+func (s *fakeSettingsStore) UpdateQuietHours(_ context.Context, userID ids.UserID, start, end settingsdomain.TimeOfDay) error {
+	settings, _ := s.Get(context.Background(), userID)
+	settings.QuietHoursStart = &start
+	settings.QuietHoursEnd = &end
+	s.byUser[userID] = settings
+	return nil
+}
+
+type noopReviewRescheduler struct{}
+
+func (noopReviewRescheduler) RescheduleReview(context.Context, ids.UserID, string, time.Time) error {
+	return nil
+}
+
+type fakeSphereStore struct {
+	spheres map[ids.SphereID]spheresdomain.Sphere
+}
+
+func newFakeSphereStore() *fakeSphereStore {
+	return &fakeSphereStore{spheres: make(map[ids.SphereID]spheresdomain.Sphere)}
+}
+
+func (s *fakeSphereStore) Save(_ context.Context, sphere spheresdomain.Sphere) error {
+	s.spheres[sphere.ID] = sphere
+	return nil
+}
+
+func (s *fakeSphereStore) List(_ context.Context, userID ids.UserID) ([]spheresdomain.Sphere, error) {
+	out := make([]spheresdomain.Sphere, 0, len(s.spheres))
+	for _, sphere := range s.spheres {
+		if sphere.UserID == userID {
+			out = append(out, sphere)
+		}
+	}
+	return out, nil
+}
+
+func (s *fakeSphereStore) Get(_ context.Context, userID ids.UserID, sphereID ids.SphereID) (spheresdomain.Sphere, error) {
+	sphere, ok := s.spheres[sphereID]
+	if !ok || sphere.UserID != userID {
+		return spheresdomain.Sphere{}, spheresdomain.ErrNotFound
+	}
+	return sphere, nil
+}
+
+func (s *fakeSphereStore) FindByName(_ context.Context, userID ids.UserID, name string) (spheresdomain.Sphere, error) {
+	for _, sphere := range s.spheres {
+		if sphere.UserID == userID && sphere.Name == name {
+			return sphere, nil
+		}
+	}
+	return spheresdomain.Sphere{}, spheresdomain.ErrNotFound
+}
+
+func (s *fakeSphereStore) Count(_ context.Context, userID ids.UserID) (int32, error) {
+	var n int32
+	for _, sphere := range s.spheres {
+		if sphere.UserID == userID {
+			n++
+		}
+	}
+	return n, nil
+}
+
+func (s *fakeSphereStore) Update(_ context.Context, sphere spheresdomain.Sphere) error {
+	s.spheres[sphere.ID] = sphere
+	return nil
+}
+
+func (s *fakeSphereStore) Delete(_ context.Context, userID ids.UserID, sphereID ids.SphereID) (spheresdomain.Sphere, error) {
+	sphere, ok := s.spheres[sphereID]
+	if !ok || sphere.UserID != userID {
+		return spheresdomain.Sphere{}, spheresdomain.ErrNotFound
+	}
+	delete(s.spheres, sphereID)
+	return sphere, nil
+}
+
+func (s *fakeSphereStore) HasLinkedProjects(context.Context, ids.SphereID) (bool, error) {
+	return false, nil
 }
 
 type testEnv struct {
@@ -383,9 +567,13 @@ func newTestEnv(t *testing.T) testEnv {
 	deleteTask := tasksapp.NewDeleteTask(store, fakeEvents{}, fakeTx{})
 	projectStore := newFakeProjectStore()
 	habitStore := newFakeHabitStore()
+	calendarStore := &fakeCalendarStore{}
+	settingsStore := newFakeSettingsStore()
+	sphereStore := newFakeSphereStore()
 	debtStore := newFakeDebtStore()
 	noteStore := &fakeNoteStore{}
 	users := &stubUserRepo{user: user}
+	tzFn := func(context.Context, ids.UserID) (string, error) { return "UTC", nil }
 
 	rt := api.NewRouter(api.Deps{
 		Log:            slog.Default(),
@@ -408,13 +596,29 @@ func newTestEnv(t *testing.T) testEnv {
 		CreateProject:  projectsapp.NewCreateProject(projectStore, fakeEvents{}, fakeTx{}),
 		ListProjects:   projectsapp.NewListProjects(projectStore),
 		ProjectProg:    projectsapp.NewGetProjectProgress(projectStore),
+		ListHabits:     habitsapp.NewListHabitsToday(habitStore, habitStore, fakeTZ{}),
 		CreateHabit:    habitsapp.NewCreateHabit(habitStore, fakeEvents{}, fakeTx{}),
-		CreateDebt:     financeapp.NewCreateDebt(debtStore, fakeEvents{}, fakeTx{}),
-		ListDebts:      financeapp.NewListDebts(debtStore),
-		CreateNote:     knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
-		ListNotes:      knowledgeapp.NewListNotes(noteStore),
-		SearchNotes:    knowledgeapp.NewSearchNotes(noteStore),
-		DeleteNote:     knowledgeapp.NewDeleteNote(noteStore, fakeEvents{}, fakeTx{}),
+		TrackHabit:     habitsapp.NewTrackHabit(habitStore, habitStore, fakeEvents{}, fakeTx{}, fakeTZ{}),
+		ListCalendar:   calendarapp.NewListEventsToday(calendarStore, fakeTZ{}),
+		CreateEvent:    calendarapp.NewCreateEvent(calendarStore, fakeEvents{}, fakeTx{}),
+		GetSettings:    settingsapp.NewGetSettings(settingsStore),
+		UpdateMorning: settingsapp.NewUpdateMorningReview(
+			settingsStore, noopReviewRescheduler{}, tzFn, settingsinfra.ReviewAt,
+		),
+		UpdateEvening: settingsapp.NewUpdateEveningReview(
+			settingsStore, noopReviewRescheduler{}, tzFn, settingsinfra.ReviewAt,
+		),
+		UpdateQuiet:  settingsapp.NewUpdateQuietHours(settingsStore),
+		CreateSphere: spheresapp.NewCreateSphere(sphereStore, fakeEvents{}, fakeTx{}),
+		ListSpheres:  spheresapp.NewListSpheres(sphereStore),
+		UpdateSphere: spheresapp.NewUpdateSphere(sphereStore, fakeEvents{}, fakeTx{}),
+		DeleteSphere: spheresapp.NewDeleteSphere(sphereStore, fakeEvents{}, fakeTx{}),
+		CreateDebt:   financeapp.NewCreateDebt(debtStore, fakeEvents{}, fakeTx{}),
+		ListDebts:    financeapp.NewListDebts(debtStore),
+		CreateNote:   knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
+		ListNotes:    knowledgeapp.NewListNotes(noteStore),
+		SearchNotes:  knowledgeapp.NewSearchNotes(noteStore),
+		DeleteNote:   knowledgeapp.NewDeleteNote(noteStore, fakeEvents{}, fakeTx{}),
 	})
 	r := chi.NewRouter()
 	rt.Mount(r)
@@ -799,14 +1003,256 @@ func TestHabitHTTPFlow(t *testing.T) {
 		t.Fatalf("create status=%d body=%s", createRec.Code, createRec.Body.String())
 	}
 	var created struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
+		ID        string `json:"id"`
+		Name      string `json:"name"`
+		Frequency string `json:"frequency"`
 	}
 	if err := json.Unmarshal(createRec.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
-	if created.Name != "бег" {
-		t.Fatalf("name=%q", created.Name)
+	if created.Name != "бег" || created.Frequency != "daily" || created.ID == "" {
+		t.Fatalf("created=%+v", created)
+	}
+
+	todayBefore := doJSON(t, env.router, http.MethodGet, "/api/v1/habits/today", auth, nil)
+	if todayBefore.Code != http.StatusOK {
+		t.Fatalf("today status=%d body=%s", todayBefore.Code, todayBefore.Body.String())
+	}
+	var listed struct {
+		Habits []struct {
+			ID             string `json:"id"`
+			Name           string `json:"name"`
+			TodayCompleted bool   `json:"today_completed"`
+			Streak         int    `json:"streak"`
+		} `json:"habits"`
+	}
+	if err := json.Unmarshal(todayBefore.Body.Bytes(), &listed); err != nil {
+		t.Fatal(err)
+	}
+	if len(listed.Habits) != 1 || listed.Habits[0].ID != created.ID || listed.Habits[0].TodayCompleted {
+		t.Fatalf("today before track=%+v", listed.Habits)
+	}
+
+	trackRec := doJSON(t, env.router, http.MethodPost, "/api/v1/habits/"+created.ID+"/track", auth, nil)
+	if trackRec.Code != http.StatusOK {
+		t.Fatalf("track status=%d body=%s", trackRec.Code, trackRec.Body.String())
+	}
+	var tracked struct {
+		Name   string `json:"name"`
+		Streak int    `json:"streak"`
+	}
+	if err := json.Unmarshal(trackRec.Body.Bytes(), &tracked); err != nil {
+		t.Fatal(err)
+	}
+	if tracked.Name != "бег" || tracked.Streak < 1 {
+		t.Fatalf("tracked=%+v", tracked)
+	}
+
+	todayAfter := doJSON(t, env.router, http.MethodGet, "/api/v1/habits/today", auth, nil)
+	if err := json.Unmarshal(todayAfter.Body.Bytes(), &listed); err != nil {
+		t.Fatal(err)
+	}
+	if len(listed.Habits) != 1 || !listed.Habits[0].TodayCompleted || listed.Habits[0].Streak < 1 {
+		t.Fatalf("today after track=%+v", listed.Habits)
+	}
+
+	missing := doJSON(t, env.router, http.MethodPost, "/api/v1/habits/"+ids.NewHabitID().String()+"/track", auth, nil)
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("missing track status=%d body=%s", missing.Code, missing.Body.String())
+	}
+}
+
+func TestCalendarHTTPContract(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	token := issueToken(t, env)
+	auth := map[string]string{"Authorization": "Bearer " + token}
+
+	startsAt := time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)
+	createRec := doJSON(t, env.router, http.MethodPost, "/api/v1/calendar/events", auth, map[string]any{
+		"title":     "встреча",
+		"starts_at": startsAt,
+	})
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s", createRec.Code, createRec.Body.String())
+	}
+	var created struct {
+		ID       string `json:"id"`
+		Title    string `json:"title"`
+		StartsAt string `json:"starts_at"`
+	}
+	if err := json.Unmarshal(createRec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.ID == "" || created.Title != "встреча" || created.StartsAt == "" {
+		t.Fatalf("created=%+v", created)
+	}
+
+	listRec := doJSON(t, env.router, http.MethodGet, "/api/v1/calendar/today", auth, nil)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("list status=%d body=%s", listRec.Code, listRec.Body.String())
+	}
+	var listed struct {
+		Events []struct {
+			ID       string `json:"id"`
+			Title    string `json:"title"`
+			StartsAt string `json:"starts_at"`
+		} `json:"events"`
+	}
+	if err := json.Unmarshal(listRec.Body.Bytes(), &listed); err != nil {
+		t.Fatal(err)
+	}
+	if len(listed.Events) != 1 || listed.Events[0].ID != created.ID || listed.Events[0].Title != "встреча" {
+		t.Fatalf("listed=%+v", listed.Events)
+	}
+
+	bad := doJSON(t, env.router, http.MethodPost, "/api/v1/calendar/events", auth, map[string]any{
+		"title": "x", "starts_at": "not-a-date",
+	})
+	if bad.Code != http.StatusBadRequest {
+		t.Fatalf("bad starts_at status=%d", bad.Code)
+	}
+}
+
+func TestSettingsAndSpheresHTTPContract(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	token := issueToken(t, env)
+	auth := map[string]string{"Authorization": "Bearer " + token}
+
+	getRec := doJSON(t, env.router, http.MethodGet, "/api/v1/settings", auth, nil)
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("get settings status=%d body=%s", getRec.Code, getRec.Body.String())
+	}
+	var settings struct {
+		MorningReviewAt struct {
+			Hour   int `json:"hour"`
+			Minute int `json:"minute"`
+		} `json:"morning_review_at"`
+		EveningReviewAt struct {
+			Hour   int `json:"hour"`
+			Minute int `json:"minute"`
+		} `json:"evening_review_at"`
+		WeeklyReviewAt struct {
+			Hour   int `json:"hour"`
+			Minute int `json:"minute"`
+		} `json:"weekly_review_at"`
+		MonthlyReviewAt struct {
+			Hour   int `json:"hour"`
+			Minute int `json:"minute"`
+		} `json:"monthly_review_at"`
+		QuietHoursStart *struct {
+			Hour   int `json:"hour"`
+			Minute int `json:"minute"`
+		} `json:"quiet_hours_start"`
+		QuietHoursEnd *struct {
+			Hour   int `json:"hour"`
+			Minute int `json:"minute"`
+		} `json:"quiet_hours_end"`
+		Language string `json:"language"`
+	}
+	if err := json.Unmarshal(getRec.Body.Bytes(), &settings); err != nil {
+		t.Fatal(err)
+	}
+	if settings.Language != "ru" || settings.MorningReviewAt.Hour != 8 || settings.EveningReviewAt.Hour != 21 {
+		t.Fatalf("settings=%+v", settings)
+	}
+	if settings.QuietHoursStart != nil || settings.QuietHoursEnd != nil {
+		t.Fatalf("expected null quiet hours, got start=%v end=%v", settings.QuietHoursStart, settings.QuietHoursEnd)
+	}
+
+	morning := doJSON(t, env.router, http.MethodPut, "/api/v1/settings/morning-review", auth, map[string]any{
+		"hour": 7, "minute": 30,
+	})
+	if morning.Code != http.StatusOK {
+		t.Fatalf("morning status=%d body=%s", morning.Code, morning.Body.String())
+	}
+	evening := doJSON(t, env.router, http.MethodPut, "/api/v1/settings/evening-review", auth, map[string]any{
+		"hour": 22, "minute": 0,
+	})
+	if evening.Code != http.StatusOK {
+		t.Fatalf("evening status=%d body=%s", evening.Code, evening.Body.String())
+	}
+	quiet := doJSON(t, env.router, http.MethodPut, "/api/v1/settings/quiet-hours", auth, map[string]any{
+		"start_hour": 23, "start_minute": 0, "end_hour": 7, "end_minute": 0,
+	})
+	if quiet.Code != http.StatusOK {
+		t.Fatalf("quiet status=%d body=%s", quiet.Code, quiet.Body.String())
+	}
+
+	getRec = doJSON(t, env.router, http.MethodGet, "/api/v1/settings", auth, nil)
+	if err := json.Unmarshal(getRec.Body.Bytes(), &settings); err != nil {
+		t.Fatal(err)
+	}
+	if settings.MorningReviewAt.Hour != 7 || settings.MorningReviewAt.Minute != 30 {
+		t.Fatalf("morning after update=%+v", settings.MorningReviewAt)
+	}
+	if settings.QuietHoursStart == nil || settings.QuietHoursStart.Hour != 23 {
+		t.Fatalf("quiet start=%v", settings.QuietHoursStart)
+	}
+
+	createSphere := doJSON(t, env.router, http.MethodPost, "/api/v1/settings/spheres", auth, map[string]any{
+		"name": "Здоровье",
+	})
+	if createSphere.Code != http.StatusCreated {
+		t.Fatalf("create sphere status=%d body=%s", createSphere.Code, createSphere.Body.String())
+	}
+	var sphere struct {
+		ID        string `json:"id"`
+		Name      string `json:"name"`
+		SortOrder int32  `json:"sort_order"`
+		CreatedAt string `json:"created_at"`
+	}
+	if err := json.Unmarshal(createSphere.Body.Bytes(), &sphere); err != nil {
+		t.Fatal(err)
+	}
+	if sphere.ID == "" || sphere.Name != "Здоровье" || sphere.CreatedAt == "" {
+		t.Fatalf("sphere=%+v", sphere)
+	}
+
+	updateSphere := doJSON(t, env.router, http.MethodPut, "/api/v1/settings/spheres/"+sphere.ID, auth, map[string]any{
+		"name": "Здоровье+", "sort_order": 2,
+	})
+	if updateSphere.Code != http.StatusOK {
+		t.Fatalf("update sphere status=%d body=%s", updateSphere.Code, updateSphere.Body.String())
+	}
+
+	listSpheres := doJSON(t, env.router, http.MethodGet, "/api/v1/settings/spheres", auth, nil)
+	if listSpheres.Code != http.StatusOK {
+		t.Fatalf("list spheres status=%d", listSpheres.Code)
+	}
+	var listed struct {
+		Spheres []struct {
+			ID        string `json:"id"`
+			Name      string `json:"name"`
+			SortOrder int32  `json:"sort_order"`
+		} `json:"spheres"`
+	}
+	if err := json.Unmarshal(listSpheres.Body.Bytes(), &listed); err != nil {
+		t.Fatal(err)
+	}
+	if len(listed.Spheres) != 1 || listed.Spheres[0].Name != "Здоровье+" || listed.Spheres[0].SortOrder != 2 {
+		t.Fatalf("listed spheres=%+v", listed.Spheres)
+	}
+
+	deleteSphere := doJSON(t, env.router, http.MethodDelete, "/api/v1/settings/spheres/"+sphere.ID, auth, nil)
+	if deleteSphere.Code != http.StatusOK {
+		t.Fatalf("delete sphere status=%d body=%s", deleteSphere.Code, deleteSphere.Body.String())
+	}
+	var deleted struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(deleteSphere.Body.Bytes(), &deleted); err != nil {
+		t.Fatal(err)
+	}
+	if deleted.ID != sphere.ID {
+		t.Fatalf("deleted=%+v", deleted)
+	}
+
+	missing := doJSON(t, env.router, http.MethodDelete, "/api/v1/settings/spheres/"+ids.NewSphereID().String(), auth, nil)
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("missing delete status=%d", missing.Code)
 	}
 }
 

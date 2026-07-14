@@ -1,7 +1,7 @@
 # TASK-003: Stage 2.1 — API support for Mini App daily cycle
 
 - **Agent:** backend
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P1
 - **Stage:** miniapp-depth (Stage 2.1)
 
@@ -31,7 +31,7 @@
 
 ## Acceptance
 
-- [ ] Contract matches Mini App or report precise mismatch for Frontend
-- [ ] Tests green for touched packages
-- [ ] Report: `docs/agents/reports/backend/TASK-003.md`
-- [ ] Commit + push branch
+- [x] Contract matches Mini App or report precise mismatch for Frontend
+- [x] Tests green for touched packages
+- [x] Report: `docs/agents/reports/backend/TASK-003.md`
+- [x] Commit + push branch
