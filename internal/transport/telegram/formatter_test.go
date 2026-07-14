@@ -8,6 +8,35 @@ import (
 	taskapp "github.com/valentinezhov/lifeos/internal/tasks/app"
 )
 
+func TestFormatReminderScheduledUsesMessageAndLocalAt(t *testing.T) {
+	t.Parallel()
+	got := FormatReminderScheduled("позвонить", "14.07 19:00")
+	if !strings.Contains(got, "позвонить") || !strings.Contains(got, "14.07 19:00") {
+		t.Fatalf("got %s", got)
+	}
+	empty := FormatReminderScheduled("", "14.07 19:00")
+	if !strings.Contains(empty, "14.07 19:00") || strings.Contains(empty, "()") {
+		t.Fatalf("empty message: %s", empty)
+	}
+}
+
+func TestEnsureFutureFireAtRollsPast(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 7, 14, 15, 0, 0, 0, time.UTC)
+	past := time.Date(2026, 7, 14, 9, 0, 0, 0, time.UTC)
+	got := ensureFutureFireAt(past, now)
+	if !got.After(now) {
+		t.Fatalf("expected future, got %s", got)
+	}
+	if got.Day() != 15 || got.Hour() != 9 {
+		t.Fatalf("expected tomorrow 09:00 UTC, got %s", got)
+	}
+	future := time.Date(2026, 7, 14, 19, 0, 0, 0, time.UTC)
+	if keep := ensureFutureFireAt(future, now); !keep.Equal(future) {
+		t.Fatalf("future unchanged: %s", keep)
+	}
+}
+
 func TestFormatTaskCreatedIncludesDurationAndTags(t *testing.T) {
 	t.Parallel()
 	mins := 45

@@ -1,7 +1,7 @@
 # TASK-005: Stage 3.0 — Post-2.2 dogfood free-audit
 
 - **Agent:** telegram
-- **Status:** OPEN
+- **Status:** DONE
 - **Priority:** P0
 - **Stage:** stabilization (3.0)
 
@@ -20,6 +20,6 @@ Free-audit bot UX after reminder Execute signature change and Stage 2. Fix P0/P1
 
 ## Acceptance
 
-- [ ] tests green
-- [ ] Report `docs/agents/reports/telegram/TASK-005.md`
-- [ ] Commit + push if fixes
+- [x] tests green
+- [x] Report `docs/agents/reports/telegram/TASK-005.md`
+- [x] Commit + push if fixes

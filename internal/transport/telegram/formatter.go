@@ -126,8 +126,11 @@ func FormatPriorities(items []query.PriorityItem) string {
 	return strings.TrimSpace(b.String())
 }
 
-func FormatReminderScheduled(at string) string {
-	return fmt.Sprintf("⏰ Напомню: <b>%s</b>", html.EscapeString(at))
+func FormatReminderScheduled(message, at string) string {
+	if strings.TrimSpace(message) == "" {
+		return fmt.Sprintf("⏰ Напомню: <b>%s</b>", html.EscapeString(at))
+	}
+	return fmt.Sprintf("⏰ Напомню: <b>%s</b> (<b>%s</b>)", html.EscapeString(message), html.EscapeString(at))
 }
 
 func FormatReminderCancelled(message, at string) string {

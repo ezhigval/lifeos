@@ -355,6 +355,9 @@ func (h *MessageHandler) handleFreeText(
 			return h.confirmPendingDelete(ctx, user.ID, from.ID, chatID, userMsgID)
 		case isCancelText(text):
 			return h.cancelPendingDelete(ctx, user.ID)
+		default:
+			// Do not fall through to intents while a wipe is armed ("да" must stay explicit).
+			return dispatchResult{text: "Сначала подтверди удаление («confirm» / кнопка) или отмени («отмена»)."}, nil
 		}
 	}
 
@@ -476,7 +479,9 @@ func (h *MessageHandler) runAction(ctx context.Context, userID ids.UserID, actio
 			return dispatchResult{}, err
 		}
 	default:
-		if err := h.sessions.SetStateOnly(ctx, userID, tginfra.StateIdle); err != nil {
+		// basePayload drops pending_delete_* / draft_* so reply-keyboard navigation
+		// cannot leave an account wipe still armed after the user walks away.
+		if err := h.sessions.SetState(ctx, userID, tginfra.StateIdle, h.basePayload(ctx, userID)); err != nil {
 			return dispatchResult{}, err
 		}
 	}
@@ -987,18 +992,27 @@ func (h *MessageHandler) dispatchIntent(ctx context.Context, userID ids.UserID, 
 		items, err := h.priorities.Execute(ctx, userID)
 		return dispatchResult{text: FormatPriorities(items)}, err
 	case ai.IntentReminderCreate:
+		msg := strings.TrimSpace(intent.Message)
+		if msg == "" {
+			return dispatchResult{text: "Не понял текст напоминания. Например: «напомни вечером позвонить»."}, nil
+		}
 		tz, err := h.tzReader.Timezone(ctx, userID)
 		if err != nil {
 			return dispatchResult{}, err
 		}
-		fireAt := rulebased.ParseFireAt(time.Now().UTC(), tz, intent.TimeText)
-		if _, err := h.reminder.Execute(ctx, notifapp.ScheduleReminderInput{
-			UserID: userID, Message: intent.Message, FireAt: fireAt,
-		}); err != nil {
+		fireAt := ensureFutureFireAt(rulebased.ParseFireAt(time.Now().UTC(), tz, intent.TimeText), time.Now().UTC())
+		dto, err := h.reminder.Execute(ctx, notifapp.ScheduleReminderInput{
+			UserID: userID, Message: msg, FireAt: fireAt,
+		})
+		if err != nil {
 			return dispatchResult{}, err
 		}
-		return dispatchResult{text: FormatReminderScheduled(fireAt.Format("15:04"))}, nil
+		return dispatchResult{text: FormatReminderScheduled(dto.Message, formatLocalTime(dto.FireAt, tz))}, nil
 	case ai.IntentReminderCancel:
+		tz, err := h.tzReader.Timezone(ctx, userID)
+		if err != nil {
+			return dispatchResult{}, err
+		}
 		reminderID, hint, err := h.resolveReminderToCancel(ctx, userID, intent.Message)
 		if err != nil {
 			if errors.Is(err, notifapp.ErrReminderNotFound) {
@@ -1015,7 +1029,7 @@ func (h *MessageHandler) dispatchIntent(ctx context.Context, userID ids.UserID, 
 			}
 			return dispatchResult{}, err
 		}
-		return dispatchResult{text: FormatReminderCancelled(dto.Message, dto.FireAt.Format("15:04 02.01"))}, nil
+		return dispatchResult{text: FormatReminderCancelled(dto.Message, formatLocalTime(dto.FireAt, tz))}, nil
 	case ai.IntentPlanSetAvailability:
 		until, err := h.setAvail.Execute(ctx, userID, intent.Hour, intent.Minute)
 		return dispatchResult{text: FormatAvailability(until)}, err
@@ -1478,6 +1492,17 @@ func (h *MessageHandler) resolveReminderToCancel(ctx context.Context, userID ids
 		}
 	}
 	return uuid.Nil, hint, notifapp.ErrReminderNotFound
+}
+
+// ensureFutureFireAt rolls a parsed local default time forward by 24h until it is
+// strictly after now (e.g. "утром" said in the afternoon → tomorrow 09:00).
+func ensureFutureFireAt(fireAt, now time.Time) time.Time {
+	fireAt = fireAt.UTC()
+	now = now.UTC()
+	for !fireAt.After(now) {
+		fireAt = fireAt.Add(24 * time.Hour)
+	}
+	return fireAt
 }
 
 func (h *MessageHandler) resolveNoteToDelete(ctx context.Context, userID ids.UserID, hint string) (ids.NoteID, string, error) {
