@@ -1,46 +1,68 @@
-import WebApp from '@twa-dev/sdk'
+import WebAppSDK from '@twa-dev/sdk'
+
+type TgWebApp = typeof WebAppSDK
+
+function getWebApp(): TgWebApp | null {
+  try {
+    if (WebAppSDK && typeof (WebAppSDK as { ready?: unknown }).ready === 'function') {
+      return WebAppSDK
+    }
+  } catch {
+    /* ignore */
+  }
+  const fromWindow = (window as unknown as { Telegram?: { WebApp?: TgWebApp } }).Telegram
+    ?.WebApp
+  if (fromWindow && typeof fromWindow.ready === 'function') {
+    return fromWindow
+  }
+  return null
+}
 
 export function initTelegram() {
-  WebApp.ready()
-  WebApp.expand()
+  const wa = getWebApp()
+  if (!wa) return
   try {
-    WebApp.setHeaderColor('secondary_bg_color')
-    WebApp.setBackgroundColor('bg_color')
+    wa.ready()
+    wa.expand?.()
+    wa.setHeaderColor?.('secondary_bg_color')
+    wa.setBackgroundColor?.('bg_color')
   } catch {
-    /* older clients */
+    /* outside Telegram or older client */
   }
 }
 
 export function getInitData(): string {
-  return WebApp.initData || ''
+  return getWebApp()?.initData || ''
 }
 
 export function isTelegramEnv(): boolean {
-  return Boolean(WebApp.initData || WebApp.platform !== 'unknown')
+  const wa = getWebApp()
+  if (!wa) return false
+  return Boolean(wa.initData || (wa.platform && wa.platform !== 'unknown'))
 }
 
 export function hapticLight() {
-  WebApp.HapticFeedback?.impactOccurred('light')
+  getWebApp()?.HapticFeedback?.impactOccurred('light')
 }
 
 export function hapticSuccess() {
-  WebApp.HapticFeedback?.notificationOccurred('success')
+  getWebApp()?.HapticFeedback?.notificationOccurred('success')
 }
 
 export function hapticError() {
-  WebApp.HapticFeedback?.notificationOccurred('error')
+  getWebApp()?.HapticFeedback?.notificationOccurred('error')
 }
 
 export function hapticWarning() {
-  WebApp.HapticFeedback?.notificationOccurred('warning')
+  getWebApp()?.HapticFeedback?.notificationOccurred('warning')
 }
 
 export function tgUser() {
-  return WebApp.initDataUnsafe?.user
+  return getWebApp()?.initDataUnsafe?.user
 }
 
 export function showTelegramBackButton(onClick: () => void) {
-  const btn = WebApp.BackButton
+  const btn = getWebApp()?.BackButton
   if (!btn) return () => undefined
   btn.onClick(onClick)
   btn.show()
@@ -51,13 +73,14 @@ export function showTelegramBackButton(onClick: () => void) {
 }
 
 export function hideTelegramBackButton() {
-  WebApp.BackButton?.hide()
+  getWebApp()?.BackButton?.hide()
 }
 
 export async function confirmAction(message: string): Promise<boolean> {
-  if (typeof WebApp.showConfirm === 'function') {
+  const wa = getWebApp()
+  if (wa && typeof wa.showConfirm === 'function') {
     return new Promise((resolve) => {
-      WebApp.showConfirm(message, (ok) => resolve(Boolean(ok)))
+      wa.showConfirm(message, (ok) => resolve(Boolean(ok)))
     })
   }
   return window.confirm(message)

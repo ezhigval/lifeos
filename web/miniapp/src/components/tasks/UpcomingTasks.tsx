@@ -139,7 +139,6 @@ function buildUpcomingList(
     const key = p.title.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
-    // Match priority title to today's task when possible so checkbox works
     const matched = tasks.find(
       (t) =>
         t.status !== 'done' &&
@@ -150,7 +149,7 @@ function buildUpcomingList(
       key: matched?.id ?? `p-${p.title}`,
       taskId: matched?.id,
       title: p.title,
-      detail: p.detail,
+      detail: p.detail || priorityLabel(scoreToPriority(p.score)),
       priority: scoreToPriority(p.score),
     })
   }
@@ -163,6 +162,19 @@ function scoreToPriority(score: number): string {
   if (score >= 60) return 'high'
   if (score >= 40) return 'medium'
   return 'low'
+}
+
+function priorityLabel(p: string): string {
+  switch (p) {
+    case 'urgent':
+      return 'срочно'
+    case 'high':
+      return 'высокий'
+    case 'low':
+      return 'низкий'
+    default:
+      return 'средний'
+  }
 }
 
 function formatDue(iso: string): string {

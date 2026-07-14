@@ -16,6 +16,7 @@ import { Sheet } from '@/components/ui/Sheet'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { QueryError } from '@/components/ui/QueryError'
+import { cn } from '@/lib/cn'
 import {
   getExpandedProjects,
   getExpandedSpheres,
@@ -78,10 +79,7 @@ export function SphereTree() {
   if ((spheres ?? []).length === 0) {
     return (
       <div className="px-4">
-        <EmptyState
-          title="Сфер пока нет"
-          description="Создай первую сферу в боте: Настройки"
-        />
+        <CreateSphereEmpty />
       </div>
     )
   }
@@ -101,6 +99,48 @@ export function SphereTree() {
         />
       ))}
     </div>
+  )
+}
+
+function CreateSphereEmpty() {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const create = useMutation({
+    mutationFn: () => api.createSphere(name.trim()),
+    onSuccess: () => {
+      hapticSuccess()
+      queryClient.invalidateQueries({ queryKey: ['spheres'] })
+      setOpen(false)
+      setName('')
+    },
+    onError: () => hapticError(),
+  })
+
+  return (
+    <>
+      <EmptyState
+        title="Сфер пока нет"
+        description="Создай первую сферу жизни"
+        actionLabel="Создать сферу"
+        onAction={() => setOpen(true)}
+      />
+      <Sheet open={open} onClose={() => setOpen(false)} title="Новая сфера">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Работа, Здоровье…"
+          className="mb-4 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+        />
+        <Button
+          className="w-full"
+          disabled={!name.trim() || create.isPending}
+          onClick={() => create.mutate()}
+        >
+          Создать
+        </Button>
+      </Sheet>
+    </>
   )
 }
 
@@ -423,6 +463,7 @@ export function ProjectDetailPage() {
   const [showDone, setShowDone] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [newTitle, setNewTitle] = useState('')
+  const [priority, setPriority] = useState('medium')
 
   const { data: projects } = useQuery({
     queryKey: ['projects', sphereId],
@@ -454,13 +495,20 @@ export function ProjectDetailPage() {
 
   const createTask = useMutation({
     mutationFn: () =>
-      api.createTask({ title: newTitle.trim(), project_ids: [projectId!] }),
+      api.createTask({
+        title: newTitle.trim(),
+        priority,
+        project_ids: [projectId!],
+      }),
     onSuccess: () => {
       hapticSuccess()
       queryClient.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
       setCreateOpen(false)
       setNewTitle('')
+      setPriority('medium')
     },
+    onError: () => hapticError(),
   })
 
   const active = (tasks ?? []).filter((t) => t.status !== 'done' && t.status !== 'cancelled')
@@ -524,13 +572,35 @@ export function ProjectDetailPage() {
         )}
       </section>
 
-      <Sheet open={createOpen} onClose={() => setCreateOpen(false)} title="Новая задача">
+      <Sheet
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Новая задача"
+      >
         <input
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           placeholder="Название задачи"
-          className="mb-4 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
+          className="mb-3 w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
         />
+        <p className="mb-2 text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Приоритет</p>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {(['urgent', 'high', 'medium', 'low'] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPriority(p)}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-sm capitalize',
+                priority === p
+                  ? 'bg-[var(--tg-theme-button-color,#22c55e)] text-[var(--tg-theme-button-text-color,#fff)]'
+                  : 'bg-[var(--tg-theme-secondary-bg-color,#1e293b)] text-[var(--tg-theme-hint-color,#94a3b8)]',
+              )}
+            >
+              {priorityLabel(p)}
+            </button>
+          ))}
+        </div>
         <Button
           className="w-full"
           disabled={!newTitle.trim() || createTask.isPending}
@@ -541,4 +611,17 @@ export function ProjectDetailPage() {
       </Sheet>
     </div>
   )
+}
+
+function priorityLabel(p: string) {
+  switch (p) {
+    case 'urgent':
+      return 'Срочно'
+    case 'high':
+      return 'Высокий'
+    case 'low':
+      return 'Низкий'
+    default:
+      return 'Средний'
+  }
 }

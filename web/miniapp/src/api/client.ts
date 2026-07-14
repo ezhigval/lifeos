@@ -142,6 +142,35 @@ export const api = {
       body: JSON.stringify({ amount_cents, category }),
     }),
 
+  habitsToday: () =>
+    request<{ habits: import('@/api/types').HabitDay[] }>('/api/v1/habits/today'),
+
+  createHabit: (name: string) =>
+    request<{ id: string; name: string; frequency: string }>('/api/v1/habits', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  trackHabit: (id: string) =>
+    request<{ name: string; streak: number }>(`/api/v1/habits/${id}/track`, {
+      method: 'POST',
+    }),
+
+  calendarToday: () =>
+    request<{ events: import('@/api/types').CalendarEvent[] }>('/api/v1/calendar/today'),
+
+  createCalendarEvent: (title: string, starts_at: string) =>
+    request<import('@/api/types').CalendarEvent>('/api/v1/calendar/events', {
+      method: 'POST',
+      body: JSON.stringify({ title, starts_at }),
+    }),
+
+  createSphere: (name: string) =>
+    request<import('@/api/types').Sphere>('/api/v1/settings/spheres', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
   financeOverview: async (period: Period): Promise<FinanceOverview> => {
     const key = periodKey(period)
     try {

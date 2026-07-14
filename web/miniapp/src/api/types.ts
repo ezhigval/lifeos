@@ -49,6 +49,19 @@ export type FinanceOverview = {
   categories: FinanceCategory[]
 }
 
+export type HabitDay = {
+  id: string
+  name: string
+  today_completed: boolean
+  streak: number
+}
+
+export type CalendarEvent = {
+  id: string
+  title: string
+  starts_at: string
+}
+
 export type TokenResponse = {
   access_token: string
   expires_in: number
