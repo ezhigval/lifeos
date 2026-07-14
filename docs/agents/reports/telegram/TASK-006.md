@@ -49,4 +49,4 @@ go vet ./internal/transport/telegram/...    # OK
 
 ## Commits
 
-- _(filled after push)_ — `refactor(telegram): extract intent/action dispatch from handler`
+- `b65f6872d64dd7a8c96cdddc660d6b391acf34f3` — `refactor(telegram): extract intent/action dispatch from handler`
