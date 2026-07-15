@@ -47,7 +47,11 @@ func Load() (Config, error) {
 	loadEnvFiles()
 
 	cfg := Config{
-		DatabaseURL:           envOr("LIFEOS_DATABASE_URL", "postgres://lifeos:lifeos@localhost:5433/lifeos?sslmode=disable"),
+		DatabaseURL: firstNonEmpty(
+			os.Getenv("LIFEOS_DATABASE_URL"),
+			os.Getenv("DATABASE_URL"), // Fly.io postgres attach sets this
+			"postgres://lifeos:lifeos@localhost:5433/lifeos?sslmode=disable",
+		),
 		HTTPAddr:              envOr("LIFEOS_HTTP_ADDR", ":8080"),
 		LogLevel:              envOr("LIFEOS_LOG_LEVEL", "info"),
 		LogFormat:             envOr("LIFEOS_LOG_FORMAT", "text"),
@@ -118,6 +122,15 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }
 
 func parseInt64List(raw string) ([]int64, error) {

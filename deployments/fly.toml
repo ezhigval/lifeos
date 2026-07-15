@@ -1,0 +1,46 @@
+# LifeOS — production on Fly.io (stable HTTPS, no rotating tunnel)
+#
+# One-time:
+#   brew install flyctl   # or https://fly.io/docs/hands-on/install-flyctl/
+#   fly auth login
+#   ./scripts/deploy-fly.sh
+#
+# App gets https://<app-name>.fly.dev — set as LIFEOS_MINIAPP_URL (.../app/)
+# and optionally LIFEOS_TELEGRAM_WEBHOOK_URL (.../webhook/telegram).
+
+app = 'lifeos'
+primary_region = 'ams'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  LIFEOS_HTTP_ADDR = ':8080'
+  LIFEOS_STATIC_DIR = '/app/web'
+  LIFEOS_MIGRATIONS_DIR = '/app/migrations'
+  LIFEOS_TELEGRAM_MODE = 'webhook'
+  LIFEOS_LOG_FORMAT = 'text'
+  LIFEOS_LOG_LEVEL = 'info'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+  [[http_service.checks]]
+    interval = '15s'
+    timeout = '5s'
+    grace_period = '20s'
+    method = 'GET'
+    path = '/health'
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+[deploy]
+  release_command = '/app/lifeos migrate up'
