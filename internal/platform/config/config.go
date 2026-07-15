@@ -44,6 +44,8 @@ type Config struct {
 }
 
 func Load() (Config, error) {
+	loadEnvFiles()
+
 	cfg := Config{
 		DatabaseURL:           envOr("LIFEOS_DATABASE_URL", "postgres://lifeos:lifeos@localhost:5433/lifeos?sslmode=disable"),
 		HTTPAddr:              envOr("LIFEOS_HTTP_ADDR", ":8080"),
