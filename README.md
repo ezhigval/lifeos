@@ -4,6 +4,24 @@
 
 **Telegram — основной UI. REST API + Telegram Mini App — второй клиент. Бизнес-логика не зависит от транспорта.**
 
+## Desktop-пакет (ярлык + настройки + логи)
+
+Собрать кликабельную папку для Mac / Linux / Windows:
+
+```bash
+make package-mac     # → dist/LifeOS_alpha_1.0.0_darwin_arm64(.zip|.tar.gz)
+make package-linux
+make package-win
+```
+
+Внутри пакета:
+- `Start.command` / `Start.bat` — migrate + сервер, логи в окне и в `logs/lifeos.log`
+- `Settings.*` — редактор `settings.env` (токен, JWT, БД)
+- `Logs.*` / `Stop.*` — хвост логов и остановка
+- `bin/lifeos`, `web/miniapp/dist`, `migrations/`
+
+Нужен PostgreSQL. Пример: `docker run --name lifeos-pg -e POSTGRES_PASSWORD=lifeos -e POSTGRES_USER=lifeos -e POSTGRES_DB=lifeos -p 5432:5432 -d postgres:16`
+
 ## Статус
 
 **Phase 2 (M7+)** — finance, habits, calendar, projects/spheres, health, career, knowledge, REST API, Mini App scaffold.
