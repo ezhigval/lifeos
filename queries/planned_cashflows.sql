@@ -11,6 +11,16 @@ FROM planned_cashflows
 WHERE user_id = $1
 ORDER BY next_date ASC, created_at ASC;
 
+-- name: GetPlannedCashflowByUser :one
+SELECT id, user_id, kind, title, amount_cents, interval, next_date, debt_id, created_at, updated_at
+FROM planned_cashflows
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
+
+-- name: UpdatePlannedCashflowNextDate :exec
+UPDATE planned_cashflows
+SET next_date = $3, updated_at = $4
+WHERE id = $1 AND user_id = $2;
+
 -- name: DeletePlannedCashflowByUser :one
 DELETE FROM planned_cashflows
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id)

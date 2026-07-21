@@ -92,6 +92,8 @@ type runtime struct {
 	listFinancePlan  *financeapp.ListFinancePlan
 	createPlanned    *financeapp.CreatePlannedCashflow
 	deletePlanned    *financeapp.DeletePlannedCashflow
+	completePlanned  *financeapp.CompletePlanOccurrence
+	advanceOverdue   *financeapp.AdvanceOverduePlans
 	cashFlow         *financeapp.CashFlowSummary
 	financeOverview  *financeapp.FinanceOverview
 	listHabits       *habitsapp.ListHabitsToday
@@ -176,6 +178,8 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	listFinancePlan := financeapp.NewListFinancePlan(financeRepo, financeRepo)
 	createPlanned := financeapp.NewCreatePlannedCashflow(financeRepo, eventPub, transactor)
 	deletePlanned := financeapp.NewDeletePlannedCashflow(financeRepo)
+	completePlanned := financeapp.NewCompletePlanOccurrence(financeRepo, eventPub, transactor)
+	advanceOverdue := financeapp.NewAdvanceOverduePlans(financeRepo, eventPub, transactor)
 	cashFlow := financeapp.NewCashFlowSummary(financeRepo, tzReader)
 	financeOverview := financeapp.NewFinanceOverview(financeRepo, tzReader)
 	habitRepo := habitsinfra.NewRepository(p)
@@ -275,6 +279,8 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		listFinancePlan:  listFinancePlan,
 		createPlanned:    createPlanned,
 		deletePlanned:    deletePlanned,
+		completePlanned:  completePlanned,
+		advanceOverdue:   advanceOverdue,
 		cashFlow:         cashFlow,
 		financeOverview:  financeOverview,
 		listHabits:       listHabits,
@@ -461,6 +467,11 @@ func (rt *runtime) periodicReviewHandler(jobType string) scheduler.JobHandler {
 			text, err = rt.review.Morning(ctx, userID)
 			if err == nil {
 				text = text + rt.morningFinanceAppendix(ctx, userID)
+			}
+			if err == nil && rt.advanceOverdue != nil {
+				if _, advErr := rt.advanceOverdue.Execute(ctx, userID, events.SourceScheduler); advErr != nil {
+					rt.log.Warn("advance overdue plans failed", "user_id", userID.String(), "error", advErr)
+				}
 			}
 		case "evening_review":
 			text, err = rt.review.Evening(ctx, userID)

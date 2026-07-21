@@ -89,3 +89,43 @@ func NewPlannedCashflow(
 		UpdatedAt:   now,
 	}, nil
 }
+
+// AdvanceOccurrence rolls next_date forward for one paid/passed occurrence.
+// Returns shouldDelete=true for one-shot items that are done.
+func (p *PlannedCashflow) AdvanceOccurrence(now time.Time) (shouldDelete bool) {
+	nowDay := now.UTC().Truncate(24 * time.Hour)
+	switch p.Interval {
+	case PlanIntervalOnce:
+		return true
+	case PlanIntervalWeekly:
+		p.NextDate = p.NextDate.UTC().Truncate(24 * time.Hour).AddDate(0, 0, 7)
+	case PlanIntervalMonthly:
+		p.NextDate = p.NextDate.UTC().Truncate(24 * time.Hour).AddDate(0, 1, 0)
+	default:
+		return false
+	}
+	// Catch up if several intervals were missed.
+	for !p.NextDate.After(nowDay) {
+		switch p.Interval {
+		case PlanIntervalWeekly:
+			p.NextDate = p.NextDate.AddDate(0, 0, 7)
+		case PlanIntervalMonthly:
+			p.NextDate = p.NextDate.AddDate(0, 1, 0)
+		default:
+			return false
+		}
+	}
+	p.UpdatedAt = now.UTC()
+	return false
+}
+
+// AdvanceIfOverdue rolls or deletes when next_date is strictly before today.
+func (p *PlannedCashflow) AdvanceIfOverdue(now time.Time) (changed bool, shouldDelete bool) {
+	nowDay := now.UTC().Truncate(24 * time.Hour)
+	next := p.NextDate.UTC().Truncate(24 * time.Hour)
+	if !next.Before(nowDay) {
+		return false, false
+	}
+	shouldDelete = p.AdvanceOccurrence(now)
+	return true, shouldDelete
+}

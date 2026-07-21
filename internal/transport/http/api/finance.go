@@ -468,3 +468,37 @@ func (rt *Router) deletePlannedCashflow(w http.ResponseWriter, r *http.Request) 
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (rt *Router) completePlannedCashflow(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.CompletePlanned == nil {
+		writeError(w, http.StatusNotImplemented, "complete planned cashflow is not configured")
+		return
+	}
+	id, err := ids.ParsePlannedCashflowID(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid plan id")
+		return
+	}
+	res, err := rt.deps.CompletePlanned.Execute(r.Context(), userID, id, events.SourceHTTP)
+	if err != nil {
+		if errors.Is(err, financedomain.ErrPlanNotFound) {
+			writeError(w, http.StatusNotFound, "planned cashflow not found")
+			return
+		}
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if res.Deleted {
+		writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"deleted": false,
+		"item":    planItemToJSON(*res.Item),
+	})
+}

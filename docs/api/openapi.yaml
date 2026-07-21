@@ -609,6 +609,33 @@ paths:
           description: Deleted
         '404':
           description: Not found
+  /api/v1/finance/plan/{id}/complete:
+    post:
+      summary: Complete one plan occurrence (advance next_date or delete once)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Occurrence completed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted:
+                    type: boolean
+                  item:
+                    type: object
+        '404':
+          description: Not found
   /api/v1/habits/today:
     get:
       summary: Habits for today

@@ -323,6 +323,25 @@ func (s *fakeDebtStore) SavePlanned(_ context.Context, item financedomain.Planne
 	return nil
 }
 
+func (s *fakeDebtStore) GetPlanned(_ context.Context, userID ids.UserID, id ids.PlannedCashflowID) (financedomain.PlannedCashflow, error) {
+	p, ok := s.plans[id]
+	if !ok || p.UserID != userID {
+		return financedomain.PlannedCashflow{}, financedomain.ErrPlanNotFound
+	}
+	return p, nil
+}
+
+func (s *fakeDebtStore) UpdatePlannedNextDate(_ context.Context, item financedomain.PlannedCashflow) error {
+	p, ok := s.plans[item.ID]
+	if !ok || p.UserID != item.UserID {
+		return financedomain.ErrPlanNotFound
+	}
+	p.NextDate = item.NextDate
+	p.UpdatedAt = item.UpdatedAt
+	s.plans[item.ID] = p
+	return nil
+}
+
 func (s *fakeDebtStore) ListPlanned(_ context.Context, userID ids.UserID) ([]financedomain.PlannedCashflow, error) {
 	var out []financedomain.PlannedCashflow
 	for _, p := range s.plans {
@@ -944,6 +963,7 @@ func newTestEnv(t *testing.T) testEnv {
 		ListFinancePlan:  financeapp.NewListFinancePlan(debtStore, debtStore),
 		CreatePlanned:    financeapp.NewCreatePlannedCashflow(debtStore, fakeEvents{}, fakeTx{}),
 		DeletePlanned:    financeapp.NewDeletePlannedCashflow(debtStore),
+		CompletePlanned:  financeapp.NewCompletePlanOccurrence(debtStore, fakeEvents{}, fakeTx{}),
 		CreateNote:       knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
 		ListNotes:        knowledgeapp.NewListNotes(noteStore),
 		SearchNotes:      knowledgeapp.NewSearchNotes(noteStore),

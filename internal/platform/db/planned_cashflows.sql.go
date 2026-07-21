@@ -40,6 +40,35 @@ func (q *Queries) DeletePlannedCashflowByUser(ctx context.Context, arg DeletePla
 	return i, err
 }
 
+const getPlannedCashflowByUser = `-- name: GetPlannedCashflowByUser :one
+SELECT id, user_id, kind, title, amount_cents, interval, next_date, debt_id, created_at, updated_at
+FROM planned_cashflows
+WHERE id = $1 AND user_id = $2
+`
+
+type GetPlannedCashflowByUserParams struct {
+	ID     pgtype.UUID
+	UserID pgtype.UUID
+}
+
+func (q *Queries) GetPlannedCashflowByUser(ctx context.Context, arg GetPlannedCashflowByUserParams) (PlannedCashflow, error) {
+	row := q.db.QueryRow(ctx, getPlannedCashflowByUser, arg.ID, arg.UserID)
+	var i PlannedCashflow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Kind,
+		&i.Title,
+		&i.AmountCents,
+		&i.Interval,
+		&i.NextDate,
+		&i.DebtID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const insertPlannedCashflow = `-- name: InsertPlannedCashflow :exec
 INSERT INTO planned_cashflows (
     id, user_id, kind, title, amount_cents, interval, next_date, debt_id, created_at, updated_at
@@ -111,4 +140,27 @@ func (q *Queries) ListPlannedCashflowsByUser(ctx context.Context, userID pgtype.
 		return nil, err
 	}
 	return items, nil
+}
+
+const updatePlannedCashflowNextDate = `-- name: UpdatePlannedCashflowNextDate :exec
+UPDATE planned_cashflows
+SET next_date = $3, updated_at = $4
+WHERE id = $1 AND user_id = $2
+`
+
+type UpdatePlannedCashflowNextDateParams struct {
+	ID        pgtype.UUID
+	UserID    pgtype.UUID
+	NextDate  pgtype.Date
+	UpdatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) UpdatePlannedCashflowNextDate(ctx context.Context, arg UpdatePlannedCashflowNextDateParams) error {
+	_, err := q.db.Exec(ctx, updatePlannedCashflowNextDate,
+		arg.ID,
+		arg.UserID,
+		arg.NextDate,
+		arg.UpdatedAt,
+	)
+	return err
 }

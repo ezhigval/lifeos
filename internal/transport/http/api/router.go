@@ -63,6 +63,7 @@ type Deps struct {
 	ListFinancePlan  *financeapp.ListFinancePlan
 	CreatePlanned    *financeapp.CreatePlannedCashflow
 	DeletePlanned    *financeapp.DeletePlannedCashflow
+	CompletePlanned  *financeapp.CompletePlanOccurrence
 	CashFlow         *financeapp.CashFlowSummary
 	FinanceOverview  *financeapp.FinanceOverview
 	ListHabits       *habitsapp.ListHabitsToday
@@ -151,6 +152,7 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Post("/finance/debts/{id}/pay", rt.payDebt)
 			r.Get("/finance/plan", rt.listFinancePlan)
 			r.Post("/finance/plan", rt.createPlannedCashflow)
+			r.Post("/finance/plan/{id}/complete", rt.completePlannedCashflow)
 			r.Delete("/finance/plan/{id}", rt.deletePlannedCashflow)
 			r.Get("/habits/today", rt.listHabitsToday)
 			r.Post("/habits", rt.createHabit)
