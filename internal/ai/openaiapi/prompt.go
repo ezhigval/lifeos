@@ -1,4 +1,4 @@
-package ollama
+package openaiapi
 
 const systemPrompt = `Ты классификатор команд для личного ассистента LifeOS (русский язык).
 Верни ТОЛЬКО JSON без markdown:

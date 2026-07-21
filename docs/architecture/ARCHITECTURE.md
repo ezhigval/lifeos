@@ -191,7 +191,7 @@ db := postgres.New(cfg)
 taskRepo := tasksinfra.NewRepository(db)
 projectRepo := projectsinfra.NewRepository(db)
 sphereRepo := spheresinfra.NewRepository(db)
-intentResolver := ai.NewRuleBasedResolver() // + optional Ollama composite
+intentResolver := ai.NewRuleBasedResolver() // + optional LLM composite (openaiapi / ollama)
 eventPub := events.NewPublisher(db)
 
 createTask := tasksapp.NewCreateTask(taskRepo, eventPub)
@@ -267,8 +267,8 @@ Append-only, не full event sourcing ([ADR-006](../adr/006-domain-event-log.md)
 | Port | Interface location | Adapter v1 | Future |
 |------|-------------------|------------|--------|
 | TaskRepository | tasks/domain or infra | SQLC/Postgres | same |
-| IntentResolver | ai/ports | RuleBased first; optional Ollama on unknown (LIFEOS_LLM_ENABLED) | API LLM |
-| Assistant | ai/ports | Template; optional Ollama with HTML-safe `<b>` + template fallback | — |
+| IntentResolver | ai/ports | RuleBased first; optional LLM on unknown (`LIFEOS_LLM_ENABLED`) — OpenAI-compatible (`openaiapi`) or Ollama | — |
+| Assistant | ai/ports | Template; optional LLM (OpenAI-compatible / Ollama) with HTML-safe `<b>` + template fallback | — |
 | Notifier | notifications/app | Telegram | Email, Push |
 | Clock | platform/clock | System | Fake (tests) |
 | ProjectReader / SphereReader | consumer `app` ports | projects/spheres infra | same |
@@ -364,7 +364,7 @@ LIFEOS_JWT_TTL_HOURS=168        # Mini App session TTL
 LIFEOS_API_KEY=
 LIFEOS_MINIAPP_URL=             # public HTTPS …/app/ for web_app button
 LIFEOS_STATIC_DIR=web/miniapp/dist
-LIFEOS_LLM_ENABLED=false        # optional Ollama (rule-based first; degrade on down)
+LIFEOS_LLM_ENABLED=false        # optional LLM: openai (default Groq) or ollama; see docs/ops/LLM.md
 LIFEOS_OTEL_ENABLED=false
 ```
 
