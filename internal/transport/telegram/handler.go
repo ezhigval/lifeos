@@ -378,7 +378,12 @@ func (h *MessageHandler) handleFreeText(
 		return h.runAgentDialogue(ctx, user.ID, text, sess)
 	}
 
-	// Conversational agent handles free dialogue + tools when enabled.
+	// Known commands: rule-based first (fast, deterministic). Agent only for unknown / chat.
+	primary := rulebased.NewResolver()
+	if intent, err := primary.Resolve(ctx, ai.ResolveInput{Text: text, Language: "ru"}); err == nil && intent.Type != ai.IntentUnknown {
+		return h.dispatchIntent(ctx, user.ID, intent)
+	}
+
 	if h.agent != nil && h.agent.Agent != nil {
 		return h.runAgentDialogue(ctx, user.ID, text, sess)
 	}

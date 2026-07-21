@@ -42,9 +42,13 @@ func registerAgentTools(reg *agent.Registry, d toolDeps) {
 		"Создать задачу на сегодня",
 		`{"title":"string","priority":"low|medium|high optional"}`,
 		func(ctx context.Context, userID ids.UserID, args map[string]any) (string, error) {
-			title := argString(args, "title", "name")
+			title := strings.TrimSpace(argString(args, "title", "name"))
 			if title == "" {
-				return "", fmt.Errorf("нужен title")
+				return "", fmt.Errorf("нужен title — конкретная формулировка из запроса пользователя")
+			}
+			low := strings.ToLower(title)
+			if low == "разобрать входящие" || low == "разобрать почту" || low == "задача" {
+				return "", fmt.Errorf("title выглядит как заглушка (%q); переформулируй из слов пользователя или спроси уточнение", title)
 			}
 			prio := taskdomain.PriorityMedium
 			if p := argString(args, "priority"); p != "" {
