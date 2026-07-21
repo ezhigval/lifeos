@@ -70,8 +70,10 @@ func FormatDisplayName(u User) string {
 }
 
 type UpdatesResponse struct {
-	OK     bool     `json:"ok"`
-	Result []Update `json:"result"`
+	OK          bool     `json:"ok"`
+	Result      []Update `json:"result"`
+	Description string   `json:"description"`
+	ErrorCode   int      `json:"error_code"`
 }
 
 func (c *Client) GetUpdates(ctx context.Context, offset int64, timeout int) ([]Update, error) {
@@ -93,7 +95,11 @@ func (c *Client) GetUpdates(ctx context.Context, offset int64, timeout int) ([]U
 		return nil, err
 	}
 	if !out.OK {
-		return nil, fmt.Errorf("telegram getUpdates failed")
+		desc := strings.TrimSpace(out.Description)
+		if desc == "" {
+			desc = truncate(string(body), 200)
+		}
+		return nil, fmt.Errorf("telegram getUpdates failed: %s", desc)
 	}
 	return out.Result, nil
 }
