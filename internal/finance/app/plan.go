@@ -30,10 +30,10 @@ type PlanItemDTO struct {
 }
 
 type FinancePlanDTO struct {
-	Items           []PlanItemDTO
-	PlannedIncome   int64
-	PlannedExpense  int64
-	Currency        string
+	Items          []PlanItemDTO
+	PlannedIncome  int64
+	PlannedExpense int64
+	Currency       string
 }
 
 type CreatePlannedCashflow struct {

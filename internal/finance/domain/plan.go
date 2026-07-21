@@ -9,10 +9,10 @@ import (
 )
 
 var (
-	ErrEmptyPlanTitle   = errors.New("title is required")
-	ErrInvalidPlanKind  = errors.New("invalid planned cashflow kind")
-	ErrInvalidInterval  = errors.New("invalid planned cashflow interval")
-	ErrPlanNotFound     = errors.New("planned cashflow not found")
+	ErrEmptyPlanTitle  = errors.New("title is required")
+	ErrInvalidPlanKind = errors.New("invalid planned cashflow kind")
+	ErrInvalidInterval = errors.New("invalid planned cashflow interval")
+	ErrPlanNotFound    = errors.New("planned cashflow not found")
 )
 
 type PlanKind string

@@ -8,10 +8,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
-	"github.com/valentinezhov/lifeos/internal/spheres/domain"
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
+	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
+	"github.com/valentinezhov/lifeos/internal/spheres/domain"
 )
 
 type sphereJSON struct {

@@ -141,3 +141,32 @@ func TestDebtLifecycle(t *testing.T) {
 		t.Fatalf("pay closed err = %v", err)
 	}
 }
+
+func TestDebtAdvanceInstallment(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 7, 21, 12, 0, 0, 0, time.UTC)
+	due := time.Date(2026, 7, 21, 0, 0, 0, 0, time.UTC)
+	debt, err := domain.NewDebt(ids.NewUserID(), "банк", 10_000, &due, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	debt.AdvanceInstallment(now)
+	if debt.NextPaymentDate != nil {
+		t.Fatalf("noop should keep next nil, got %v", debt.NextPaymentDate)
+	}
+	debt.InstallmentCents = 1000
+	debt.InstallmentInterval = "weekly"
+	debt.NextPaymentDate = &due
+	debt.AdvanceInstallment(now)
+	want := due.AddDate(0, 0, 7)
+	if debt.NextPaymentDate == nil || !debt.NextPaymentDate.Equal(want) {
+		t.Fatalf("weekly next=%v want %v", debt.NextPaymentDate, want)
+	}
+	debt.InstallmentInterval = "monthly"
+	base := *debt.NextPaymentDate
+	debt.AdvanceInstallment(now)
+	wantM := base.AddDate(0, 1, 0)
+	if !debt.NextPaymentDate.Equal(wantM) {
+		t.Fatalf("monthly next=%v want %v", debt.NextPaymentDate, wantM)
+	}
+}

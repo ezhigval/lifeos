@@ -231,3 +231,31 @@ func TestEditTaskFieldsAndProjects(t *testing.T) {
 		t.Fatal("expected project not found")
 	}
 }
+func TestListTasksDueBetween(t *testing.T) {
+	t.Parallel()
+	store := newFakeStore()
+	ev := &fakeEvents{}
+	userID := ids.NewUserID()
+	from := time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 7, 22, 0, 0, 0, 0, time.UTC)
+	due := time.Date(2026, 7, 21, 0, 0, 0, 0, time.UTC)
+	created, err := app.NewCreateTask(store, ev, fakeTx{}, nil).Execute(context.Background(), app.CreateTaskInput{
+		UserID: userID, Title: "in range", DueDate: &due, Source: events.SourceCLI,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed, err := app.NewListTasksDueBetween(store).Execute(context.Background(), userID, from, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].ID != created.ID {
+		t.Fatalf("listed=%+v", listed)
+	}
+	if _, err := app.NewListTasksDueBetween(store).Execute(context.Background(), ids.UserID{}, from, to); err == nil {
+		t.Fatal("expected zero user error")
+	}
+	if _, err := app.NewListTasksDueBetween(store).Execute(context.Background(), userID, to, from); err == nil {
+		t.Fatal("expected invalid range")
+	}
+}

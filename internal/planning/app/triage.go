@@ -8,7 +8,6 @@ import (
 
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
 	"github.com/valentinezhov/lifeos/internal/platform/timeutil"
-	taskapp "github.com/valentinezhov/lifeos/internal/tasks/app"
 	taskdomain "github.com/valentinezhov/lifeos/internal/tasks/domain"
 )
 
@@ -100,7 +99,6 @@ func (uc *TriageOverloadedDay) ApplyDefer(ctx context.Context, userID ids.UserID
 }
 
 type RescheduleTasks struct {
-	list  *taskapp.ListTasksToday
 	store TaskStore
 	users UserTimezone
 	now   func() time.Time

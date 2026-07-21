@@ -304,11 +304,6 @@ func (c *Client) SendMessageWithKeyboard(ctx context.Context, chatID int64, text
 	return err
 }
 
-func (c *Client) send(ctx context.Context, payload sendMessageRequest) error {
-	_, err := c.postMessage(ctx, payload)
-	return err
-}
-
 func (c *Client) postMessage(ctx context.Context, payload sendMessageRequest) (int64, error) {
 	var id int64
 	err := withRetry(ctx, func() error {

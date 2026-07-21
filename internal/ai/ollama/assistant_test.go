@@ -10,7 +10,7 @@ import (
 func TestFormatSummaryRequest(t *testing.T) {
 	t.Parallel()
 	got := formatSummaryRequest(ai.SummaryRequest{
-		Tasks: []string{"бег", "звонок"},
+		Tasks:    []string{"бег", "звонок"},
 		Projects: []string{"500к"},
 	})
 	if !strings.Contains(got, "бег") || !strings.Contains(got, "500к") {

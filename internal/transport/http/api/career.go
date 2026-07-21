@@ -91,12 +91,12 @@ func (rt *Router) createContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dto, err := rt.deps.CreateContact.Execute(r.Context(), careerapp.CreateContactInput{
-		UserID: userID,
-		Name:   strings.TrimSpace(req.Name),
+		UserID:  userID,
+		Name:    strings.TrimSpace(req.Name),
 		Company: strings.TrimSpace(req.Company),
 		Role:    strings.TrimSpace(req.Role),
 		Notes:   strings.TrimSpace(req.Notes),
-		Source: events.SourceHTTP,
+		Source:  events.SourceHTTP,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())

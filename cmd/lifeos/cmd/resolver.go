@@ -13,6 +13,7 @@ import (
 // newIntentResolver wires production resolve order:
 //  1. rule-based (always) for known intents — fast, offline
 //  2. optional Ollama only when LIFEOS_LLM_ENABLED and primary returns unknown
+//
 // Ollama down/timeouts degrade to unknown without failing the request.
 func newIntentResolver(cfg config.Config, log *slog.Logger) ai.IntentResolver {
 	primary := rulebased.NewResolver()
