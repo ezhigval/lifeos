@@ -623,7 +623,7 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Occurrence completed
+          description: Occurrence completed (plan advanced/deleted; income/expense posted when configured)
           content:
             application/json:
               schema:
@@ -632,6 +632,13 @@ paths:
                 properties:
                   deleted:
                     type: boolean
+                  posted:
+                    type: boolean
+                  posted_cents:
+                    type: integer
+                  posted_kind:
+                    type: string
+                    enum: [income, expense]
                   item:
                     type: object
         '404':

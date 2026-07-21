@@ -963,7 +963,7 @@ func newTestEnv(t *testing.T) testEnv {
 		ListFinancePlan:  financeapp.NewListFinancePlan(debtStore, debtStore),
 		CreatePlanned:    financeapp.NewCreatePlannedCashflow(debtStore, fakeEvents{}, fakeTx{}),
 		DeletePlanned:    financeapp.NewDeletePlannedCashflow(debtStore),
-		CompletePlanned:  financeapp.NewCompletePlanOccurrence(debtStore, fakeEvents{}, fakeTx{}),
+		CompletePlanned:  financeapp.NewCompletePlanOccurrence(debtStore, fakeEvents{}, fakeTx{}, nil, nil),
 		CreateNote:       knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
 		ListNotes:        knowledgeapp.NewListNotes(noteStore),
 		SearchNotes:      knowledgeapp.NewSearchNotes(noteStore),

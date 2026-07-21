@@ -123,6 +123,7 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
     onSuccess: () => {
       hapticSuccess()
       void queryClient.invalidateQueries({ queryKey: ['finance-plan'] })
+      void queryClient.invalidateQueries({ queryKey: ['finance'] })
     },
     onError: (err) => {
       hapticError()
@@ -218,8 +219,8 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
               if (item.source !== 'plan') return
               const ok = await confirmAction(
                 item.interval === 'once'
-                  ? `Закрыть разовое «${item.title}»?`
-                  : `Отметить «${item.title}» и сдвинуть дату?`,
+                  ? `Закрыть «${item.title}» и записать в финансы?`
+                  : `Отметить «${item.title}», записать в финансы и сдвинуть дату?`,
               )
               if (!ok) {
                 hapticWarning()

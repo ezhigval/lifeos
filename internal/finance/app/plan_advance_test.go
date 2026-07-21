@@ -71,7 +71,7 @@ func TestCompletePlanOccurrenceAdvancesMonthly(t *testing.T) {
 	}
 	_ = store.SavePlanned(context.Background(), item)
 
-	uc := NewCompletePlanOccurrence(store, noopPlanEvents{}, noopPlanTx{})
+	uc := NewCompletePlanOccurrence(store, noopPlanEvents{}, noopPlanTx{}, nil, nil)
 	uc.now = func() time.Time { return fixed }
 	res, err := uc.Execute(context.Background(), user, item.ID, events.SourceHTTP)
 	if err != nil {

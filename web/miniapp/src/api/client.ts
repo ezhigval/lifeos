@@ -367,10 +367,13 @@ export const api = {
     request<void>(`/api/v1/finance/plan/${id}`, { method: 'DELETE' }),
 
   completeFinancePlan: (id: string) =>
-    request<{ deleted: boolean; item?: import('@/api/types').FinancePlanItem }>(
-      `/api/v1/finance/plan/${id}/complete`,
-      { method: 'POST' },
-    ),
+    request<{
+      deleted: boolean
+      posted?: boolean
+      posted_cents?: number
+      posted_kind?: string
+      item?: import('@/api/types').FinancePlanItem
+    }>(`/api/v1/finance/plan/${id}/complete`, { method: 'POST' }),
 
   reminders: () =>
     request<{ reminders: import('@/api/types').Reminder[] }>('/api/v1/reminders'),

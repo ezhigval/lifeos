@@ -179,24 +179,37 @@ func (uc *DeletePlannedCashflow) Execute(ctx context.Context, userID ids.UserID,
 	return uc.store.DeletePlanned(ctx, userID, id)
 }
 
-// CompletePlanOccurrence marks one occurrence: deletes once-items, advances recurring.
+// CompletePlanOccurrence marks one occurrence: deletes once-items, advances recurring,
+// and posts a matching income/expense transaction when recorders are wired.
 type CompletePlanOccurrence struct {
 	store      PlannedCashflowStore
 	events     EventLog
 	transactor Transactor
+	income     *RecordIncome
+	expense    *RecordExpense
 	now        func() time.Time
 }
 
-func NewCompletePlanOccurrence(store PlannedCashflowStore, events EventLog, transactor Transactor) *CompletePlanOccurrence {
+func NewCompletePlanOccurrence(
+	store PlannedCashflowStore,
+	events EventLog,
+	transactor Transactor,
+	income *RecordIncome,
+	expense *RecordExpense,
+) *CompletePlanOccurrence {
 	return &CompletePlanOccurrence{
 		store: store, events: events, transactor: transactor,
+		income: income, expense: expense,
 		now: func() time.Time { return time.Now().UTC() },
 	}
 }
 
 type CompletePlanResult struct {
-	Deleted bool
-	Item    *PlanItemDTO
+	Deleted      bool
+	Item         *PlanItemDTO
+	Posted       bool
+	PostedCents  int64
+	PostedKind   string // income|expense
 }
 
 func (uc *CompletePlanOccurrence) Execute(ctx context.Context, userID ids.UserID, id ids.PlannedCashflowID, source events.Source) (CompletePlanResult, error) {
@@ -248,7 +261,48 @@ func (uc *CompletePlanOccurrence) Execute(ctx context.Context, userID ids.UserID
 	if err != nil {
 		return CompletePlanResult{}, fmt.Errorf("complete plan occurrence: %w", err)
 	}
+
+	if posted, err := uc.postOccurrence(ctx, item, source); err != nil {
+		return out, fmt.Errorf("post planned cashflow: %w", err)
+	} else if posted {
+		out.Posted = true
+		out.PostedCents = item.AmountCents
+		out.PostedKind = string(item.Kind)
+	}
 	return out, nil
+}
+
+func (uc *CompletePlanOccurrence) postOccurrence(ctx context.Context, item domain.PlannedCashflow, source events.Source) (bool, error) {
+	desc := "План · " + item.Title
+	switch item.Kind {
+	case domain.PlanKindIncome:
+		if uc.income == nil {
+			return false, nil
+		}
+		_, err := uc.income.Execute(ctx, RecordIncomeInput{
+			UserID:      item.UserID,
+			AmountCents: item.AmountCents,
+			Currency:    "RUB",
+			Description: desc,
+			Source:      source,
+		})
+		return err == nil, err
+	case domain.PlanKindExpense:
+		if uc.expense == nil {
+			return false, nil
+		}
+		_, err := uc.expense.Execute(ctx, RecordExpenseInput{
+			UserID:       item.UserID,
+			AmountCents:  item.AmountCents,
+			Currency:     "RUB",
+			CategoryName: "План",
+			Description:  desc,
+			Source:       source,
+		})
+		return err == nil, err
+	default:
+		return false, nil
+	}
 }
 
 // AdvanceOverduePlans rolls/deletes plan rows with next_date strictly before today.
