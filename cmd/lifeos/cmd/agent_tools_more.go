@@ -10,9 +10,12 @@ import (
 	careerapp "github.com/valentinezhov/lifeos/internal/career/app"
 	financeapp "github.com/valentinezhov/lifeos/internal/finance/app"
 	healthapp "github.com/valentinezhov/lifeos/internal/health/app"
+	knowledgeapp "github.com/valentinezhov/lifeos/internal/knowledge/app"
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
 	"github.com/valentinezhov/lifeos/internal/platform/timeutil"
+	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
+	settingsdomain "github.com/valentinezhov/lifeos/internal/settings/domain"
 	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
 )
 
@@ -378,6 +381,207 @@ func registerExtraAgentTools(reg *agent.Registry, d toolDeps) {
 				s.PeriodLabel, s.TasksCreated, s.TasksCompleted, s.CompletionRate, s.OpenTasks,
 				s.HabitCompletions, s.HabitCount), nil
 		})
+
+	reg.Register(agent.ToolNoteDelete,
+		"Удалить заметку по id или тексту",
+		`{"id":"uuid optional","query":"string optional"}`,
+		func(ctx context.Context, userID ids.UserID, args map[string]any) (string, error) {
+			if d.deleteNote == nil {
+				return "", fmt.Errorf("delete note unavailable")
+			}
+			noteID, err := resolveNoteID(ctx, d, userID, argString(args, "id", "query", "title", "text"))
+			if err != nil {
+				return "", err
+			}
+			dto, err := d.deleteNote.Execute(ctx, knowledgeapp.DeleteNoteInput{
+				UserID: userID, NoteID: noteID, Source: events.SourceTelegram,
+			})
+			if err != nil {
+				return "", err
+			}
+			return fmt.Sprintf("note deleted id=%s", dto.ID.String()), nil
+		})
+
+	reg.Register(agent.ToolProjectArchive,
+		"Архивировать проект по названию",
+		`{"name":"string"}`,
+		func(ctx context.Context, userID ids.UserID, args map[string]any) (string, error) {
+			if d.archiveProject == nil {
+				return "", fmt.Errorf("archive project unavailable")
+			}
+			name := argString(args, "name", "title")
+			if name == "" {
+				return "", fmt.Errorf("нужен name")
+			}
+			dto, err := d.archiveProject.Execute(ctx, projectsapp.ArchiveProjectInput{
+				UserID: userID, Name: name, Source: events.SourceTelegram,
+			})
+			if err != nil {
+				return "", err
+			}
+			return fmt.Sprintf("project archived %q", dto.Name), nil
+		})
+
+	reg.Register(agent.ToolProjectTasks,
+		"Задачи проекта по названию",
+		`{"name":"string"}`,
+		func(ctx context.Context, userID ids.UserID, args map[string]any) (string, error) {
+			if d.findProject == nil || d.listProjectTasks == nil {
+				return "", fmt.Errorf("project tasks unavailable")
+			}
+			name := argString(args, "name", "title", "project")
+			if name == "" {
+				return "", fmt.Errorf("нужен name проекта")
+			}
+			proj, err := d.findProject.Execute(ctx, userID, name)
+			if err != nil {
+				return "", err
+			}
+			items, err := d.listProjectTasks.Execute(ctx, userID, proj.ID)
+			if err != nil {
+				return "", err
+			}
+			if len(items) == 0 {
+				return fmt.Sprintf("no tasks in project %q", proj.Name), nil
+			}
+			var b strings.Builder
+			fmt.Fprintf(&b, "project %q:\n", proj.Name)
+			for i, t := range items {
+				if i >= 15 {
+					break
+				}
+				fmt.Fprintf(&b, "- %s [%s]\n", t.Title, t.Status)
+			}
+			return b.String(), nil
+		})
+
+	reg.Register(agent.ToolProjectProgress,
+		"Прогресс проекта (по названию или первый активный)",
+		`{"name":"string optional"}`,
+		func(ctx context.Context, userID ids.UserID, args map[string]any) (string, error) {
+			if d.projectProg == nil {
+				return "", fmt.Errorf("project progress unavailable")
+			}
+			name := argString(args, "name", "title", "project")
+			var p projectsapp.ProgressDTO
+			var err error
+			if name != "" {
+				p, err = d.projectProg.ExecuteByName(ctx, userID, name)
+			} else {
+				p, err = d.projectProg.Execute(ctx, userID, ids.ProjectID{})
+			}
+			if err != nil {
+				return "", err
+			}
+			if p.HasTarget {
+				return fmt.Sprintf("project %q progress %s/%s (%s%%) %s", p.Name, p.Current, p.Target, p.Percent, p.Unit), nil
+			}
+			return fmt.Sprintf("project %q current=%s (no target)", p.Name, p.Current), nil
+		})
+
+	reg.Register(agent.ToolSettingsMorning,
+		"Время утреннего обзора",
+		`{"hour":0-23,"minute":0-59 optional}`,
+		func(ctx context.Context, userID ids.UserID, args map[string]any) (string, error) {
+			if d.updateMorning == nil {
+				return "", fmt.Errorf("morning settings unavailable")
+			}
+			tod, err := timeOfDayFromArgs(args)
+			if err != nil {
+				return "", err
+			}
+			at, err := d.updateMorning.Execute(ctx, userID, tod)
+			if err != nil {
+				return "", err
+			}
+			return fmt.Sprintf("morning review set to %02d:%02d", at.Hour, at.Minute), nil
+		})
+
+	reg.Register(agent.ToolSettingsEvening,
+		"Время вечернего обзора",
+		`{"hour":0-23,"minute":0-59 optional}`,
+		func(ctx context.Context, userID ids.UserID, args map[string]any) (string, error) {
+			if d.updateEvening == nil {
+				return "", fmt.Errorf("evening settings unavailable")
+			}
+			tod, err := timeOfDayFromArgs(args)
+			if err != nil {
+				return "", err
+			}
+			at, err := d.updateEvening.Execute(ctx, userID, tod)
+			if err != nil {
+				return "", err
+			}
+			return fmt.Sprintf("evening review set to %02d:%02d", at.Hour, at.Minute), nil
+		})
+
+	reg.Register(agent.ToolSettingsQuietHours,
+		"Тихие часы (не беспокоить)",
+		`{"start_hour":0-23,"start_minute":0-59 optional,"end_hour":0-23,"end_minute":0-59 optional}`,
+		func(ctx context.Context, userID ids.UserID, args map[string]any) (string, error) {
+			if d.updateQuiet == nil {
+				return "", fmt.Errorf("quiet hours unavailable")
+			}
+			startH, err := argInt(args, "start_hour", "hour")
+			if err != nil {
+				return "", fmt.Errorf("нужен start_hour")
+			}
+			startM, _ := argInt(args, "start_minute", "minute")
+			endH, err := argInt(args, "end_hour")
+			if err != nil {
+				return "", fmt.Errorf("нужен end_hour")
+			}
+			endM, _ := argInt(args, "end_minute")
+			start := settingsdomain.TimeOfDay{Hour: startH, Minute: startM}
+			end := settingsdomain.TimeOfDay{Hour: endH, Minute: endM}
+			if err := d.updateQuiet.Execute(ctx, userID, start, end); err != nil {
+				return "", err
+			}
+			return fmt.Sprintf("quiet hours %02d:%02d–%02d:%02d", startH, startM, endH, endM), nil
+		})
+}
+
+func resolveNoteID(ctx context.Context, d toolDeps, userID ids.UserID, hint string) (ids.NoteID, error) {
+	hint = strings.TrimSpace(hint)
+	if hint != "" {
+		if id, err := ids.ParseNoteID(hint); err == nil && !id.IsZero() {
+			return id, nil
+		}
+	}
+	if d.searchNotes != nil && hint != "" {
+		items, err := d.searchNotes.Execute(ctx, knowledgeapp.SearchNotesInput{UserID: userID, Query: hint})
+		if err != nil {
+			return ids.NoteID{}, err
+		}
+		if len(items) > 0 {
+			return items[0].ID, nil
+		}
+		return ids.NoteID{}, fmt.Errorf("заметка не найдена по %q", hint)
+	}
+	if d.listNotes == nil {
+		return ids.NoteID{}, fmt.Errorf("нужен id или query")
+	}
+	items, err := d.listNotes.Execute(ctx, knowledgeapp.ListNotesInput{UserID: userID})
+	if err != nil {
+		return ids.NoteID{}, err
+	}
+	if len(items) == 0 {
+		return ids.NoteID{}, fmt.Errorf("нет заметок")
+	}
+	return items[0].ID, nil
+}
+
+func timeOfDayFromArgs(args map[string]any) (settingsdomain.TimeOfDay, error) {
+	hour, err := argInt(args, "hour")
+	if err != nil {
+		return settingsdomain.TimeOfDay{}, fmt.Errorf("нужен hour (0-23)")
+	}
+	minute, _ := argInt(args, "minute")
+	tod := settingsdomain.TimeOfDay{Hour: hour, Minute: minute}
+	if !tod.Valid() {
+		return settingsdomain.TimeOfDay{}, fmt.Errorf("некорректное время")
+	}
+	return tod, nil
 }
 
 func userTomorrow(ctx context.Context, d toolDeps, userID ids.UserID) (time.Time, error) {

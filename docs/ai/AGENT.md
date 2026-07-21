@@ -22,21 +22,28 @@ Intent-resolver (rulebased→LLM classify) остаётся fallback, если �
 
 | Tool | Действие |
 |------|----------|
-| `task.create` / `list_today` / `complete` / `cancel` / `reschedule` / `reschedule_all` | задачи |
-| `finance.expense` / `income` / `list_debts` / `create_debt` / `pay_debt` / `cash_flow` / `list_plan` / `create_planned` | финансы |
-| `reminder.create` / `cancel` | напоминания |
-| `habit.create` / `track` / `list` | привычки |
-| `note.create` / `list` / `search` | заметки |
-| `calendar.create` / `list_today` | календарь |
-| `project.create` / `list` | проекты |
-| `sphere.list` / `create` | сферы |
-| `plan.set_availability` / `triage` | планирование дня |
-| `health.record_*` / `latest_*` (weight/steps/sleep) | здоровье |
-| `career.contact_*` / `skill_*` | карьера |
+| `task.*` | create / list_today / complete / cancel / reschedule / reschedule_all |
+| `finance.*` | income / expense / debts / cash_flow / list_plan / create_planned |
+| `reminder.*` / `habit.*` / `note.*` | напоминания, привычки, заметки (+ delete) |
+| `calendar.*` / `project.*` / `sphere.*` | календарь, проекты (+ archive/tasks/progress), сферы |
+| `plan.*` | set_availability / triage |
+| `health.*` | weight / steps / sleep |
+| `career.*` | contacts / skills |
+| `settings.*` | morning_review / evening_review / quiet_hours |
 | `query.priorities` / `analytics.summary` | обзоры |
-| `memory.save` / `recall` | личная память |
+| `memory.*` | личная память |
 
 Tools дергают **use cases**, не сырой HTTP — тот же путь, что Mini App/API.
+
+## Mini App chat
+
+`POST /api/v1/assistant/chat` (JWT):
+
+```json
+{ "text": "потратил 300 на кофе", "history": [], "language": "ru" }
+```
+
+Ответ: `{ "reply", "waiting", "history", "tools_run" }`. Клиент хранит `history` для уточняющих раундов (`waiting=true`).
 
 ## Персональная память
 
@@ -81,7 +88,6 @@ Opt-in обучения и memory flags — колонки в `user_settings` (A
 
 ## Дальше
 
-- `POST /api/v1/assistant/chat` для Mini App
-- note.delete / project.archive / settings.* tools
+- UI-кнопка чата в Mini App поверх `/assistant/chat`
 - nightly job: агрегаты learning → кандидаты в few-shot
 - шифрование `user_memories.value` at rest (envelope key per user)

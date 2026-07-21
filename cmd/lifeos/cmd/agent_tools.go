@@ -26,6 +26,7 @@ import (
 	planapp "github.com/valentinezhov/lifeos/internal/planning/app"
 	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
 	"github.com/valentinezhov/lifeos/internal/query"
+	settingsapp "github.com/valentinezhov/lifeos/internal/settings/app"
 	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
 	spheresdomain "github.com/valentinezhov/lifeos/internal/spheres/domain"
 	tasksapp "github.com/valentinezhov/lifeos/internal/tasks/app"
@@ -59,10 +60,15 @@ type toolDeps struct {
 	createNote       *knowledgeapp.CreateNote
 	listNotes        *knowledgeapp.ListNotes
 	searchNotes      *knowledgeapp.SearchNotes
+	deleteNote       *knowledgeapp.DeleteNote
 	createEvent      *calendarapp.CreateEvent
 	listCalendar     *calendarapp.ListEventsToday
 	createProject    *projectsapp.CreateProject
 	listProjects     *projectsapp.ListProjects
+	archiveProject   *projectsapp.ArchiveProject
+	listProjectTasks *tasksapp.ListTasksByProject
+	projectProg      *projectsapp.GetProjectProgress
+	findProject      *projectsapp.FindProjectByName
 	listSpheres      *spheresapp.ListSpheres
 	findSphere       *spheresapp.FindSphereByName
 	createSphere     *spheresapp.CreateSphere
@@ -78,6 +84,9 @@ type toolDeps struct {
 	listSkills       *careerapp.ListSkills
 	priorities       *query.GetTopPriorities
 	analytics        *query.GetProductivitySummary
+	updateMorning    *settingsapp.UpdateMorningReview
+	updateEvening    *settingsapp.UpdateEveningReview
+	updateQuiet      *settingsapp.UpdateQuietHours
 	upsertMemory     *memoryapp.UpsertMemory
 	recallMemory     *memoryapp.Recall
 	tzReader         interface {

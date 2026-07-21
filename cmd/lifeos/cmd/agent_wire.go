@@ -4,8 +4,10 @@ import (
 	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/valentinezhov/lifeos/internal/ai"
 	"github.com/valentinezhov/lifeos/internal/ai/agent"
+	"github.com/valentinezhov/lifeos/internal/ai/dialogue"
 	"github.com/valentinezhov/lifeos/internal/ai/ollama"
 	"github.com/valentinezhov/lifeos/internal/ai/openaiapi"
 	learningapp "github.com/valentinezhov/lifeos/internal/learning/app"
@@ -14,15 +16,6 @@ import (
 	memoryinfra "github.com/valentinezhov/lifeos/internal/memory/infra"
 	"github.com/valentinezhov/lifeos/internal/platform/config"
 )
-
-type agentBundle struct {
-	agent        ai.ConversationalAgent
-	listMemories *memoryapp.ListMemories
-	privacy      memoryapp.PrivacyStore
-	recordLearn  *learningapp.RecordEvent
-	learningSalt string
-	modelName    string
-}
 
 func newChatModel(cfg config.Config, log *slog.Logger) ai.ChatModel {
 	if cfg.LLMProvider == "ollama" {
@@ -33,7 +26,7 @@ func newChatModel(cfg config.Config, log *slog.Logger) ai.ChatModel {
 	return openaiapi.NewClient(cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel)
 }
 
-func newAgentBundle(cfg config.Config, log *slog.Logger, p *pgxpool.Pool, tools toolDeps) *agentBundle {
+func newAgentService(cfg config.Config, log *slog.Logger, p *pgxpool.Pool, tools toolDeps) *dialogue.Service {
 	if !cfg.LLMEnabled || !cfg.LLMAgentEnabled {
 		return nil
 	}
@@ -50,12 +43,12 @@ func newAgentBundle(cfg config.Config, log *slog.Logger, p *pgxpool.Pool, tools 
 		modelName = cfg.OllamaModel
 	}
 	log.Info("conversational agent enabled", "provider", cfg.LLMProvider, "model", modelName)
-	return &agentBundle{
-		agent:        agent.New(model, reg),
-		listMemories: memoryapp.NewListMemories(memRepo),
-		privacy:      memRepo,
-		recordLearn:  learningapp.NewRecordEvent(learnRepo),
-		learningSalt: cfg.LearningSalt,
-		modelName:    modelName,
+	return &dialogue.Service{
+		Agent:        agent.New(model, reg),
+		ListMemories: memoryapp.NewListMemories(memRepo),
+		Privacy:      memRepo,
+		RecordLearn:  learningapp.NewRecordEvent(learnRepo),
+		LearningSalt: cfg.LearningSalt,
+		ModelName:    modelName,
 	}
 }

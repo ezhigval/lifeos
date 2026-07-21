@@ -18,6 +18,7 @@ import (
 	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
 	knowledgeapp "github.com/valentinezhov/lifeos/internal/knowledge/app"
 	notifapp "github.com/valentinezhov/lifeos/internal/notifications/app"
+	"github.com/valentinezhov/lifeos/internal/ai/dialogue"
 	"github.com/valentinezhov/lifeos/internal/platform/auth"
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
@@ -108,6 +109,7 @@ type Deps struct {
 	UpdateMorning    *settingsapp.UpdateMorningReview
 	UpdateEvening    *settingsapp.UpdateEveningReview
 	UpdateQuiet      *settingsapp.UpdateQuietHours
+	Dialogue         *dialogue.Service
 }
 
 type Router struct {
@@ -124,6 +126,7 @@ func (rt *Router) Mount(r chi.Router) {
 		r.Post("/auth/telegram-webapp", rt.authTelegramWebApp)
 		r.Group(func(r chi.Router) {
 			r.Use(rt.jwtMiddleware)
+			r.Post("/assistant/chat", rt.assistantChat)
 			r.Get("/tasks/today", rt.listTasksToday)
 			r.Get("/tasks", rt.listTasks)
 			r.Post("/tasks", rt.createTask)

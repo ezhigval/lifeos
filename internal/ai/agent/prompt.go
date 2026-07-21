@@ -29,6 +29,8 @@ func buildSystemPrompt(tools *Registry, memories []ai.MemorySnippet, language st
 	b.WriteString("- Вес/шаги/сон → health.*; контакты/навыки → career.*.\n")
 	b.WriteString("- Перегруз дня → plan.triage; доступность → plan.set_availability.\n")
 	b.WriteString("- Отмена/перенос задачи → task.cancel / task.reschedule; всё на завтра → task.reschedule_all.\n")
+	b.WriteString("- Проект: archive / tasks / progress; заметку удалить → note.delete.\n")
+	b.WriteString("- Настройки обзоров/тихих часов → settings.morning_review / evening_review / quiet_hours.\n")
 	b.WriteString("- Приоритеты → query.priorities; аналитика → analytics.summary.\n")
 	b.WriteString("- Если неясно, что сделать — type=ask, а не угадывай tool.\n")
 	b.WriteString("- Светская болтовня без действия → type=reply.\n")

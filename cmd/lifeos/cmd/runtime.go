@@ -46,6 +46,8 @@ import (
 	tasksinfra "github.com/valentinezhov/lifeos/internal/tasks/infra"
 	tg "github.com/valentinezhov/lifeos/internal/transport/telegram"
 	tginfra "github.com/valentinezhov/lifeos/internal/transport/telegram/infra"
+
+	"github.com/valentinezhov/lifeos/internal/ai/dialogue"
 )
 
 type runtime struct {
@@ -65,6 +67,7 @@ type runtime struct {
 	settings       *settingsinfra.Repository
 	users          *identityinfra.Repository
 	ensureUser     *identityapp.EnsureUserByTelegram
+	agent          *dialogue.Service
 
 	listToday        *tasksapp.ListTasksToday
 	listDueBetween   *tasksapp.ListTasksDueBetween
@@ -330,67 +333,70 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	)
 	rt.ensureUser = ensureUser
 
+	tools := toolDeps{
+		createTask:       createTask,
+		listToday:        listToday,
+		completeTitle:    completeByTitle,
+		cancelTitle:      cancelByTitle,
+		rescheduleTitle:  rescheduleByTitle,
+		rescheduleAll:    reschedule,
+		setAvail:         setAvail,
+		triage:           triage,
+		recordExpense:    recordExpense,
+		recordIncome:     recordIncome,
+		listDebts:        listDebts,
+		createDebt:       createDebt,
+		payDebt:          payDebt,
+		cashFlow:         cashFlow,
+		listFinancePlan:  listFinancePlan,
+		createPlanned:    createPlanned,
+		reminder:         reminder,
+		listReminders:    listReminders,
+		cancelReminder:   cancelReminder,
+		createHabit:      createHabit,
+		trackHabit:       trackHabit,
+		listHabits:       listHabits,
+		createNote:       createNote,
+		listNotes:        listNotes,
+		searchNotes:      searchNotes,
+		deleteNote:       deleteNote,
+		createEvent:      createEvent,
+		listCalendar:     listCalendar,
+		createProject:    createProject,
+		listProjects:     listProjects,
+		archiveProject:   archiveProject,
+		listProjectTasks: listProjectTasks,
+		projectProg:      projectProgress,
+		findProject:      findProject,
+		listSpheres:      listSpheres,
+		findSphere:       findSphere,
+		createSphere:     createSphere,
+		recordWeight:     recordWeight,
+		latestWeight:     latestWeight,
+		recordSteps:      recordSteps,
+		latestSteps:      latestSteps,
+		recordSleep:      recordSleep,
+		latestSleep:      latestSleep,
+		createContact:    createContact,
+		listContacts:     listContacts,
+		createSkill:      createSkill,
+		listSkills:       listSkills,
+		priorities:       priorities,
+		analytics:        analytics,
+		updateMorning:    updateMorning,
+		updateEvening:    updateEvening,
+		updateQuiet:      updateQuiet,
+		tzReader:         tzReader,
+	}
+	rt.agent = newAgentService(cfg, log, p, tools)
+
 	if cfg.TelegramBotToken != "" {
 		client := tg.NewClient(cfg.TelegramBotToken)
 		rt.tgClient = client
 		rt.notifier = notifinfra.NewTelegramNotifier(client, log)
-		bundle := newAgentBundle(cfg, log, p, toolDeps{
-			createTask:       createTask,
-			listToday:        listToday,
-			completeTitle:    completeByTitle,
-			cancelTitle:      cancelByTitle,
-			rescheduleTitle:  rescheduleByTitle,
-			rescheduleAll:    reschedule,
-			setAvail:         setAvail,
-			triage:           triage,
-			recordExpense:    recordExpense,
-			recordIncome:     recordIncome,
-			listDebts:        listDebts,
-			createDebt:       createDebt,
-			payDebt:          payDebt,
-			cashFlow:         cashFlow,
-			listFinancePlan:  listFinancePlan,
-			createPlanned:    createPlanned,
-			reminder:         reminder,
-			listReminders:    listReminders,
-			cancelReminder:   cancelReminder,
-			createHabit:      createHabit,
-			trackHabit:       trackHabit,
-			listHabits:       listHabits,
-			createNote:       createNote,
-			listNotes:        listNotes,
-			searchNotes:      searchNotes,
-			createEvent:      createEvent,
-			listCalendar:     listCalendar,
-			createProject:    createProject,
-			listProjects:     listProjects,
-			listSpheres:      listSpheres,
-			findSphere:       findSphere,
-			createSphere:     createSphere,
-			recordWeight:     recordWeight,
-			latestWeight:     latestWeight,
-			recordSteps:      recordSteps,
-			latestSteps:      latestSteps,
-			recordSleep:      recordSleep,
-			latestSleep:      latestSleep,
-			createContact:    createContact,
-			listContacts:     listContacts,
-			createSkill:      createSkill,
-			listSkills:       listSkills,
-			priorities:       priorities,
-			analytics:        analytics,
-			tzReader:         tzReader,
-		})
 		var agentBridge *tg.AgentBridge
-		if bundle != nil {
-			agentBridge = &tg.AgentBridge{
-				Agent:        bundle.agent,
-				ListMemories: bundle.listMemories,
-				Privacy:      bundle.privacy,
-				RecordLearn:  bundle.recordLearn,
-				LearningSalt: bundle.learningSalt,
-				ModelName:    bundle.modelName,
-			}
+		if rt.agent != nil {
+			agentBridge = &tg.AgentBridge{Service: rt.agent}
 		}
 		rt.handler = tg.NewHandler(tg.Deps{
 			Log:               log,

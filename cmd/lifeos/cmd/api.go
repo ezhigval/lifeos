@@ -98,5 +98,6 @@ func (rt *runtime) apiRouter(cfg config.Config, log *slog.Logger) (*api.Router, 
 		UpdateMorning:    rt.updateMorning,
 		UpdateEvening:    rt.updateEvening,
 		UpdateQuiet:      rt.updateQuiet,
+		Dialogue:         rt.agent,
 	}), nil
 }

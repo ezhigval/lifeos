@@ -1294,18 +1294,10 @@ func TestJWTRejectsWrongUserScope(t *testing.T) {
 	rec := doJSON(t, env.router, http.MethodGet, "/api/v1/tasks/today",
 		map[string]string{"Authorization": "Bearer " + foreignToken}, nil,
 	)
-	if rec.Code != http.StatusOK {
-		// foreign user simply sees empty list — isolation by user_id in use case
-		t.Fatalf("status=%d", rec.Code)
+	// JWT for a wiped / unknown user id must not pass jwtMiddleware.
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d want 401 body=%s", rec.Code, rec.Body.String())
 	}
-	var listed struct {
-		Tasks []any `json:"tasks"`
-	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &listed)
-	if len(listed.Tasks) != 0 {
-		t.Fatalf("foreign user should see empty tasks, got %+v", listed.Tasks)
-	}
-	_ = env.user
 }
 
 func TestProjectHTTPFlow(t *testing.T) {

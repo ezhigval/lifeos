@@ -6,9 +6,7 @@ import (
 	"strings"
 
 	"github.com/valentinezhov/lifeos/internal/ai"
-	"github.com/valentinezhov/lifeos/internal/learning"
-	learningapp "github.com/valentinezhov/lifeos/internal/learning/app"
-	memoryapp "github.com/valentinezhov/lifeos/internal/memory/app"
+	"github.com/valentinezhov/lifeos/internal/ai/dialogue"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
 	tginfra "github.com/valentinezhov/lifeos/internal/transport/telegram/infra"
 )
@@ -19,18 +17,13 @@ const (
 	maxAgentHistory     = 16
 )
 
-// AgentBridge loads memory, runs the conversational agent, and records anon learning.
+// AgentBridge wraps the shared dialogue service for Telegram session history.
 type AgentBridge struct {
-	Agent        ai.ConversationalAgent
-	ListMemories *memoryapp.ListMemories
-	Privacy      memoryapp.PrivacyStore
-	RecordLearn  *learningapp.RecordEvent
-	LearningSalt string
-	ModelName    string
+	*dialogue.Service
 }
 
 func (h *MessageHandler) runAgentDialogue(ctx context.Context, userID ids.UserID, text string, sess tginfra.Session) (dispatchResult, error) {
-	if h.agent == nil || h.agent.Agent == nil {
+	if h.agent == nil || h.agent.Service == nil || h.agent.Agent == nil {
 		intent, err := h.resolver.Resolve(ctx, ai.ResolveInput{Text: text, Language: "ru"})
 		if err != nil {
 			return dispatchResult{}, err
@@ -41,30 +34,10 @@ func (h *MessageHandler) runAgentDialogue(ctx context.Context, userID ids.UserID
 	history := loadAgentHistory(sess.StatePayload)
 	askRounds := payloadInt(sess.StatePayload, payloadAgentAsks)
 
-	var memories []ai.MemorySnippet
-	memoryOn := true
-	if h.agent.Privacy != nil {
-		if flags, err := h.agent.Privacy.GetPrivacyFlags(ctx, userID); err == nil {
-			memoryOn = flags.MemoryEnabled
-			// learning opt-in checked after turn
-			_ = flags.LearningOptIn
-		}
-	}
-	if memoryOn && h.agent.ListMemories != nil {
-		if items, err := h.agent.ListMemories.Execute(ctx, userID, 12); err == nil {
-			for _, m := range items {
-				memories = append(memories, ai.MemorySnippet{
-					Kind: string(m.Kind), Key: m.Key, Value: m.Value,
-				})
-			}
-		}
-	}
-
-	resp, err := h.agent.Agent.Handle(ctx, ai.DialogueRequest{
+	resp, err := h.agent.Turn(ctx, ai.DialogueRequest{
 		UserID:   userID,
 		Text:     text,
 		History:  history,
-		Memories: memories,
 		Language: "ru",
 	})
 	if err != nil {
@@ -91,41 +64,13 @@ func (h *MessageHandler) runAgentDialogue(ctx context.Context, userID ids.UserID
 		_ = h.sessions.SetState(ctx, userID, tginfra.StateIdle, payload)
 	}
 
-	h.maybeRecordLearning(ctx, userID, resp, askRounds)
+	h.agent.RecordLearning(ctx, userID, resp, askRounds)
 
 	reply := strings.TrimSpace(resp.Reply)
 	if reply == "" {
 		reply = "Готово."
 	}
 	return dispatchResult{text: reply}, nil
-}
-
-func (h *MessageHandler) maybeRecordLearning(ctx context.Context, userID ids.UserID, resp ai.DialogueResponse, askRounds int) {
-	if h.agent == nil || h.agent.RecordLearn == nil || h.agent.Privacy == nil {
-		return
-	}
-	flags, err := h.agent.Privacy.GetPrivacyFlags(ctx, userID)
-	if err != nil || !flags.LearningOptIn {
-		return
-	}
-	success := len(resp.ToolsRun) > 0 && !resp.Waiting
-	meta := map[string]any{
-		"tools_count": len(resp.ToolsRun),
-		"waiting":     resp.Waiting,
-	}
-	// Coarse tool names only — no args, no user text.
-	if len(resp.ToolsRun) > 0 {
-		meta["tools"] = resp.ToolsRun
-	}
-	_ = h.agent.RecordLearn.Execute(ctx, learningapp.EventInput{
-		AnonSubject:  learning.AnonSubject(userID, h.agent.LearningSalt),
-		Type:         "dialogue_turn",
-		ToolOrIntent: strings.Join(resp.ToolsRun, ","),
-		Success:      &success,
-		AskRounds:    askRounds,
-		Model:        h.agent.ModelName,
-		Meta:         meta,
-	})
 }
 
 func loadAgentHistory(payload map[string]any) []ai.DialogueTurn {
