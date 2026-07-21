@@ -1,6 +1,10 @@
 package ai
 
-import "context"
+import (
+	"context"
+
+	"github.com/valentinezhov/lifeos/internal/platform/ids"
+)
 
 type IntentType string
 
@@ -94,4 +98,44 @@ type SummaryRequest struct {
 
 type Assistant interface {
 	Summarize(ctx context.Context, req SummaryRequest) (string, error)
+}
+
+// ChatModel is a thin chat completion port. *ollama.Client and *openaiapi.Client
+// already satisfy it via Chat / ChatJSON.
+type ChatModel interface {
+	Chat(ctx context.Context, systemPrompt, userText string) (string, error)
+	ChatJSON(ctx context.Context, systemPrompt, userText string) (string, error)
+}
+
+type DialogueTurn struct {
+	Role       string // user | assistant | tool
+	Content    string
+	ToolName   string
+	ToolArgs   map[string]any
+	ToolResult string
+}
+
+type MemorySnippet struct {
+	Kind  string
+	Key   string
+	Value string
+}
+
+type DialogueRequest struct {
+	UserID   ids.UserID
+	Text     string
+	History  []DialogueTurn
+	Memories []MemorySnippet
+	Language string
+}
+
+type DialogueResponse struct {
+	Reply    string
+	Waiting  bool // true if asked a clarifying question — keep dialogue open
+	History  []DialogueTurn
+	ToolsRun []string
+}
+
+type ConversationalAgent interface {
+	Handle(ctx context.Context, req DialogueRequest) (DialogueResponse, error)
 }
