@@ -26,13 +26,15 @@ type Config struct {
 	OtelEnabled  bool
 	OtelEndpoint string
 
-	LLMEnabled  bool
-	LLMProvider string // "ollama" | "openai" (default)
-	LLMAPIKey   string
-	LLMBaseURL  string // OpenAI-compatible base, e.g. https://api.groq.com/openai/v1
-	LLMModel    string // model for openai provider; if empty use provider default
-	OllamaURL   string
-	OllamaModel string
+	LLMEnabled      bool
+	LLMAgentEnabled bool   // multi-turn conversational agent (tools + dialogue)
+	LLMProvider     string // "ollama" | "openai" (default)
+	LLMAPIKey       string
+	LLMBaseURL      string // OpenAI-compatible base, e.g. https://api.groq.com/openai/v1
+	LLMModel        string // model for openai provider; if empty use provider default
+	OllamaURL       string
+	OllamaModel     string
+	LearningSalt    string // HMAC salt for anonymous learning subjects
 
 	JWTSecret   string
 	APIKey      string
@@ -76,12 +78,18 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("LIFEOS_LLM_ENABLED: %w", err)
 	}
 	cfg.LLMEnabled = llmEnabled
+	llmAgent, err := parseBoolDefault(os.Getenv("LIFEOS_LLM_AGENT_ENABLED"), true)
+	if err != nil {
+		return Config{}, fmt.Errorf("LIFEOS_LLM_AGENT_ENABLED: %w", err)
+	}
+	cfg.LLMAgentEnabled = llmAgent
 	cfg.LLMProvider = strings.ToLower(strings.TrimSpace(envOr("LIFEOS_LLM_PROVIDER", "openai")))
 	cfg.LLMAPIKey = firstNonEmpty(os.Getenv("LIFEOS_LLM_API_KEY"), os.Getenv("LIFEOS_OPENAI_API_KEY"))
 	cfg.LLMBaseURL = envOr("LIFEOS_LLM_BASE_URL", "https://api.groq.com/openai/v1")
 	cfg.LLMModel = envOr("LIFEOS_LLM_MODEL", "llama-3.3-70b-versatile")
 	cfg.OllamaURL = envOr("LIFEOS_OLLAMA_URL", "http://localhost:11434")
 	cfg.OllamaModel = envOr("LIFEOS_OLLAMA_MODEL", "llama3.2")
+	cfg.LearningSalt = envOr("LIFEOS_LEARNING_SALT", "lifeos-dev-learning-salt-change-me")
 	cfg.JWTSecret = os.Getenv("LIFEOS_JWT_SECRET")
 	cfg.APIKey = os.Getenv("LIFEOS_API_KEY")
 	cfg.MiniAppURL = strings.TrimSpace(os.Getenv("LIFEOS_MINIAPP_URL"))

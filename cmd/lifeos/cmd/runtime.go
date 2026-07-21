@@ -334,6 +334,28 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		client := tg.NewClient(cfg.TelegramBotToken)
 		rt.tgClient = client
 		rt.notifier = notifinfra.NewTelegramNotifier(client, log)
+		bundle := newAgentBundle(cfg, log, p, toolDeps{
+			createTask:    createTask,
+			listToday:     listToday,
+			completeTitle: completeByTitle,
+			recordExpense: recordExpense,
+			recordIncome:  recordIncome,
+			reminder:      reminder,
+			createHabit:   createHabit,
+			trackHabit:    trackHabit,
+			tzReader:      tzReader,
+		})
+		var agentBridge *tg.AgentBridge
+		if bundle != nil {
+			agentBridge = &tg.AgentBridge{
+				Agent:        bundle.agent,
+				ListMemories: bundle.listMemories,
+				Privacy:      bundle.privacy,
+				RecordLearn:  bundle.recordLearn,
+				LearningSalt: bundle.learningSalt,
+				ModelName:    bundle.modelName,
+			}
+		}
 		rt.handler = tg.NewHandler(tg.Deps{
 			Log:               log,
 			Client:            client,
@@ -405,6 +427,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 			DeleteUser:        identityapp.NewDeleteUser(userRepo),
 			AdminTelegramID:   cfg.SeedTelegramID,
 			MiniAppURL:        cfg.MiniAppURL,
+			Agent:             agentBridge,
 		})
 		rt.poller = tg.NewPoller(client, rt.handler, log)
 	}

@@ -112,6 +112,7 @@ type MessageHandler struct {
 	deleteUser      *identityapp.DeleteUser
 	adminTelegramID int64
 	miniAppURL      string
+	agent           *AgentBridge
 }
 
 type Deps struct {
@@ -187,6 +188,7 @@ type Deps struct {
 	DeleteUser      *identityapp.DeleteUser
 	AdminTelegramID int64
 	MiniAppURL      string
+	Agent           *AgentBridge
 }
 
 func NewHandler(d Deps) *MessageHandler {
@@ -221,6 +223,7 @@ func NewHandler(d Deps) *MessageHandler {
 		tzReader:   d.TZReader,
 		deleteUser: d.DeleteUser, adminTelegramID: d.AdminTelegramID,
 		miniAppURL: strings.TrimSpace(d.MiniAppURL),
+		agent:      d.Agent,
 	}
 }
 
@@ -371,6 +374,13 @@ func (h *MessageHandler) handleFreeText(
 		return h.onSphereNameEntered(ctx, user.ID, text)
 	case tginfra.StateAwaitTaskProjects, tginfra.StateAwaitProjectSpheres:
 		return dispatchResult{text: "Выбери варианты кнопками на экране или напиши «отмена»."}, nil
+	case tginfra.StateAwaitAgentTurn:
+		return h.runAgentDialogue(ctx, user.ID, text, sess)
+	}
+
+	// Conversational agent handles free dialogue + tools when enabled.
+	if h.agent != nil && h.agent.Agent != nil {
+		return h.runAgentDialogue(ctx, user.ID, text, sess)
 	}
 
 	intent, err := h.resolver.Resolve(ctx, ai.ResolveInput{Text: text, Language: "ru"})

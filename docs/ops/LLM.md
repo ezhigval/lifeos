@@ -85,3 +85,8 @@ Compose по умолчанию Ollama не поднимает.
                                                               → unknown → UX «не понял»
 обзор → LLM (sanitize <b>) → template fallback
 ```
+
+## Диалоговый агент
+
+См. [docs/ai/AGENT.md](../ai/AGENT.md) — multi-turn, tools, память, anon learning.
+`LIFEOS_LLM_AGENT_ENABLED=true` (default).
