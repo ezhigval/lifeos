@@ -6,6 +6,7 @@ import { MorePage } from '@/pages/MorePage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { HabitsPage } from '@/pages/HabitsPage'
 import { CalendarPage } from '@/pages/CalendarPage'
+import { RemindersPage } from '@/pages/RemindersPage'
 import { TaskDetailPage } from '@/pages/TaskDetailPage'
 import { AnalyticsPage } from '@/pages/AnalyticsPage'
 import { NotesPage } from '@/pages/NotesPage'
@@ -26,13 +27,13 @@ export default function App() {
         <Route path="more/settings" element={<SettingsPage />} />
         <Route path="more/habits" element={<HabitsPage />} />
         <Route path="more/calendar" element={<CalendarPage />} />
+        <Route path="more/reminders" element={<RemindersPage />} />
         <Route path="more/analytics" element={<AnalyticsPage />} />
         <Route path="more/notes" element={<NotesPage />} />
         <Route path="more/health" element={<HealthPage />} />
         {/* <Route path="more/career" element={<CareerPage />} /> */}
         <Route path="more/career" element={<Navigate to="/more" replace />} />
         <Route path="more/debts" element={<DebtsPage />} />
-        <Route path="more/reminders" element={<Navigate to="/more/calendar" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

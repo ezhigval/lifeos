@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ArrowDownLeft, ArrowUpRight, Plus } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Plus, Trash2 } from 'lucide-react'
 import { api } from '@/api/client'
-import type { FinanceOverview } from '@/api/types'
+import type { FinanceOverview, FinancePlanItem } from '@/api/types'
 import { FinanceRing } from '@/components/finance/FinanceRing'
 import { FinanceLegend } from '@/components/finance/FinanceLegend'
 import { PeriodPicker } from '@/components/finance/PeriodPicker'
@@ -22,7 +22,7 @@ import {
   type Period,
 } from '@/lib/periods'
 import { getSavedPeriod, savePeriod } from '@/lib/storage'
-import { hapticError, hapticSuccess } from '@/lib/telegram'
+import { confirmAction, hapticError, hapticSuccess, hapticWarning } from '@/lib/telegram'
 
 type Props = {
   /** Prefer overview from GET /finance/overview (enriched); cash-flow fallback OK until then. */
@@ -106,7 +106,19 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
     },
   })
 
-  const planItems = (plan?.items ?? []).slice(0, 4)
+  const deletePlan = useMutation({
+    mutationFn: (id: string) => api.deleteFinancePlan(id),
+    onSuccess: () => {
+      hapticSuccess()
+      void queryClient.invalidateQueries({ queryKey: ['finance-plan'] })
+    },
+    onError: (err) => {
+      hapticError()
+      setPlanError(ruApiError(err, 'Не удалось удалить'))
+    },
+  })
+
+  const planItems = plan?.items ?? []
 
   return (
     <section className="rounded-3xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] p-4">
@@ -181,6 +193,16 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
             items={planItems}
             onAddIncome={() => openPlanSheet('income')}
             onAddExpense={() => openPlanSheet('expense')}
+            onDelete={async (item) => {
+              if (item.source !== 'plan') return
+              const ok = await confirmAction(`Удалить «${item.title}» из плана?`)
+              if (!ok) {
+                hapticWarning()
+                return
+              }
+              deletePlan.mutate(item.id)
+            }}
+            deleting={deletePlan.isPending}
           />
         </>
       ) : null}
@@ -294,14 +316,18 @@ function FinancePlanBlock({
   items,
   onAddIncome,
   onAddExpense,
+  onDelete,
+  deleting,
 }: {
   plan: import('@/api/types').FinancePlan | undefined
   isLoading: boolean
   isError: boolean
   onRetry: () => void
-  items: import('@/api/types').FinancePlanItem[]
+  items: FinancePlanItem[]
   onAddIncome: () => void
   onAddExpense: () => void
+  onDelete: (item: FinancePlanItem) => void
+  deleting: boolean
 }) {
   const currency = plan?.currency || 'RUB'
 
@@ -315,6 +341,14 @@ function FinancePlanBlock({
             onClick={onAddIncome}
             className="rounded-full p-1.5 text-emerald-400"
             aria-label="Добавить доход"
+          >
+            <Plus size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={onAddExpense}
+            className="rounded-full p-1.5 text-rose-400"
+            aria-label="Добавить расход"
           >
             <Plus size={16} />
           </button>
@@ -346,15 +380,31 @@ function FinancePlanBlock({
                 <li key={item.id} className="flex items-center justify-between gap-2">
                   <span className="min-w-0 truncate text-[var(--tg-theme-hint-color,#94a3b8)]">
                     {item.title}
+                    {item.source === 'debt_installment' && (
+                      <span className="ml-1 text-[10px] uppercase tracking-wide text-[var(--tg-theme-hint-color,#64748b)]">
+                        долг
+                      </span>
+                    )}
                   </span>
-                  <span className="shrink-0 tabular-nums">
+                  <span className="flex shrink-0 items-center gap-1 tabular-nums">
                     <span className={item.kind === 'income' ? 'text-emerald-400' : 'text-rose-400'}>
                       {item.kind === 'income' ? '+' : '−'}
                       {formatMoneyPlain(item.amount_cents, item.currency || currency)}
                     </span>
-                    <span className="ml-1 text-xs text-[var(--tg-theme-hint-color,#64748b)]">
+                    <span className="text-xs text-[var(--tg-theme-hint-color,#64748b)]">
                       {formatPlanDate(item.next_date)}
                     </span>
+                    {item.source === 'plan' && (
+                      <button
+                        type="button"
+                        disabled={deleting}
+                        onClick={() => onDelete(item)}
+                        className="rounded-full p-1 text-[var(--tg-theme-hint-color,#94a3b8)] disabled:opacity-50"
+                        aria-label={`Удалить ${item.title}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </span>
                 </li>
               ))}

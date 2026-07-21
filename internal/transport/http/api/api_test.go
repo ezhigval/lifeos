@@ -641,6 +641,10 @@ func (a cancelReminderAdapter) Execute(ctx context.Context, in notifapp.CancelRe
 	return a.ExecuteCancel(ctx, in)
 }
 
+func (a cancelReminderAdapter) CancelForTask(_ context.Context, _ ids.UserID, _ string) error {
+	return nil
+}
+
 type fakeAnalytics struct {
 	summary query.ProductivitySummary
 }

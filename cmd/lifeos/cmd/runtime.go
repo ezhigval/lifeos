@@ -35,6 +35,7 @@ import (
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
 	"github.com/valentinezhov/lifeos/internal/platform/postgres"
 	"github.com/valentinezhov/lifeos/internal/platform/scheduler"
+	"github.com/valentinezhov/lifeos/internal/platform/timeutil"
 	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
 	projectsinfra "github.com/valentinezhov/lifeos/internal/projects/infra"
 	"github.com/valentinezhov/lifeos/internal/query"
@@ -429,7 +430,8 @@ func (rt *runtime) wireScheduler() {
 		if err := json.Unmarshal(payload, &p); err != nil {
 			return err
 		}
-		return rt.notifier.Send(ctx, rt.telegramChatID(ctx, userID), p.Message)
+		// Reminder text is plain; escape so HTML parse_mode does not break on <>&
+		return rt.notifier.Send(ctx, rt.telegramChatID(ctx, userID), html.EscapeString(p.Message))
 	})
 	rt.sched.Register("morning_review", rt.periodicReviewHandler("morning_review"))
 	rt.sched.Register("evening_review", rt.periodicReviewHandler("evening_review"))
@@ -457,6 +459,9 @@ func (rt *runtime) periodicReviewHandler(jobType string) scheduler.JobHandler {
 		switch jobType {
 		case "morning_review":
 			text, err = rt.review.Morning(ctx, userID)
+			if err == nil {
+				text = text + rt.morningFinanceAppendix(ctx, userID)
+			}
 		case "evening_review":
 			text, err = rt.review.Evening(ctx, userID)
 			if err == nil && rt.autoReschedule != nil {
@@ -564,6 +569,41 @@ func (rt *runtime) bootstrapReviewsForUser(ctx context.Context, user identitydom
 		return err
 	}
 	return rt.reminder.EnsureReview(ctx, user.ID, "monthly_review", monthly)
+}
+
+func (rt *runtime) morningFinanceAppendix(ctx context.Context, userID ids.UserID) string {
+	if rt.listFinancePlan == nil {
+		return ""
+	}
+	plan, err := rt.listFinancePlan.Execute(ctx, userID)
+	if err != nil || len(plan.Items) == 0 {
+		return ""
+	}
+	tz := "Europe/Moscow"
+	if user, err := rt.users.GetByID(ctx, userID); err == nil && user.Timezone != "" {
+		tz = user.Timezone
+	}
+	today, err := timeutil.DateInTimezone(time.Now().UTC(), tz)
+	if err != nil {
+		return ""
+	}
+	todayKey := today.Format("2006-01-02")
+	var lines []string
+	for _, item := range plan.Items {
+		if item.NextDate != todayKey {
+			continue
+		}
+		sign := "−"
+		if item.Kind == "income" {
+			sign = "+"
+		}
+		amount := float64(item.AmountCents) / 100
+		lines = append(lines, fmt.Sprintf("• %s %s%.0f ₽", html.EscapeString(item.Title), sign, amount))
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+	return "\n\n💰 <b>Финансы сегодня</b>\n" + strings.Join(lines, "\n")
 }
 
 func formatAutoRescheduleNotice(moved []tasksapp.TaskDTO) string {

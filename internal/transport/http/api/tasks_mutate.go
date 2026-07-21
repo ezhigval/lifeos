@@ -130,6 +130,7 @@ func (rt *Router) archiveTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.cancelTaskReminders(r.Context(), userID, taskID)
 	writeJSON(w, http.StatusOK, taskToJSON(dto))
 }
 
@@ -159,5 +160,6 @@ func (rt *Router) deleteTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.cancelTaskReminders(r.Context(), userID, taskID)
 	w.WriteHeader(http.StatusNoContent)
 }

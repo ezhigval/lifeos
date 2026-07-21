@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   BarChart3,
   // Briefcase,
+  Bell,
   Calendar,
   FileText,
   HeartPulse,
@@ -28,6 +29,12 @@ const sections = [
         title: 'Календарь',
         subtitle: 'Задачи по датам',
         icon: <Calendar size={20} />,
+      },
+      {
+        to: '/more/reminders',
+        title: 'Напоминания',
+        subtitle: 'Push в Telegram по времени',
+        icon: <Bell size={20} />,
       },
       {
         to: '/more/settings',
