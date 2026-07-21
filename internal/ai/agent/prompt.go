@@ -21,7 +21,12 @@ func buildSystemPrompt(tools *Registry, memories []ai.MemorySnippet, language st
 	b.WriteString("- Привычка → habit.create / habit.track.\n")
 	b.WriteString("- Список дел на сегодня → task.list_today.\n")
 	b.WriteString("- Создать задачу → task.create; title = конкретная формулировка из запроса пользователя ")
-	b.WriteString("(например «купить хлеб»), НИКОГДА не подставляй заглушки вроде «разобрать входящие/почту».\n")
+	b.WriteString("(например «купить хлеб»), НИКОГДА не подставляй заглушки вроде «разобрать входящие/почту», «задача», «todo».\n")
+	b.WriteString("- Долги → finance.list_debts / create_debt / pay_debt; кэшфлоу → finance.cash_flow.\n")
+	b.WriteString("- Заметки → note.create / note.list / note.search.\n")
+	b.WriteString("- Календарь → calendar.create / calendar.list_today.\n")
+	b.WriteString("- Проекты → project.create / project.list.\n")
+	b.WriteString("- Вес → health.record_weight / health.latest_weight; контакты → career.contact_*.\n")
 	b.WriteString("- Если неясно, что сделать — type=ask, а не угадывай tool.\n")
 	b.WriteString("- Светская болтовня без действия → type=reply.\n")
 	if language != "" {

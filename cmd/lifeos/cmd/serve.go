@@ -36,6 +36,10 @@ func runServe() error {
 	if err != nil {
 		return err
 	}
+	if err := validateRuntimeConfig(cfg); err != nil {
+		return err
+	}
+	warnSoftConfig(cfg)
 
 	log := logging.New(cfg.LogLevel, cfg.LogFormat)
 	ctx, cancel := context.WithCancel(context.Background())

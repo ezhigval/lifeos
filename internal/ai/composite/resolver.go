@@ -18,12 +18,13 @@ const DefaultFallbackTimeout = 8 * time.Second
 // Production order (wired in cmd/lifeos/cmd/resolver.go):
 //  1. rulebased for known intents (fast, offline)
 //  2. optional LLM only for unknown intents
-//  3. degrade silently when Ollama is down or slow
+//  3. degrade (logged when OnDegrade set) when LLM is down or slow
 type FallbackResolver struct {
-	primary  ai.IntentResolver
-	fallback ai.IntentResolver
-	enabled  func() bool
-	timeout  time.Duration
+	primary   ai.IntentResolver
+	fallback  ai.IntentResolver
+	enabled   func() bool
+	timeout   time.Duration
+	onDegrade func(reason string, err error)
 }
 
 func NewFallbackResolver(primary, fallback ai.IntentResolver, enabled func() bool) *FallbackResolver {
@@ -40,6 +41,12 @@ func (r *FallbackResolver) WithTimeout(d time.Duration) *FallbackResolver {
 	if d > 0 {
 		r.timeout = d
 	}
+	return r
+}
+
+// WithOnDegrade registers a callback when the LLM branch fails or returns unknown.
+func (r *FallbackResolver) WithOnDegrade(fn func(reason string, err error)) *FallbackResolver {
+	r.onDegrade = fn
 	return r
 }
 
@@ -64,9 +71,15 @@ func (r *FallbackResolver) Resolve(ctx context.Context, input ai.ResolveInput) (
 
 	fb, err := r.fallback.Resolve(fbCtx, input)
 	if err != nil {
+		if r.onDegrade != nil {
+			r.onDegrade("llm_error", err)
+		}
 		return got, nil
 	}
 	if fb.Type == ai.IntentUnknown {
+		if r.onDegrade != nil {
+			r.onDegrade("llm_unknown", nil)
+		}
 		return got, nil
 	}
 	return fb, nil

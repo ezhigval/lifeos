@@ -22,7 +22,14 @@ func newAssistant(cfg config.Config, log *slog.Logger) ai.Assistant {
 		return template
 	}
 	llm := newLLMAssistant(cfg, log)
-	return composite.NewFallbackAssistant(llm, template)
+	return composite.NewFallbackAssistant(llm, template).
+		WithOnDegrade(func(reason string, err error) {
+			if err != nil {
+				log.Warn("llm assistant degraded to template", "reason", reason, "error", err)
+				return
+			}
+			log.Warn("llm assistant degraded to template", "reason", reason)
+		})
 }
 
 func newLLMAssistant(cfg config.Config, log *slog.Logger) ai.Assistant {

@@ -18,17 +18,20 @@
 
 Intent-resolver (rulebased→LLM classify) остаётся fallback, если агент выключен или упал.
 
-## Tools (v1)
+## Tools
 
 | Tool | Действие |
 |------|----------|
-| `task.create` | создать задачу |
-| `task.list_today` | список на сегодня |
-| `task.complete` | закрыть по названию |
-| `finance.expense` / `finance.income` | проводки |
-| `reminder.create` | напоминание |
-| `habit.create` / `habit.track` | привычки |
-| `memory.save` / `memory.recall` | личная память |
+| `task.create` / `list_today` / `complete` | задачи |
+| `finance.expense` / `income` / `list_debts` / `create_debt` / `pay_debt` / `cash_flow` | финансы |
+| `reminder.create` / `cancel` | напоминания |
+| `habit.create` / `track` / `list` | привычки |
+| `note.create` / `list` / `search` | заметки |
+| `calendar.create` / `list_today` | календарь |
+| `project.create` / `list` | проекты |
+| `health.record_weight` / `latest_weight` | вес |
+| `career.contact_create` / `contact_list` | контакты |
+| `memory.save` / `recall` | личная память |
 
 Tools дергают **use cases**, не сырой HTTP — тот же путь, что Mini App/API.
 
@@ -76,6 +79,6 @@ Opt-in обучения и memory flags — колонки в `user_settings` (A
 ## Дальше
 
 - `POST /api/v1/assistant/chat` для Mini App
-- больше tools (проекты, календарь, долги)
+- skills / sleep / steps tools; plan.triage
 - nightly job: агрегаты learning → кандидаты в few-shot
 - шифрование `user_memories.value` at rest (envelope key per user)

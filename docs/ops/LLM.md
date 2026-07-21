@@ -1,6 +1,6 @@
 # LLM (опционально)
 
-Rule-based resolver всегда первый. LLM вызывается только для `unknown` интентов и для prose-обзоров. При ошибке/таймауте (~8s) — тихая деградация на rule-based / template.
+Rule-based resolver всегда первый. LLM вызывается только для `unknown` интентов и для prose-обзоров. При ошибке/таймауте (~8s) — деградация на rule-based / template **с логом** `llm … degraded`.
 
 `dispatchIntent` после резолва вызывает use cases — LLM не обходит домен.
 
@@ -17,6 +17,11 @@ LIFEOS_LLM_MODEL=llama-3.3-70b-versatile
 Alias ключа: `LIFEOS_OPENAI_API_KEY` (если `LIFEOS_LLM_API_KEY` пуст).
 
 Провайдер по умолчанию: `openai` (любой OpenAI-compatible endpoint). Локально: `LIFEOS_LLM_PROVIDER=ollama`.
+
+`serve` **fail-closed**:
+- пустой `TELEGRAM_BOT_TOKEN` / `LIFEOS_JWT_SECRET` → ошибка старта (обход: `LIFEOS_ALLOW_NO_TELEGRAM` / `LIFEOS_ALLOW_NO_API`)
+- openai без API key → ошибка старта
+- `scripts/mock_ollama.go` (модель `lifeos_mock` в `/api/tags`) → ошибка, пока нет `LIFEOS_ALLOW_MOCK_LLM=true`
 
 ---
 
@@ -75,6 +80,19 @@ LIFEOS_OLLAMA_MODEL=llama3.2
 
 Compose по умолчанию Ollama не поднимает.
 
+### Dev stub (только локально)
+
+Если реальный Ollama/llama.cpp падает на inference:
+
+```bash
+go run ./scripts/mock_ollama.go
+# + в .env:
+LIFEOS_ALLOW_MOCK_LLM=true
+LIFEOS_LLM_PROVIDER=ollama
+```
+
+Без `LIFEOS_ALLOW_MOCK_LLM` `serve` откажется стартовать при обнаружении `lifeos_mock`.
+
 ---
 
 ## Поток
@@ -83,7 +101,7 @@ Compose по умолчанию Ollama не поднимает.
 текст → rulebased → known? → dispatchIntent (use cases)
                    → unknown + LLM on? → openaiapi/ollama → known? → dispatchIntent
                                                               → unknown → UX «не понял»
-обзор → LLM (sanitize <b>) → template fallback
+обзор → LLM (sanitize <b>) → template fallback (logged)
 ```
 
 ## Диалоговый агент

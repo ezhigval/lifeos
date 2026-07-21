@@ -15,9 +15,10 @@ const DefaultAssistantTimeout = 15 * time.Second
 // FallbackAssistant prefers the LLM primary when enabled; on error, empty,
 // unsafe, or timeout it degrades to the template assistant.
 type FallbackAssistant struct {
-	primary  ai.Assistant
-	fallback ai.Assistant
-	timeout  time.Duration
+	primary   ai.Assistant
+	fallback  ai.Assistant
+	timeout   time.Duration
+	onDegrade func(reason string, err error)
 }
 
 func NewFallbackAssistant(primary, fallback ai.Assistant) *FallbackAssistant {
@@ -36,6 +37,12 @@ func (a *FallbackAssistant) WithTimeout(d time.Duration) *FallbackAssistant {
 	return a
 }
 
+// WithOnDegrade registers a callback when the LLM summarizer is skipped.
+func (a *FallbackAssistant) WithOnDegrade(fn func(reason string, err error)) *FallbackAssistant {
+	a.onDegrade = fn
+	return a
+}
+
 func (a *FallbackAssistant) Summarize(ctx context.Context, req ai.SummaryRequest) (string, error) {
 	if a.primary != nil {
 		pctx := ctx
@@ -50,6 +57,11 @@ func (a *FallbackAssistant) Summarize(ctx context.Context, req ai.SummaryRequest
 			if strings.TrimSpace(safe) != "" {
 				return safe, nil
 			}
+			if a.onDegrade != nil {
+				a.onDegrade("empty_or_unsafe", nil)
+			}
+		} else if a.onDegrade != nil {
+			a.onDegrade("llm_error", err)
 		}
 	}
 	if a.fallback == nil {

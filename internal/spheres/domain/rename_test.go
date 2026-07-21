@@ -18,10 +18,10 @@ func TestSphereRename(t *testing.T) {
 	}
 
 	later := now.Add(time.Hour)
-	if err := s.Rename("  Карьера GO  ", 3, later); err != nil {
+	if err := s.Rename("  Карьера Senior  ", 3, later); err != nil {
 		t.Fatal(err)
 	}
-	if s.Name != "Карьера GO" || s.SortOrder != 3 {
+	if s.Name != "Карьера Senior" || s.SortOrder != 3 {
 		t.Fatalf("sphere = %+v", s)
 	}
 	if !s.UpdatedAt.Equal(later.UTC()) {
@@ -35,12 +35,13 @@ func TestSphereRename(t *testing.T) {
 
 func TestDefaultSphereNames(t *testing.T) {
 	t.Parallel()
-	if len(domain.DefaultSphereNames) == 0 {
-		t.Fatal("expected default sphere names")
+	want := []string{"Деньги", "Карьера", "Здоровье", "Дом и быт", "Хобби и отдых"}
+	if len(domain.DefaultSphereNames) != len(want) {
+		t.Fatalf("len=%d want %d (%v)", len(domain.DefaultSphereNames), len(want), domain.DefaultSphereNames)
 	}
-	for _, name := range domain.DefaultSphereNames {
-		if name == "" {
-			t.Fatal("empty default name")
+	for i, name := range domain.DefaultSphereNames {
+		if name != want[i] {
+			t.Fatalf("[%d]=%q want %q", i, name, want[i])
 		}
 	}
 }

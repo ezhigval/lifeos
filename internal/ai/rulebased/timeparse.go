@@ -28,6 +28,17 @@ func ParseFireAt(now time.Time, timezone, hint string) time.Time {
 	}
 }
 
+// EnsureFutureFireAt rolls a parsed local wall-clock time forward by 24h until it is
+// strictly after now (e.g. "утром" said in the afternoon → tomorrow 09:00).
+func EnsureFutureFireAt(fireAt, now time.Time) time.Time {
+	fireAt = fireAt.UTC()
+	now = now.UTC()
+	for !fireAt.After(now) {
+		fireAt = fireAt.Add(24 * time.Hour)
+	}
+	return fireAt
+}
+
 func ParseAvailableUntil(hour, minute int, timezone string, now time.Time) time.Time {
 	loc, _ := time.LoadLocation(timezone)
 	local := now.In(loc)

@@ -15,14 +15,21 @@ import (
 //  1. rule-based (always) for known intents — fast, offline
 //  2. optional LLM only when LIFEOS_LLM_ENABLED and primary returns unknown
 //
-// LLM down/timeouts degrade to unknown without failing the request.
+// LLM down/timeouts degrade to unknown without failing the request (logged).
 func newIntentResolver(cfg config.Config, log *slog.Logger) ai.IntentResolver {
 	primary := rulebased.NewResolver()
 	if !cfg.LLMEnabled {
 		return primary
 	}
 	llm := newLLMResolver(cfg, log)
-	return composite.NewFallbackResolver(primary, llm, func() bool { return true })
+	return composite.NewFallbackResolver(primary, llm, func() bool { return true }).
+		WithOnDegrade(func(reason string, err error) {
+			if err != nil {
+				log.Warn("llm intent degraded", "reason", reason, "error", err)
+				return
+			}
+			log.Warn("llm intent degraded", "reason", reason)
+		})
 }
 
 func newLLMResolver(cfg config.Config, log *slog.Logger) ai.IntentResolver {

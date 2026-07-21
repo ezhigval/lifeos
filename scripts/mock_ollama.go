@@ -14,7 +14,10 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/tags", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"models": []map[string]string{{"name": "llama3.2:1b", "model": "llama3.2:1b"}},
+			"models": []map[string]string{
+				{"name": "lifeos_mock", "model": "lifeos_mock"},
+				{"name": "llama3.2:1b", "model": "llama3.2:1b"},
+			},
 		})
 	})
 	mux.HandleFunc("/api/chat", func(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +188,7 @@ func extractTaskTitle(msg, u string) string {
 func isPlaceholderTitle(s string) bool {
 	s = strings.ToLower(strings.TrimSpace(s))
 	switch s {
-	case "", "разобрать входящие", "разобрать почту", "задача", "todo", "new task":
+	case "", "разобрать входящие", "разобрать почту", "задача", "todo", "new task", "новая задача":
 		return true
 	default:
 		return false
