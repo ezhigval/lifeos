@@ -284,19 +284,19 @@ func timeUntil(exp time.Time) int {
 }
 
 type taskJSON struct {
-	ID              string  `json:"id"`
-	Title           string  `json:"title"`
-	Description     *string `json:"description,omitempty"`
-	Status          string  `json:"status"`
-	Priority        string  `json:"priority"`
-	Kind            string  `json:"kind"`
-	Address         *string `json:"address,omitempty"`
-	NoteID          *string `json:"note_id,omitempty"`
-	DueDate         *string `json:"due_date,omitempty"`
-	DurationMinutes *int    `json:"duration_minutes,omitempty"`
+	ID              string   `json:"id"`
+	Title           string   `json:"title"`
+	Description     *string  `json:"description,omitempty"`
+	Status          string   `json:"status"`
+	Priority        string   `json:"priority"`
+	Kind            string   `json:"kind"`
+	Address         *string  `json:"address,omitempty"`
+	NoteID          *string  `json:"note_id,omitempty"`
+	DueDate         *string  `json:"due_date,omitempty"`
+	DurationMinutes *int     `json:"duration_minutes,omitempty"`
 	Tags            []string `json:"tags,omitempty"`
 	ProjectIDs      []string `json:"project_ids,omitempty"`
-	CreatedAt       string  `json:"created_at"`
+	CreatedAt       string   `json:"created_at"`
 }
 
 func taskToJSON(dto tasksapp.TaskDTO) taskJSON {
@@ -504,21 +504,21 @@ func (rt *Router) listTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 type editTaskRequest struct {
-	Title            *string         `json:"title"`
-	Description      nullableString  `json:"description"`
-	ClearDescription bool            `json:"clear_description"`
-	Priority         *string         `json:"priority"`
-	DueDate          nullableString  `json:"due_date"`
-	ClearDueDate     bool            `json:"clear_due_date"`
-	DurationMinutes  *int            `json:"duration_minutes"`
-	ClearDuration    bool            `json:"clear_duration"`
-	Tags             *[]string       `json:"tags"`
-	Kind             *string         `json:"kind"`
-	Address          nullableString  `json:"address"`
-	ClearAddress     bool            `json:"clear_address"`
-	NoteID           nullableString  `json:"note_id"`
-	ClearNoteID      bool            `json:"clear_note_id"`
-	ProjectIDs       *[]string       `json:"project_ids"`
+	Title            *string        `json:"title"`
+	Description      nullableString `json:"description"`
+	ClearDescription bool           `json:"clear_description"`
+	Priority         *string        `json:"priority"`
+	DueDate          nullableString `json:"due_date"`
+	ClearDueDate     bool           `json:"clear_due_date"`
+	DurationMinutes  *int           `json:"duration_minutes"`
+	ClearDuration    bool           `json:"clear_duration"`
+	Tags             *[]string      `json:"tags"`
+	Kind             *string        `json:"kind"`
+	Address          nullableString `json:"address"`
+	ClearAddress     bool           `json:"clear_address"`
+	NoteID           nullableString `json:"note_id"`
+	ClearNoteID      bool           `json:"clear_note_id"`
+	ProjectIDs       *[]string      `json:"project_ids"`
 }
 
 func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
@@ -822,7 +822,7 @@ func (rt *Router) analyticsSummary(w http.ResponseWriter, r *http.Request) {
 		"period_label":      summary.PeriodLabel,
 		"tasks_created":     summary.TasksCreated,
 		"tasks_completed":   summary.TasksCompleted,
-		"completion_rate":   summary.CompletionRate,   // int 0–100
+		"completion_rate":   summary.CompletionRate, // int 0–100
 		"open_tasks":        summary.OpenTasks,
 		"habit_consistency": summary.HabitConsistency, // int 0–100
 		"habit_completions": summary.HabitCompletions,

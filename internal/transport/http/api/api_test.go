@@ -1208,11 +1208,11 @@ func TestTaskLifecycleEditClearArchiveDelete(t *testing.T) {
 		t.Fatalf("create status=%d body=%s", createRec.Code, createRec.Body.String())
 	}
 	var created struct {
-		ID          string  `json:"id"`
-		Title       string  `json:"title"`
-		Description *string `json:"description"`
+		ID          string   `json:"id"`
+		Title       string   `json:"title"`
+		Description *string  `json:"description"`
 		Tags        []string `json:"tags"`
-		DueDate     *string `json:"due_date"`
+		DueDate     *string  `json:"due_date"`
 	}
 	if err := json.Unmarshal(createRec.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
@@ -1318,16 +1318,9 @@ func TestJWTRejectsWrongUserScope(t *testing.T) {
 	rec := doJSON(t, env.router, http.MethodGet, "/api/v1/tasks/today",
 		map[string]string{"Authorization": "Bearer " + foreignToken}, nil,
 	)
-	if rec.Code != http.StatusOK {
-		// foreign user simply sees empty list — isolation by user_id in use case
-		t.Fatalf("status=%d", rec.Code)
-	}
-	var listed struct {
-		Tasks []any `json:"tasks"`
-	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &listed)
-	if len(listed.Tasks) != 0 {
-		t.Fatalf("foreign user should see empty tasks, got %+v", listed.Tasks)
+	// JWT for a non-existent user must not authenticate (user wiped / forged id).
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d want %d", rec.Code, http.StatusUnauthorized)
 	}
 	_ = env.user
 }
@@ -1740,11 +1733,11 @@ func TestFinanceOverviewHTTP(t *testing.T) {
 		t.Fatalf("status=%d body=%s", okRec.Code, okRec.Body.String())
 	}
 	var body struct {
-		PeriodLabel  string  `json:"period_label"`
-		IncomeCents  int64   `json:"income_cents"`
-		ExpenseCents int64   `json:"expense_cents"`
-		NetCents     int64   `json:"net_cents"`
-		Currency     string  `json:"currency"`
+		PeriodLabel  string `json:"period_label"`
+		IncomeCents  int64  `json:"income_cents"`
+		ExpenseCents int64  `json:"expense_cents"`
+		NetCents     int64  `json:"net_cents"`
+		Currency     string `json:"currency"`
 		Categories   []struct {
 			Name        string  `json:"name"`
 			AmountCents int64   `json:"amount_cents"`

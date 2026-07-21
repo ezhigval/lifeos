@@ -9,10 +9,10 @@ import (
 )
 
 var (
-	ErrEmptyPlanTitle   = errors.New("title is required")
-	ErrInvalidPlanKind  = errors.New("invalid planned cashflow kind")
-	ErrInvalidInterval  = errors.New("invalid planned cashflow interval")
-	ErrPlanNotFound     = errors.New("planned cashflow not found")
+	ErrEmptyPlanTitle  = errors.New("title is required")
+	ErrInvalidPlanKind = errors.New("invalid planned cashflow kind")
+	ErrInvalidInterval = errors.New("invalid planned cashflow interval")
+	ErrPlanNotFound    = errors.New("planned cashflow not found")
 )
 
 type PlanKind string
@@ -98,9 +98,9 @@ func (p *PlannedCashflow) AdvanceOccurrence(now time.Time) (shouldDelete bool) {
 	case PlanIntervalOnce:
 		return true
 	case PlanIntervalWeekly:
-		p.NextDate = p.NextDate.UTC().Truncate(24 * time.Hour).AddDate(0, 0, 7)
+		p.NextDate = p.NextDate.UTC().Truncate(24*time.Hour).AddDate(0, 0, 7)
 	case PlanIntervalMonthly:
-		p.NextDate = p.NextDate.UTC().Truncate(24 * time.Hour).AddDate(0, 1, 0)
+		p.NextDate = p.NextDate.UTC().Truncate(24*time.Hour).AddDate(0, 1, 0)
 	default:
 		return false
 	}

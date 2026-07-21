@@ -267,3 +267,106 @@ func TestEditClearsDescriptionAndDue(t *testing.T) {
 		t.Fatalf("expected cleared fields: %+v", task)
 	}
 }
+
+func TestKindOrDefaultAndReopen(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 7, 21, 12, 0, 0, 0, time.UTC)
+	task, err := domain.NewTask(ids.NewUserID(), "x", domain.PriorityMedium, nil, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.KindOrDefault() != domain.KindTask {
+		t.Fatalf("default kind=%s", task.KindOrDefault())
+	}
+	task.Kind = domain.KindReminder
+	if task.KindOrDefault() != domain.KindReminder {
+		t.Fatalf("kind=%s", task.KindOrDefault())
+	}
+	if err := task.Reopen(now); err == nil {
+		t.Fatal("reopen todo should fail")
+	}
+	if err := task.Complete(now); err != nil {
+		t.Fatal(err)
+	}
+	if err := task.Reopen(now); err != nil {
+		t.Fatal(err)
+	}
+	if task.Status != domain.StatusTodo || task.CompletedAt != nil {
+		t.Fatalf("reopened=%+v", task)
+	}
+}
+
+func TestEditFieldBranchesAndKindDefault(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 7, 21, 12, 0, 0, 0, time.UTC)
+	task, err := domain.NewTask(ids.NewUserID(), "edit me", domain.PriorityMedium, nil, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	task.Kind = ""
+	if task.KindOrDefault() != domain.KindTask {
+		t.Fatalf("empty kind default=%s", task.KindOrDefault())
+	}
+	if !domain.KindMeeting.Valid() || domain.Kind("nope").Valid() {
+		t.Fatal("kind valid")
+	}
+	if !domain.StatusTodo.Valid() || domain.Status("x").Valid() {
+		t.Fatal("status valid")
+	}
+
+	empty := ""
+	if err := task.Edit(domain.EditFields{Title: &empty}, now); err != domain.ErrEmptyTitle {
+		t.Fatalf("empty title err=%v", err)
+	}
+	badPrio := domain.Priority("nope")
+	if err := task.Edit(domain.EditFields{Priority: &badPrio}, now); err != domain.ErrInvalidPriority {
+		t.Fatalf("bad prio err=%v", err)
+	}
+	badDur := 0
+	if err := task.Edit(domain.EditFields{DurationMinutes: &badDur}, now); err != domain.ErrInvalidDuration {
+		t.Fatalf("bad dur err=%v", err)
+	}
+	badKind := domain.Kind("nope")
+	if err := task.Edit(domain.EditFields{Kind: &badKind}, now); err != domain.ErrInvalidKind {
+		t.Fatalf("bad kind err=%v", err)
+	}
+
+	title := "ok"
+	desc := "d"
+	prio := domain.PriorityHigh
+	due := time.Date(2026, 8, 1, 15, 0, 0, 0, time.UTC)
+	dur := 30
+	tags := []string{"a", "b"}
+	kind := domain.KindReminder
+	addr := "  Neva  "
+	note := ids.NewNoteID()
+	if err := task.Edit(domain.EditFields{
+		Title: &title, Description: &desc, Priority: &prio, DueDate: &due,
+		DurationMinutes: &dur, Tags: &tags, Kind: &kind, Address: &addr, NoteID: &note,
+	}, now); err != nil {
+		t.Fatal(err)
+	}
+	if task.Title != "ok" || task.Kind != domain.KindReminder || task.Address == nil || *task.Address != "Neva" {
+		t.Fatalf("edited=%+v", task)
+	}
+	blankAddr := "   "
+	if err := task.Edit(domain.EditFields{
+		ClearDescription: true, ClearDueDate: true, ClearDuration: true,
+		ClearAddress: true, ClearNoteID: true, Address: &blankAddr,
+	}, now); err != nil {
+		t.Fatal(err)
+	}
+	// ClearAddress wins over Address in separate calls; after clear, set blank should nil
+	if err := task.Edit(domain.EditFields{Address: &blankAddr}, now); err != nil {
+		t.Fatal(err)
+	}
+	if task.Description != nil || task.DueDate != nil || task.DurationMinutes != nil || task.NoteID != nil || task.Address != nil {
+		t.Fatalf("cleared=%+v", task)
+	}
+	if err := task.Complete(now); err != nil {
+		t.Fatal(err)
+	}
+	if err := task.Edit(domain.EditFields{Title: &title}, now); err != domain.ErrCannotEditTerminal {
+		t.Fatalf("terminal edit err=%v", err)
+	}
+}

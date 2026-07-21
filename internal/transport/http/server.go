@@ -32,7 +32,9 @@ func New(log *slog.Logger, addr string, db *postgres.Pool, traceHTTP bool, apiRo
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.RealIP)
+	// RealIP is deprecated (spoofable X-Forwarded-For) but LifeOS sits behind a
+	// trusted reverse proxy (Caddy/Fly) that sets the leftmost hop correctly.
+	r.Use(middleware.RealIP) //nolint:staticcheck // SA1019: trusted proxy edge
 	if traceHTTP {
 		r.Use(func(next http.Handler) http.Handler {
 			return otelhttp.NewHandler(next, "lifeos.http")

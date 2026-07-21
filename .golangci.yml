@@ -1,21 +1,43 @@
+version: "2"
+
 run:
-  timeout: 5m
   tests: true
-  skip-dirs:
-    - internal/platform/db
 
 linters:
+  default: standard
   enable:
-    - errcheck
-    - govet
-    - staticcheck
-    - ineffassign
-    - unused
     - misspell
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - internal/platform/db
+      - scripts$
+    rules:
+      # Intentionally ignored closes (defer cleanup / best-effort).
+      - path: (.+)\.go$
+        text: "Error return value of `(.+)\\.Close` is not checked"
+        linters:
+          - errcheck
+      - path: (.+)\.go$
+        text: "Error return value of `(.+)\\.Rollback` is not checked"
+        linters:
+          - errcheck
+
+formatters:
+  enable:
     - gofmt
     - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - internal/platform/db
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0

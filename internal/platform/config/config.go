@@ -120,28 +120,6 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
-func parseInt64List(raw string) ([]int64, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil, nil
-	}
-
-	parts := strings.Split(raw, ",")
-	out := make([]int64, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		n, err := strconv.ParseInt(part, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid id %q: %w", part, err)
-		}
-		out = append(out, n)
-	}
-	return out, nil
-}
-
 func parseInt64Default(raw string, fallback int64) (int64, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

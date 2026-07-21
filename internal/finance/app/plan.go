@@ -32,10 +32,10 @@ type PlanItemDTO struct {
 }
 
 type FinancePlanDTO struct {
-	Items           []PlanItemDTO
-	PlannedIncome   int64
-	PlannedExpense  int64
-	Currency        string
+	Items          []PlanItemDTO
+	PlannedIncome  int64
+	PlannedExpense int64
+	Currency       string
 }
 
 type CreatePlannedCashflow struct {
@@ -205,11 +205,11 @@ func NewCompletePlanOccurrence(
 }
 
 type CompletePlanResult struct {
-	Deleted      bool
-	Item         *PlanItemDTO
-	Posted       bool
-	PostedCents  int64
-	PostedKind   string // income|expense
+	Deleted     bool
+	Item        *PlanItemDTO
+	Posted      bool
+	PostedCents int64
+	PostedKind  string // income|expense
 }
 
 func (uc *CompletePlanOccurrence) Execute(ctx context.Context, userID ids.UserID, id ids.PlannedCashflowID, source events.Source) (CompletePlanResult, error) {

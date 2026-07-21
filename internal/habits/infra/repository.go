@@ -65,7 +65,7 @@ func (r *Repository) FindByName(ctx context.Context, userID ids.UserID, name str
 
 func (r *Repository) ListWithToday(ctx context.Context, userID ids.UserID, today time.Time) ([]app.HabitDayRow, error) {
 	rows, err := r.queries(ctx).ListHabitsWithTodayLog(ctx, db.ListHabitsWithTodayLogParams{
-		UserID: pgconv.UserID(userID),
+		UserID:  pgconv.UserID(userID),
 		LogDate: pgconv.Date(today),
 	})
 	if err != nil {

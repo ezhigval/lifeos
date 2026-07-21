@@ -9,22 +9,22 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
-	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
-	projectsdomain "github.com/valentinezhov/lifeos/internal/projects/domain"
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
+	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
+	projectsdomain "github.com/valentinezhov/lifeos/internal/projects/domain"
 )
 
 type projectJSON struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	Outcome     string   `json:"outcome,omitempty"`
-	Status      string   `json:"status"`
-	TargetValue *string  `json:"target_value,omitempty"`
-	CurrentValue string  `json:"current_value,omitempty"`
-	Unit        string   `json:"unit,omitempty"`
-	TargetDate  *string  `json:"target_date,omitempty"`
-	SphereIDs   []string `json:"sphere_ids"`
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Outcome      string   `json:"outcome,omitempty"`
+	Status       string   `json:"status"`
+	TargetValue  *string  `json:"target_value,omitempty"`
+	CurrentValue string   `json:"current_value,omitempty"`
+	Unit         string   `json:"unit,omitempty"`
+	TargetDate   *string  `json:"target_date,omitempty"`
+	SphereIDs    []string `json:"sphere_ids"`
 }
 
 func projectToJSON(dto projectsapp.ProjectDTO) projectJSON {

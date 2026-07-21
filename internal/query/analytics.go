@@ -22,15 +22,15 @@ type ProjectKPI struct {
 }
 
 type ProductivitySummary struct {
-	PeriodLabel        string
-	TasksCreated       int64
-	TasksCompleted     int64
-	CompletionRate     int
-	OpenTasks          int64
-	HabitConsistency   int
-	HabitCompletions   int64
-	HabitCount         int64
-	Projects           []ProjectKPI
+	PeriodLabel      string
+	TasksCreated     int64
+	TasksCompleted   int64
+	CompletionRate   int
+	OpenTasks        int64
+	HabitConsistency int
+	HabitCompletions int64
+	HabitCount       int64
+	Projects         []ProjectKPI
 }
 
 type GetProductivitySummary struct {
@@ -75,8 +75,8 @@ func (q *GetProductivitySummary) forPeriod(ctx context.Context, userID ids.UserI
 	endDate := dateInLoc(end, loc)
 
 	created, err := dbq.CountTasksCreatedBetween(ctx, db.CountTasksCreatedBetweenParams{
-		UserID:    uid,
-		CreatedAt: pgconv.TimestamptzValue(start),
+		UserID:      uid,
+		CreatedAt:   pgconv.TimestamptzValue(start),
 		CreatedAt_2: pgconv.TimestamptzValue(end),
 	})
 	if err != nil {

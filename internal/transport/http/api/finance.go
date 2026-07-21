@@ -495,10 +495,10 @@ func (rt *Router) completePlannedCashflow(w http.ResponseWriter, r *http.Request
 	}
 	if res.Deleted {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"deleted":       true,
-			"posted":        res.Posted,
-			"posted_cents":  res.PostedCents,
-			"posted_kind":   res.PostedKind,
+			"deleted":      true,
+			"posted":       res.Posted,
+			"posted_cents": res.PostedCents,
+			"posted_kind":  res.PostedKind,
 		})
 		return
 	}

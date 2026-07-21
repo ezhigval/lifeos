@@ -9,14 +9,14 @@ import (
 var ErrInvalidReviewTime = errors.New("review time is required")
 
 type UserSettings struct {
-	UserID           ids.UserID
-	MorningReviewAt  TimeOfDay
-	EveningReviewAt  TimeOfDay
-	WeeklyReviewAt   TimeOfDay
-	MonthlyReviewAt  TimeOfDay
-	QuietHoursStart  *TimeOfDay
-	QuietHoursEnd    *TimeOfDay
-	Language         string
+	UserID          ids.UserID
+	MorningReviewAt TimeOfDay
+	EveningReviewAt TimeOfDay
+	WeeklyReviewAt  TimeOfDay
+	MonthlyReviewAt TimeOfDay
+	QuietHoursStart *TimeOfDay
+	QuietHoursEnd   *TimeOfDay
+	Language        string
 }
 
 // TimeOfDay represents HH:MM in user's local context.
