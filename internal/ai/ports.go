@@ -31,6 +31,8 @@ const (
 	IntentFinanceCashFlow     IntentType = "finance.cash_flow"
 	IntentFinanceCreateDebt   IntentType = "finance.create_debt"
 	IntentFinancePayDebt      IntentType = "finance.pay_debt"
+	IntentFinanceListPlan     IntentType = "finance.list_plan"
+	IntentFinanceCreatePlan   IntentType = "finance.create_planned"
 	IntentHabitCreate         IntentType = "habit.create"
 	IntentHabitTrack          IntentType = "habit.track"
 	IntentHabitList           IntentType = "habit.list"

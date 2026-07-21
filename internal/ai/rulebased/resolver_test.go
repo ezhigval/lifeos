@@ -31,6 +31,8 @@ func TestResolverIntents(t *testing.T) {
 		{"перенеси задачи", ai.IntentTaskReschedule},
 		{"привет", ai.IntentUnknown},
 		{"заплатил 10 тысяч банку", ai.IntentFinancePayDebt},
+		{"финансовый план", ai.IntentFinanceListPlan},
+		{"запланируй расход 15 тысяч аренда", ai.IntentFinanceCreatePlan},
 		{"архивируй проект свадьба", ai.IntentProjectArchive},
 		{"запиши заметку идея для Jarvis", ai.IntentNoteCreate},
 		{"мои заметки", ai.IntentNoteList},
@@ -57,5 +59,26 @@ func TestResolverIntents(t *testing.T) {
 		if got.Type != tc.want {
 			t.Fatalf("Resolve(%q) = %s, want %s", tc.in, got.Type, tc.want)
 		}
+	}
+}
+
+func TestResolverFinanceCreatePlanFields(t *testing.T) {
+	t.Parallel()
+	r := rulebased.NewResolver()
+	got, err := r.Resolve(context.Background(), ai.ResolveInput{Text: "запланируй расход 15 тысяч аренда"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Type != ai.IntentFinanceCreatePlan {
+		t.Fatalf("type=%s", got.Type)
+	}
+	if got.Unit != "expense" {
+		t.Fatalf("unit=%q want expense", got.Unit)
+	}
+	if got.AmountCents != 1_500_000 {
+		t.Fatalf("amount=%d", got.AmountCents)
+	}
+	if got.Title != "аренда" {
+		t.Fatalf("title=%q", got.Title)
 	}
 }

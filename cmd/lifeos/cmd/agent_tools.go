@@ -22,7 +22,10 @@ import (
 	notifapp "github.com/valentinezhov/lifeos/internal/notifications/app"
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
+	"github.com/valentinezhov/lifeos/internal/platform/timeutil"
+	planapp "github.com/valentinezhov/lifeos/internal/planning/app"
 	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
+	"github.com/valentinezhov/lifeos/internal/query"
 	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
 	spheresdomain "github.com/valentinezhov/lifeos/internal/spheres/domain"
 	tasksapp "github.com/valentinezhov/lifeos/internal/tasks/app"
@@ -31,37 +34,53 @@ import (
 
 // toolDeps is the subset of runtime use cases exposed to the conversational agent.
 type toolDeps struct {
-	createTask     *tasksapp.CreateTask
-	listToday      *tasksapp.ListTasksToday
-	completeTitle  *tasksapp.CompleteTaskByTitle
-	recordExpense  *financeapp.RecordExpense
-	recordIncome   *financeapp.RecordIncome
-	listDebts      *financeapp.ListDebts
-	createDebt     *financeapp.CreateDebt
-	payDebt        *financeapp.PayDebt
-	cashFlow       *financeapp.CashFlowSummary
-	reminder       *notifapp.ScheduleReminder
-	listReminders  *notifapp.ListReminders
-	cancelReminder *notifapp.CancelReminder
-	createHabit    *habitsapp.CreateHabit
-	trackHabit     *habitsapp.TrackHabit
-	listHabits     *habitsapp.ListHabitsToday
-	createNote     *knowledgeapp.CreateNote
-	listNotes      *knowledgeapp.ListNotes
-	searchNotes    *knowledgeapp.SearchNotes
-	createEvent    *calendarapp.CreateEvent
-	listCalendar   *calendarapp.ListEventsToday
-	createProject  *projectsapp.CreateProject
-	listProjects   *projectsapp.ListProjects
-	listSpheres    *spheresapp.ListSpheres
-	findSphere     *spheresapp.FindSphereByName
-	recordWeight   *healthapp.RecordWeight
-	latestWeight   *healthapp.GetLatestWeight
-	createContact  *careerapp.CreateContact
-	listContacts   *careerapp.ListContacts
-	upsertMemory   *memoryapp.UpsertMemory
-	recallMemory   *memoryapp.Recall
-	tzReader       interface {
+	createTask       *tasksapp.CreateTask
+	listToday        *tasksapp.ListTasksToday
+	completeTitle    *tasksapp.CompleteTaskByTitle
+	cancelTitle      *tasksapp.CancelTaskByTitle
+	rescheduleTitle  *tasksapp.RescheduleTaskByTitle
+	rescheduleAll    *planapp.RescheduleTasks
+	setAvail         *planapp.SetDayAvailability
+	triage           *planapp.TriageOverloadedDay
+	recordExpense    *financeapp.RecordExpense
+	recordIncome     *financeapp.RecordIncome
+	listDebts        *financeapp.ListDebts
+	createDebt       *financeapp.CreateDebt
+	payDebt          *financeapp.PayDebt
+	cashFlow         *financeapp.CashFlowSummary
+	listFinancePlan  *financeapp.ListFinancePlan
+	createPlanned    *financeapp.CreatePlannedCashflow
+	reminder         *notifapp.ScheduleReminder
+	listReminders    *notifapp.ListReminders
+	cancelReminder   *notifapp.CancelReminder
+	createHabit      *habitsapp.CreateHabit
+	trackHabit       *habitsapp.TrackHabit
+	listHabits       *habitsapp.ListHabitsToday
+	createNote       *knowledgeapp.CreateNote
+	listNotes        *knowledgeapp.ListNotes
+	searchNotes      *knowledgeapp.SearchNotes
+	createEvent      *calendarapp.CreateEvent
+	listCalendar     *calendarapp.ListEventsToday
+	createProject    *projectsapp.CreateProject
+	listProjects     *projectsapp.ListProjects
+	listSpheres      *spheresapp.ListSpheres
+	findSphere       *spheresapp.FindSphereByName
+	createSphere     *spheresapp.CreateSphere
+	recordWeight     *healthapp.RecordWeight
+	latestWeight     *healthapp.GetLatestWeight
+	recordSteps      *healthapp.RecordSteps
+	latestSteps      *healthapp.GetLatestSteps
+	recordSleep      *healthapp.RecordSleep
+	latestSleep      *healthapp.GetLatestSleep
+	createContact    *careerapp.CreateContact
+	listContacts     *careerapp.ListContacts
+	createSkill      *careerapp.CreateSkill
+	listSkills       *careerapp.ListSkills
+	priorities       *query.GetTopPriorities
+	analytics        *query.GetProductivitySummary
+	upsertMemory     *memoryapp.UpsertMemory
+	recallMemory     *memoryapp.Recall
+	tzReader         interface {
 		Timezone(ctx context.Context, userID ids.UserID) (string, error)
 	}
 }
@@ -79,7 +98,16 @@ func registerAgentTools(reg *agent.Registry, d toolDeps) {
 			if p := argString(args, "priority"); p != "" {
 				prio = taskdomain.Priority(p)
 			}
-			today := time.Now().UTC().Truncate(24 * time.Hour)
+			tz := "UTC"
+			if d.tzReader != nil {
+				if t, err := d.tzReader.Timezone(ctx, userID); err == nil && t != "" {
+					tz = t
+				}
+			}
+			today, err := timeutil.DateInTimezone(time.Now().UTC(), tz)
+			if err != nil {
+				return "", err
+			}
 			dto, err := d.createTask.Execute(ctx, tasksapp.CreateTaskInput{
 				UserID: userID, Title: title, Priority: prio, DueDate: &today, Source: events.SourceTelegram,
 			})
@@ -667,6 +695,8 @@ func registerAgentTools(reg *agent.Registry, d toolDeps) {
 			}
 			return b.String(), nil
 		})
+
+	registerExtraAgentTools(reg, d)
 }
 
 func resolveToolSphereIDs(ctx context.Context, d toolDeps, userID ids.UserID, sphereName string) ([]ids.SphereID, error) {

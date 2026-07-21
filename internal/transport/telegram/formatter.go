@@ -269,6 +269,37 @@ func FormatCashFlow(summary financeapp.CashFlowDTO) string {
 	)
 }
 
+func FormatFinancePlan(plan financeapp.FinancePlanDTO) string {
+	cur := plan.Currency
+	if cur == "" {
+		cur = "RUB"
+	}
+	if len(plan.Items) == 0 {
+		return "📋 Финансовый план пуст.\nДобавь: «запланируй расход 15 тысяч аренда»"
+	}
+	income := financedomain.FormatMoney(financedomain.Money{AmountCents: plan.PlannedIncome, Currency: cur})
+	expense := financedomain.FormatMoney(financedomain.Money{AmountCents: plan.PlannedExpense, Currency: cur})
+	var b strings.Builder
+	fmt.Fprintf(&b, "📋 <b>Финансовый план</b>\nПлановый доход: <b>%s</b>\nПлановый расход: <b>%s</b>\n", income, expense)
+	for _, item := range plan.Items {
+		amt := financedomain.FormatMoney(financedomain.Money{AmountCents: item.AmountCents, Currency: cur})
+		fmt.Fprintf(&b, "• [%s] %s — <b>%s</b> (%s, %s)\n",
+			html.EscapeString(item.Kind), html.EscapeString(item.Title), amt,
+			html.EscapeString(item.Interval), html.EscapeString(item.NextDate))
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func FormatPlannedCreated(dto financeapp.PlanItemDTO) string {
+	cur := dto.Currency
+	if cur == "" {
+		cur = "RUB"
+	}
+	amt := financedomain.FormatMoney(financedomain.Money{AmountCents: dto.AmountCents, Currency: cur})
+	return fmt.Sprintf("📋 В план: <b>%s</b> %s — <b>%s</b> (%s)",
+		html.EscapeString(dto.Kind), html.EscapeString(dto.Title), amt, html.EscapeString(dto.Interval))
+}
+
 func FormatHabitCreated(dto habitsapp.HabitDTO) string {
 	return fmt.Sprintf("🔄 Привычка добавлена: <b>%s</b>", html.EscapeString(dto.Name))
 }

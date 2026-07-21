@@ -68,6 +68,8 @@ type MessageHandler struct {
 	payDebt           *financeapp.PayDebt
 	listDebts         *financeapp.ListDebts
 	cashFlow          *financeapp.CashFlowSummary
+	listFinancePlan   *financeapp.ListFinancePlan
+	createPlanned     *financeapp.CreatePlannedCashflow
 	createHabit       *habitsapp.CreateHabit
 	trackHabit        *habitsapp.TrackHabit
 	listHabits        *habitsapp.ListHabitsToday
@@ -144,6 +146,8 @@ type Deps struct {
 	PayDebt           *financeapp.PayDebt
 	ListDebts         *financeapp.ListDebts
 	CashFlow          *financeapp.CashFlowSummary
+	ListFinancePlan   *financeapp.ListFinancePlan
+	CreatePlanned     *financeapp.CreatePlannedCashflow
 	CreateHabit       *habitsapp.CreateHabit
 	TrackHabit        *habitsapp.TrackHabit
 	ListHabits        *habitsapp.ListHabitsToday
@@ -207,6 +211,7 @@ func NewHandler(d Deps) *MessageHandler {
 		triage: d.Triage, reschedule: d.Reschedule,
 		recordIncome: d.RecordIncome, recordExpense: d.RecordExpense,
 		createDebt: d.CreateDebt, payDebt: d.PayDebt, listDebts: d.ListDebts, cashFlow: d.CashFlow,
+		listFinancePlan: d.ListFinancePlan, createPlanned: d.CreatePlanned,
 		createHabit: d.CreateHabit, trackHabit: d.TrackHabit, listHabits: d.ListHabits,
 		createProject: d.CreateProject, findProject: d.FindProject, listProjects: d.ListProjects,
 		listProjectTasks: d.ListProjectTasks, archiveProject: d.ArchiveProject, createEvent: d.CreateEvent, listCalendar: d.ListCalendar,

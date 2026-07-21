@@ -238,6 +238,42 @@ func (h *MessageHandler) dispatchIntent(ctx context.Context, userID ids.UserID, 
 			return dispatchResult{}, err
 		}
 		return dispatchResult{text: FormatDebtPaid(dto, intent.AmountCents)}, nil
+	case ai.IntentFinanceListPlan:
+		if h.listFinancePlan == nil {
+			return dispatchResult{text: "Финансовый план пока недоступен."}, nil
+		}
+		plan, err := h.listFinancePlan.Execute(ctx, userID)
+		if err != nil {
+			return dispatchResult{}, err
+		}
+		return dispatchResult{text: FormatFinancePlan(plan)}, nil
+	case ai.IntentFinanceCreatePlan:
+		if h.createPlanned == nil {
+			return dispatchResult{text: "Финансовый план пока недоступен."}, nil
+		}
+		kind := strings.ToLower(strings.TrimSpace(intent.Unit))
+		if kind != "income" && kind != "expense" {
+			return dispatchResult{text: "Пример: «запланируй расход 15 тысяч аренда»"}, nil
+		}
+		if intent.AmountCents <= 0 || strings.TrimSpace(intent.Title) == "" {
+			return dispatchResult{text: "Пример: «запланируй доход 100 тысяч зарплата»"}, nil
+		}
+		tz, err := h.tzReader.Timezone(ctx, userID)
+		if err != nil {
+			return dispatchResult{}, err
+		}
+		next, err := timeutil.DateInTimezone(time.Now().UTC(), tz)
+		if err != nil {
+			return dispatchResult{}, err
+		}
+		dto, err := h.createPlanned.Execute(ctx, financeapp.CreatePlannedCashflowInput{
+			UserID: userID, Kind: kind, Title: intent.Title, AmountCents: intent.AmountCents,
+			Interval: "monthly", NextDate: next, Source: events.SourceTelegram,
+		})
+		if err != nil {
+			return dispatchResult{}, err
+		}
+		return dispatchResult{text: FormatPlannedCreated(dto)}, nil
 	case ai.IntentHabitCreate:
 		dto, err := h.createHabit.Execute(ctx, habitsapp.CreateHabitInput{
 			UserID: userID, Name: intent.Title, Source: events.SourceTelegram,
@@ -779,9 +815,7 @@ func (h *MessageHandler) resolveSphereIDs(ctx context.Context, userID ids.UserID
 }
 
 func (h *MessageHandler) defaultSphereID(ctx context.Context, userID ids.UserID) ([]ids.SphereID, error) {
-	candidates := append([]string{}, spheresdomain.DefaultSphereNames...)
-	candidates = append(candidates, "карьера", "Деньги")
-	for _, name := range candidates {
+	for _, name := range spheresdomain.DefaultSphereNames {
 		sphere, err := h.findSphere.Execute(ctx, userID, name)
 		if err == nil {
 			return []ids.SphereID{sphere.ID}, nil

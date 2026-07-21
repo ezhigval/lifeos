@@ -52,6 +52,8 @@ var patterns = []struct {
 	{regexp.MustCompile(`(?i)^финансы\s+за\s+месяц`), ai.IntentFinanceCashFlow, ""},
 	{regexp.MustCompile(`(?i)^(?:заплатил|оплатил|вернул|отдал)\s+([\d\s]+(?:тысяч|тыс|к)?)\s+(.+)$`), ai.IntentFinancePayDebt, ""},
 	{regexp.MustCompile(`(?i)^долг\s+([\d\s]+(?:тысяч|тыс|к)?)\s+(.+)$`), ai.IntentFinanceCreateDebt, ""},
+	{regexp.MustCompile(`(?i)^(?:финансовый\s+план|план\s+платежей|покажи\s+план)$`), ai.IntentFinanceListPlan, ""},
+	{regexp.MustCompile(`(?i)^запланируй\s+(доход|расход)\s+([\d\s]+(?:тысяч|тыс|к)?)\s+(.+)$`), ai.IntentFinanceCreatePlan, ""},
 	{regexp.MustCompile(`(?i)^добавь\s+привычку\s+(.+)$`), ai.IntentHabitCreate, ""},
 	{regexp.MustCompile(`(?i)^отметь\s+привычку\s+(.+)$`), ai.IntentHabitTrack, ""},
 	{regexp.MustCompile(`(?i)^привычка\s+(.+)\s+готово$`), ai.IntentHabitTrack, ""},
@@ -214,6 +216,22 @@ func (r *Resolver) Resolve(_ context.Context, input ai.ResolveInput) (ai.Resolve
 					intent.AmountCents = cents
 				}
 				intent.Target = strings.TrimSpace(m[2])
+				intent.Currency = "RUB"
+			case ai.IntentFinanceCreatePlan:
+				kind := strings.ToLower(strings.TrimSpace(m[1]))
+				switch kind {
+				case "доход", "income":
+					intent.Unit = "income"
+				case "расход", "expense":
+					intent.Unit = "expense"
+				default:
+					intent.Unit = kind
+				}
+				raw := strings.TrimSpace(m[2])
+				if cents, err := ParseRublesAmount(raw); err == nil {
+					intent.AmountCents = cents
+				}
+				intent.Title = strings.TrimSpace(m[3])
 				intent.Currency = "RUB"
 			case ai.IntentHealthRecordWeight:
 				intent.Title = strings.TrimSpace(m[1])
