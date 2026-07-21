@@ -262,7 +262,7 @@ func (uc *CompletePlanOccurrence) Execute(ctx context.Context, userID ids.UserID
 		return CompletePlanResult{}, fmt.Errorf("complete plan occurrence: %w", err)
 	}
 
-	if posted, err := uc.postOccurrence(ctx, item, source); err != nil {
+	if posted, err := postPlannedCashflow(ctx, uc.income, uc.expense, item, source); err != nil {
 		return out, fmt.Errorf("post planned cashflow: %w", err)
 	} else if posted {
 		out.Posted = true
@@ -272,14 +272,20 @@ func (uc *CompletePlanOccurrence) Execute(ctx context.Context, userID ids.UserID
 	return out, nil
 }
 
-func (uc *CompletePlanOccurrence) postOccurrence(ctx context.Context, item domain.PlannedCashflow, source events.Source) (bool, error) {
+func postPlannedCashflow(
+	ctx context.Context,
+	income *RecordIncome,
+	expense *RecordExpense,
+	item domain.PlannedCashflow,
+	source events.Source,
+) (bool, error) {
 	desc := "План · " + item.Title
 	switch item.Kind {
 	case domain.PlanKindIncome:
-		if uc.income == nil {
+		if income == nil {
 			return false, nil
 		}
-		_, err := uc.income.Execute(ctx, RecordIncomeInput{
+		_, err := income.Execute(ctx, RecordIncomeInput{
 			UserID:      item.UserID,
 			AmountCents: item.AmountCents,
 			Currency:    "RUB",
@@ -288,10 +294,10 @@ func (uc *CompletePlanOccurrence) postOccurrence(ctx context.Context, item domai
 		})
 		return err == nil, err
 	case domain.PlanKindExpense:
-		if uc.expense == nil {
+		if expense == nil {
 			return false, nil
 		}
-		_, err := uc.expense.Execute(ctx, RecordExpenseInput{
+		_, err := expense.Execute(ctx, RecordExpenseInput{
 			UserID:       item.UserID,
 			AmountCents:  item.AmountCents,
 			Currency:     "RUB",
@@ -305,17 +311,27 @@ func (uc *CompletePlanOccurrence) postOccurrence(ctx context.Context, item domai
 	}
 }
 
-// AdvanceOverduePlans rolls/deletes plan rows with next_date strictly before today.
+// AdvanceOverduePlans rolls/deletes plan rows with next_date strictly before today
+// and posts one ledger entry per rolled occurrence.
 type AdvanceOverduePlans struct {
 	store      PlannedCashflowStore
 	events     EventLog
 	transactor Transactor
+	income     *RecordIncome
+	expense    *RecordExpense
 	now        func() time.Time
 }
 
-func NewAdvanceOverduePlans(store PlannedCashflowStore, events EventLog, transactor Transactor) *AdvanceOverduePlans {
+func NewAdvanceOverduePlans(
+	store PlannedCashflowStore,
+	events EventLog,
+	transactor Transactor,
+	income *RecordIncome,
+	expense *RecordExpense,
+) *AdvanceOverduePlans {
 	return &AdvanceOverduePlans{
 		store: store, events: events, transactor: transactor,
+		income: income, expense: expense,
 		now: func() time.Time { return time.Now().UTC() },
 	}
 }
@@ -323,6 +339,7 @@ func NewAdvanceOverduePlans(store PlannedCashflowStore, events EventLog, transac
 type AdvanceOverdueResult struct {
 	Advanced int
 	Deleted  int
+	Posted   int
 }
 
 func (uc *AdvanceOverduePlans) Execute(ctx context.Context, userID ids.UserID, source events.Source) (AdvanceOverdueResult, error) {
@@ -336,6 +353,7 @@ func (uc *AdvanceOverduePlans) Execute(ctx context.Context, userID ids.UserID, s
 	now := uc.now()
 	var result AdvanceOverdueResult
 	for _, item := range items {
+		snapshot := item // amount/kind/title before date roll
 		changed, shouldDelete := item.AdvanceIfOverdue(now)
 		if !changed {
 			continue
@@ -375,6 +393,11 @@ func (uc *AdvanceOverduePlans) Execute(ctx context.Context, userID ids.UserID, s
 		})
 		if err != nil {
 			return result, err
+		}
+		if posted, postErr := postPlannedCashflow(ctx, uc.income, uc.expense, snapshot, source); postErr != nil {
+			return result, fmt.Errorf("post overdue planned cashflow: %w", postErr)
+		} else if posted {
+			result.Posted++
 		}
 	}
 	return result, nil

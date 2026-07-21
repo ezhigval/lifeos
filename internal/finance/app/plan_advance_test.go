@@ -102,7 +102,7 @@ func TestAdvanceOverduePlansDeletesOnceBeforeToday(t *testing.T) {
 	}
 	_ = store.SavePlanned(context.Background(), today)
 
-	uc := NewAdvanceOverduePlans(store, noopPlanEvents{}, noopPlanTx{})
+	uc := NewAdvanceOverduePlans(store, noopPlanEvents{}, noopPlanTx{}, nil, nil)
 	uc.now = func() time.Time { return fixed }
 	res, err := uc.Execute(context.Background(), user, events.SourceScheduler)
 	if err != nil {

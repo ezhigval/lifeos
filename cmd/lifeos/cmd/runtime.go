@@ -179,7 +179,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	createPlanned := financeapp.NewCreatePlannedCashflow(financeRepo, eventPub, transactor)
 	deletePlanned := financeapp.NewDeletePlannedCashflow(financeRepo)
 	completePlanned := financeapp.NewCompletePlanOccurrence(financeRepo, eventPub, transactor, recordIncome, recordExpense)
-	advanceOverdue := financeapp.NewAdvanceOverduePlans(financeRepo, eventPub, transactor)
+	advanceOverdue := financeapp.NewAdvanceOverduePlans(financeRepo, eventPub, transactor, recordIncome, recordExpense)
 	cashFlow := financeapp.NewCashFlowSummary(financeRepo, tzReader)
 	financeOverview := financeapp.NewFinanceOverview(financeRepo, tzReader)
 	habitRepo := habitsinfra.NewRepository(p)

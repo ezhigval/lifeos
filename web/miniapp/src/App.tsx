@@ -11,7 +11,6 @@ import { TaskDetailPage } from '@/pages/TaskDetailPage'
 import { AnalyticsPage } from '@/pages/AnalyticsPage'
 import { NotesPage } from '@/pages/NotesPage'
 import { HealthPage } from '@/pages/HealthPage'
-// import { CareerPage } from '@/pages/CareerPage'
 import { DebtsPage } from '@/pages/DebtsPage'
 
 export default function App() {
@@ -31,8 +30,6 @@ export default function App() {
         <Route path="more/analytics" element={<AnalyticsPage />} />
         <Route path="more/notes" element={<NotesPage />} />
         <Route path="more/health" element={<HealthPage />} />
-        {/* <Route path="more/career" element={<CareerPage />} /> */}
-        <Route path="more/career" element={<Navigate to="/more" replace />} />
         <Route path="more/debts" element={<DebtsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

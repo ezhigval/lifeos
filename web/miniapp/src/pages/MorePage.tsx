@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import {
   BarChart3,
-  // Briefcase,
   Bell,
   Calendar,
   FileText,
@@ -70,12 +69,6 @@ const sections = [
   {
     title: 'Обзор',
     items: [
-      // {
-      //   to: '/more/career',
-      //   title: 'Карьера',
-      //   subtitle: 'Контакты и навыки',
-      //   icon: <Briefcase size={20} />,
-      // },
       {
         to: '/more/analytics',
         title: 'Аналитика',
