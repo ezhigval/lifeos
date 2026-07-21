@@ -205,18 +205,13 @@ Bot NL | reply KB | Mini App screen | auth/tunnel | review/reminder
 
 ## День 10 — More: Notes / Health / Debts / Analytics
 
-- [ ] Notes: базовый flow
-- [ ] Health: вес / шаги / сон
-- [ ] Debts: платежи
-- [ ] Analytics: сводка
-- ~~Career~~ — UI снят (backend оставлен в icebox)
 **Mini App**
 
 - [ ] Notes: создать / открыть / удалить
 - [ ] Health: базовый flow
-- [ ] Career: базовый flow
 - [ ] Debts: создать / отметить
 - [ ] Analytics: экран грузится, пустые данные не «error»
+- ~~Career~~ — UI снят (backend оставлен в icebox)
 
 ---
 
