@@ -58,6 +58,9 @@ func warnSoftConfig(cfg config.Config) {
 	if envTruthy("LIFEOS_ALLOW_NO_API") {
 		fmt.Fprintln(os.Stderr, "warning: LIFEOS_ALLOW_NO_API=true — REST / Mini App API not mounted")
 	}
+	if cfg.STTEnabled && strings.TrimSpace(cfg.STTAPIKey) == "" {
+		fmt.Fprintln(os.Stderr, "warning: LIFEOS_STT_ENABLED=true but no STT/LLM API key — voice and video notes will be rejected")
+	}
 }
 
 func rejectMockOllamaUnlessAllowed(cfg config.Config) error {

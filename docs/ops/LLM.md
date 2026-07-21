@@ -108,3 +108,17 @@ LIFEOS_LLM_PROVIDER=ollama
 
 См. [docs/ai/AGENT.md](../ai/AGENT.md) — multi-turn, tools, память, anon learning.
 `LIFEOS_LLM_AGENT_ENABLED=true` (default).
+
+## Speech-to-text (голос / кружочки)
+
+Telegram `voice` / `video_note` / `audio` → download → Whisper → тот же agent path.
+
+```env
+LIFEOS_STT_ENABLED=true
+# optional overrides (defaults reuse LLM key + Groq Whisper):
+# LIFEOS_STT_API_KEY=...
+# LIFEOS_STT_BASE_URL=https://api.groq.com/openai/v1
+# LIFEOS_STT_MODEL=whisper-large-v3-turbo
+```
+
+Рекомендуется тот же Groq ключ, что и для LLM. Ollama LLM + cloud Whisper — нормальная связка.

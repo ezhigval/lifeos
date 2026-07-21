@@ -115,6 +115,7 @@ type MessageHandler struct {
 	adminTelegramID int64
 	miniAppURL      string
 	agent           *AgentBridge
+	stt             ai.SpeechToText
 }
 
 type Deps struct {
@@ -124,6 +125,7 @@ type Deps struct {
 	EnsureUser        *identityapp.EnsureUserByTelegram
 	Processed         *tginfra.ProcessedUpdates
 	Resolver          ai.IntentResolver
+	SpeechToText      ai.SpeechToText
 	CreateTask        *tasksapp.CreateTask
 	CompleteTask      *tasksapp.CompleteTask
 	CompleteByTitle   *tasksapp.CompleteTaskByTitle
@@ -229,6 +231,7 @@ func NewHandler(d Deps) *MessageHandler {
 		deleteUser: d.DeleteUser, adminTelegramID: d.AdminTelegramID,
 		miniAppURL: strings.TrimSpace(d.MiniAppURL),
 		agent:      d.Agent,
+		stt:        d.SpeechToText,
 	}
 }
 
@@ -236,14 +239,39 @@ func (h *MessageHandler) HandleUpdate(ctx context.Context, update Update) error 
 	if update.CallbackQuery != nil {
 		return h.handleCallback(ctx, update)
 	}
-	if update.Message == nil || update.Message.Text == "" {
+	if update.Message == nil {
 		return nil
 	}
+
 	seen, err := h.processed.Seen(ctx, update.UpdateID)
 	if err != nil {
 		return err
 	}
 	if seen {
+		return nil
+	}
+
+	chatID := update.Message.Chat.ID
+	userMsgID := update.Message.MessageID
+
+	text, resolveErr := h.resolveIncomingText(ctx, chatID, update.Message)
+	if resolveErr != nil {
+		user, uerr := h.ensureUser.Execute(ctx, identityapp.EnsureUserInput{
+			TelegramID:  update.Message.From.ID,
+			DisplayName: FormatDisplayName(update.Message.From),
+		})
+		if uerr != nil {
+			return fmt.Errorf("resolve user: %w", uerr)
+		}
+		out := dispatchResult{text: formatMediaResolveError(resolveErr)}
+		if err := h.present(ctx, user.ID, chatID, out); err != nil {
+			return err
+		}
+		_ = h.client.DeleteMessage(ctx, chatID, userMsgID)
+		return h.processed.Mark(ctx, update.UpdateID)
+	}
+	if strings.TrimSpace(text) == "" {
+		// Unsupported / empty media with nothing to say — ignore silently.
 		return nil
 	}
 
@@ -255,9 +283,7 @@ func (h *MessageHandler) HandleUpdate(ctx context.Context, update Update) error 
 		return fmt.Errorf("resolve user: %w", err)
 	}
 
-	chatID := update.Message.Chat.ID
-	userMsgID := update.Message.MessageID
-	in := classifyInput(update.Message.Text)
+	in := classifyInput(text)
 
 	out, err := h.dispatchNormalized(ctx, user, update.Message.From, chatID, userMsgID, in)
 	if err != nil {

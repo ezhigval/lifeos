@@ -1,22 +1,33 @@
 # Диалоговый агент LifeOS
 
-Агент принимает свободный текст в Telegram, может **уточнять**, **болтать по делу**, **вызывать tools** (use cases домена) и отвечать по факту выполнения.
+Агент принимает свободный текст **и расшифрованный голос/кружочки** в Telegram, может **уточнять**, **болтать**, **вызывать tools** (use cases домена) и отвечать по факту выполнения.
 
-## Поток
+## Поток (Telegram)
 
 ```
-пользователь
-  → (FSM drafts: задача/проект/сфера — без изменений)
-  → ConversationalAgent.Handle
+текст | voice | video_note | audio | photo+caption
+  → resolveIncomingText (STT для голоса/кружочков)
+  → (FSM drafts: задача/проект/сфера)
+  → rulebased known? → dispatchIntent
+  → иначе ConversationalAgent.Handle
        ├ system prompt + personal memories
        ├ JSON action: ask | reply | tool
-       ├ tool → domain use case (task/finance/habit/reminder/memory)
-       └ до 4 tool-раундов, затем финальный reply/ask
+       ├ tool → domain use case
+       └ до 4 tool-раундов
   → ответ в Telegram
-  → (opt-in) anon_learning_events без PII
 ```
 
-Intent-resolver (rulebased→LLM classify) остаётся fallback, если агент выключен или упал.
+Intent-resolver (rulebased→LLM classify) — fallback, если агент выключен или упал.
+
+## Голос / медиа
+
+| Вход | Поведение |
+|------|-----------|
+| `voice`, `audio`, `video_note` | download → Whisper STT → тот же agent/intent path |
+| `photo` / `document` | пока только **caption**; без подписи — просьба описать текстом |
+| стикеры | игнор |
+
+Env: `LIFEOS_STT_ENABLED=true`, ключ `LIFEOS_STT_API_KEY` (или `LIFEOS_LLM_API_KEY`), модель по умолчанию `whisper-large-v3-turbo` (Groq). См. [docs/ops/LLM.md](../ops/LLM.md).
 
 ## Tools
 
@@ -33,61 +44,15 @@ Intent-resolver (rulebased→LLM classify) остаётся fallback, если �
 | `query.priorities` / `analytics.summary` | обзоры |
 | `memory.*` | личная память |
 
-Tools дергают **use cases**, не сырой HTTP — тот же путь, что Mini App/API.
+Tools дергают **use cases**, не сырой HTTP.
 
-## Mini App chat
+## Общение
 
-`POST /api/v1/assistant/chat` (JWT):
-
-```json
-{ "text": "потратил 300 на кофе", "history": [], "language": "ru" }
-```
-
-Ответ: `{ "reply", "waiting", "history", "tools_run" }`. Клиент хранит `history` для уточняющих раундов (`waiting=true`).
-
-## Персональная память
-
-Таблица `user_memories` (CASCADE с user). Виды: `preference`, `fact`, `alias`, `pattern`.
-
-- Хранится **только** в тенанте пользователя
-- Флаг `user_settings.memory_enabled` (default true)
-- При `/delete` пользователя память удаляется вместе с аккаунтом
-
-Не уходит в анонимный learning.
-
-## Анонимное обучение
-
-Таблица `anon_learning_events`:
-
-- `anon_subject` = HMAC-SHA256(user_id, `LIFEOS_LEARNING_SALT`) — без обратимого id
-- Пишет только при `learning_opt_in=true`
-- Meta: число tools, имена tools, waiting — **без** текста сообщений, сумм, названий задач
-
-Используется для анализа: где агент часто ask'ает, какие tools фейлятся — улучшение промпта/few-shot.
-
-## Env
-
-```env
-LIFEOS_LLM_ENABLED=true
-LIFEOS_LLM_AGENT_ENABLED=true
-LIFEOS_LLM_PROVIDER=ollama   # или openai (Groq)
-LIFEOS_OLLAMA_URL=http://127.0.0.1:11434
-LIFEOS_OLLAMA_MODEL=llama3.2
-LIFEOS_LEARNING_SALT=change-me-in-prod
-```
-
-Opt-in обучения и memory flags — колонки в `user_settings` (API для переключения — следующий шаг).
-
-## Безопасность
-
-1. Модель **не** пишет в БД напрямую — только через tools с валидацией
-2. Персональные факты изолированы по `user_id`
-3. Learning без сырого текста
-4. Соль learning обязана быть уникальной на инстанс
-5. «отмена» сбрасывает `await_agent_turn`
+Болтовня / «что умеешь?» → `type=reply` без tools. Действия с побочными эффектами — только через tools. STT-текст может быть неточным — агент интерпретирует мягко и уточняет (`ask`).
 
 ## Дальше
 
-- UI-кнопка чата в Mini App поверх `/assistant/chat`
-- nightly job: агрегаты learning → кандидаты в few-shot
-- шифрование `user_memories.value` at rest (envelope key per user)
+- Vision для фото без caption
+- UI-чат Mini App (отложен)
+- nightly learning → few-shot
+- шифрование `user_memories.value` at rest

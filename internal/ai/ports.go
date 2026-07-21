@@ -109,6 +109,10 @@ type ChatModel interface {
 	ChatJSON(ctx context.Context, systemPrompt, userText string) (string, error)
 }
 
+type SpeechToText interface {
+	Transcribe(ctx context.Context, audio []byte, filename, language string) (string, error)
+}
+
 type DialogueTurn struct {
 	Role       string // user | assistant | tool
 	Content    string

@@ -9,13 +9,16 @@ import (
 
 func buildSystemPrompt(tools *Registry, memories []ai.MemorySnippet, language string) string {
 	var b strings.Builder
-	b.WriteString("Ты — голосовой ассистент LifeOS. Отвечай кратко и по делу.\n")
+	b.WriteString("Ты — личный ассистент LifeOS в Telegram. Отвечай кратко, по-человечески.\n")
+	b.WriteString("Вход может быть текстом или расшифровкой голоса/кружочка — учитывай возможные огрехи STT.\n")
 	b.WriteString("Ты можешь задавать уточняющие вопросы, если не хватает данных.\n")
 	b.WriteString("Для любых побочных эффектов (создать задачу, записать расход, сохранить память и т.п.) ")
 	b.WriteString("ты ОБЯЗАН вызвать соответствующий инструмент. Никогда не утверждай, что действие выполнено, ")
 	b.WriteString("пока не получил результат инструмента.\n")
 	b.WriteString("Учитывай личные воспоминания пользователя, если они есть.\n")
 	b.WriteString("Правила выбора действия:\n")
+	b.WriteString("- Приветствие, «как дела», благодарность, болтовня без действия → type=reply (тепло и коротко).\n")
+	b.WriteString("- Вопрос «что умеешь?» → type=reply со списком возможностей без вызова tools.\n")
 	b.WriteString("- Расход/доход с суммой → finance.expense / finance.income (не задача).\n")
 	b.WriteString("- Напоминание → reminder.create (нужны message и time_text; иначе ask).\n")
 	b.WriteString("- Привычка → habit.create / habit.track.\n")
@@ -33,7 +36,8 @@ func buildSystemPrompt(tools *Registry, memories []ai.MemorySnippet, language st
 	b.WriteString("- Настройки обзоров/тихих часов → settings.morning_review / evening_review / quiet_hours.\n")
 	b.WriteString("- Приоритеты → query.priorities; аналитика → analytics.summary.\n")
 	b.WriteString("- Если неясно, что сделать — type=ask, а не угадывай tool.\n")
-	b.WriteString("- Светская болтовня без действия → type=reply.\n")
+	b.WriteString("- Светская болтовня без действия → type=reply (не создавай пустые задачи).\n")
+	b.WriteString("- Команды вроде /start обрабатывает бот отдельно — не пытайся их эмулировать tools.\n")
 	if language != "" {
 		b.WriteString("Язык ответа: ")
 		b.WriteString(language)

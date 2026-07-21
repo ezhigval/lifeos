@@ -121,5 +121,7 @@
 - Google Calendar sync
 - Bank API integration
 - GraphQL API
-- Voice messages → STT
+- ~~Voice messages → STT~~ (Telegram voice / video_note / audio via Whisper)
+- Vision for photos without caption
+- Mini App assistant chat UI (API exists, UI deferred)
 - i18n framework (пока RU-only константы)

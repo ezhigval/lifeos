@@ -32,10 +32,67 @@ type Update struct {
 }
 
 type Message struct {
-	MessageID int64  `json:"message_id"`
-	Text      string `json:"text"`
-	Chat      Chat   `json:"chat"`
-	From      User   `json:"from"`
+	MessageID  int64       `json:"message_id"`
+	Text       string      `json:"text"`
+	Caption    string      `json:"caption"`
+	Chat       Chat        `json:"chat"`
+	From       User        `json:"from"`
+	Voice      *Voice      `json:"voice"`
+	Audio      *Audio      `json:"audio"`
+	VideoNote  *VideoNote  `json:"video_note"`
+	Video      *Video      `json:"video"`
+	Photo      []PhotoSize `json:"photo"`
+	Document   *Document   `json:"document"`
+}
+
+type Voice struct {
+	FileID   string `json:"file_id"`
+	Duration int    `json:"duration"`
+	MimeType string `json:"mime_type"`
+	FileSize int64  `json:"file_size"`
+}
+
+type Audio struct {
+	FileID   string `json:"file_id"`
+	Duration int    `json:"duration"`
+	MimeType string `json:"mime_type"`
+	FileSize int64  `json:"file_size"`
+	FileName string `json:"file_name"`
+}
+
+type VideoNote struct {
+	FileID   string `json:"file_id"`
+	Length   int    `json:"length"`
+	Duration int    `json:"duration"`
+	FileSize int64  `json:"file_size"`
+}
+
+type Video struct {
+	FileID   string `json:"file_id"`
+	Duration int    `json:"duration"`
+	MimeType string `json:"mime_type"`
+	FileSize int64  `json:"file_size"`
+	FileName string `json:"file_name"`
+}
+
+type PhotoSize struct {
+	FileID   string `json:"file_id"`
+	Width    int    `json:"width"`
+	Height   int    `json:"height"`
+	FileSize int64  `json:"file_size"`
+}
+
+type Document struct {
+	FileID   string `json:"file_id"`
+	MimeType string `json:"mime_type"`
+	FileName string `json:"file_name"`
+	FileSize int64  `json:"file_size"`
+}
+
+type File struct {
+	FileID   string `json:"file_id"`
+	FilePath string `json:"file_path"`
+	FileSize int64  `json:"file_size"`
 }
 
 type CallbackQuery struct {
@@ -411,6 +468,94 @@ func (c *Client) SetWebhook(ctx context.Context, webhookURL, secretToken string)
 
 func (c *Client) DeleteWebhook(ctx context.Context) error {
 	return c.postAPI(ctx, "deleteWebhook", map[string]any{"drop_pending_updates": true})
+}
+
+func (c *Client) SendChatAction(ctx context.Context, chatID int64, action string) error {
+	if action == "" {
+		action = "typing"
+	}
+	return c.postAPI(ctx, "sendChatAction", map[string]any{
+		"chat_id": chatID,
+		"action":  action,
+	})
+}
+
+type getFileResponse struct {
+	OK          bool   `json:"ok"`
+	Result      File   `json:"result"`
+	Description string `json:"description"`
+}
+
+func (c *Client) GetFile(ctx context.Context, fileID string) (File, error) {
+	fileID = strings.TrimSpace(fileID)
+	if fileID == "" {
+		return File{}, fmt.Errorf("file_id is required")
+	}
+	data, err := json.Marshal(map[string]any{"file_id": fileID})
+	if err != nil {
+		return File{}, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/getFile", bytes.NewReader(data))
+	if err != nil {
+		return File{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return File{}, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var out getFileResponse
+	if err := json.Unmarshal(body, &out); err != nil {
+		return File{}, err
+	}
+	if !out.OK {
+		return File{}, fmt.Errorf("telegram getFile: %s", out.Description)
+	}
+	if strings.TrimSpace(out.Result.FilePath) == "" {
+		return File{}, fmt.Errorf("telegram getFile: empty file_path")
+	}
+	return out.Result, nil
+}
+
+// DownloadFile fetches file bytes from Telegram file CDN.
+// maxBytes <= 0 means default 20 MiB.
+func (c *Client) DownloadFile(ctx context.Context, filePath string, maxBytes int64) ([]byte, error) {
+	filePath = strings.TrimSpace(filePath)
+	if filePath == "" {
+		return nil, fmt.Errorf("file_path is required")
+	}
+	if maxBytes <= 0 {
+		maxBytes = 20 << 20
+	}
+	url := "https://api.telegram.org/file/bot" + c.token + "/" + filePath
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	client := c.http
+	if client == nil || client.Timeout < 60*time.Second {
+		client = &http.Client{Timeout: 60 * time.Second}
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return nil, fmt.Errorf("telegram download: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	limited := io.LimitReader(resp.Body, maxBytes+1)
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxBytes {
+		return nil, fmt.Errorf("telegram download: file exceeds %d bytes", maxBytes)
+	}
+	return data, nil
 }
 
 func (c *Client) postAPI(ctx context.Context, method string, payload any) error {

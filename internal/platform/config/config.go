@@ -36,6 +36,12 @@ type Config struct {
 	OllamaModel     string
 	LearningSalt    string // HMAC salt for anonymous learning subjects
 
+	// Speech-to-text for Telegram voice / video notes (OpenAI-compatible Whisper).
+	STTEnabled bool
+	STTAPIKey  string
+	STTBaseURL string
+	STTModel   string
+
 	JWTSecret   string
 	APIKey      string
 	JWTTTLHours int
@@ -90,6 +96,16 @@ func Load() (Config, error) {
 	cfg.OllamaURL = envOr("LIFEOS_OLLAMA_URL", "http://localhost:11434")
 	cfg.OllamaModel = envOr("LIFEOS_OLLAMA_MODEL", "llama3.2")
 	cfg.LearningSalt = envOr("LIFEOS_LEARNING_SALT", "lifeos-dev-learning-salt-change-me")
+
+	sttEnabled, err := parseBoolDefault(os.Getenv("LIFEOS_STT_ENABLED"), false)
+	if err != nil {
+		return Config{}, fmt.Errorf("LIFEOS_STT_ENABLED: %w", err)
+	}
+	cfg.STTEnabled = sttEnabled
+	cfg.STTAPIKey = firstNonEmpty(os.Getenv("LIFEOS_STT_API_KEY"), cfg.LLMAPIKey)
+	cfg.STTBaseURL = envOr("LIFEOS_STT_BASE_URL", cfg.LLMBaseURL)
+	cfg.STTModel = envOr("LIFEOS_STT_MODEL", "whisper-large-v3-turbo")
+
 	cfg.JWTSecret = os.Getenv("LIFEOS_JWT_SECRET")
 	cfg.APIKey = os.Getenv("LIFEOS_API_KEY")
 	cfg.MiniAppURL = strings.TrimSpace(os.Getenv("LIFEOS_MINIAPP_URL"))

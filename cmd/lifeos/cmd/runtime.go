@@ -402,6 +402,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 			Log:               log,
 			Client:            client,
 			Resolver:          newIntentResolver(cfg, log),
+			SpeechToText:      newSpeechToText(cfg, log),
 			Sessions:          sessions,
 			EnsureUser:        ensureUser,
 			Processed:         tginfra.NewProcessedUpdates(p),
