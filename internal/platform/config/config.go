@@ -42,6 +42,12 @@ type Config struct {
 	STTBaseURL string
 	STTModel   string
 
+	// Vision for Telegram photos / image documents without caption.
+	VisionEnabled bool
+	VisionAPIKey  string
+	VisionBaseURL string
+	VisionModel   string
+
 	JWTSecret   string
 	APIKey      string
 	JWTTTLHours int
@@ -105,6 +111,15 @@ func Load() (Config, error) {
 	cfg.STTAPIKey = firstNonEmpty(os.Getenv("LIFEOS_STT_API_KEY"), cfg.LLMAPIKey)
 	cfg.STTBaseURL = envOr("LIFEOS_STT_BASE_URL", cfg.LLMBaseURL)
 	cfg.STTModel = envOr("LIFEOS_STT_MODEL", "whisper-large-v3-turbo")
+
+	visionEnabled, err := parseBoolDefault(os.Getenv("LIFEOS_VISION_ENABLED"), false)
+	if err != nil {
+		return Config{}, fmt.Errorf("LIFEOS_VISION_ENABLED: %w", err)
+	}
+	cfg.VisionEnabled = visionEnabled
+	cfg.VisionAPIKey = firstNonEmpty(os.Getenv("LIFEOS_VISION_API_KEY"), cfg.LLMAPIKey)
+	cfg.VisionBaseURL = envOr("LIFEOS_VISION_BASE_URL", cfg.LLMBaseURL)
+	cfg.VisionModel = envOr("LIFEOS_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 
 	cfg.JWTSecret = os.Getenv("LIFEOS_JWT_SECRET")
 	cfg.APIKey = os.Getenv("LIFEOS_API_KEY")

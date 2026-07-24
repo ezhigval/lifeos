@@ -181,6 +181,15 @@ func (c *Client) SendMessage(ctx context.Context, chatID int64, text string) err
 	return err
 }
 
+// SendPlainMessage posts a plain-text message (no parse_mode) and returns message_id.
+// Used for temporary ack lines («Слушаю…») that are deleted after media processing.
+func (c *Client) SendPlainMessage(ctx context.Context, chatID int64, text string) (int64, error) {
+	return c.postMessage(ctx, sendMessageRequest{
+		ChatID: chatID,
+		Text:   text,
+	})
+}
+
 // SendScreen posts the main dashboard message.
 // When replyKB is set, it is attached on send (chat-level persistent keyboard).
 // Inline actions are applied in a follow-up edit — Telegram allows only one

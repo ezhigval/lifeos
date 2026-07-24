@@ -122,3 +122,20 @@ LIFEOS_STT_ENABLED=true
 ```
 
 Рекомендуется тот же Groq ключ, что и для LLM. Ollama LLM + cloud Whisper — нормальная связка.
+
+UX: пока идёт STT, бот шлёт временное «Слушаю…» и удаляет его после ответа. При 5xx/timeout — до 3 попыток.
+
+## Vision (фото без caption)
+
+Telegram `photo` / image-`document` без подписи → download → multimodal chat → короткая русская команда → agent path.
+С caption vision не вызывается (берётся подпись).
+
+```env
+LIFEOS_VISION_ENABLED=true
+# optional overrides (defaults reuse LLM key + Groq Llama 4 Scout):
+# LIFEOS_VISION_API_KEY=...
+# LIFEOS_VISION_BASE_URL=https://api.groq.com/openai/v1
+# LIFEOS_VISION_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+```
+
+UX: «Смотрю фото…» (временное сообщение). Ретраи как у STT.

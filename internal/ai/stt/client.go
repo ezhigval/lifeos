@@ -17,6 +17,7 @@ const (
 	defaultBaseURL = "https://api.groq.com/openai/v1"
 	defaultModel   = "whisper-large-v3-turbo"
 	defaultTimeout = 45 * time.Second
+	maxAttempts    = 3
 )
 
 // Client calls OpenAI-compatible /audio/transcriptions (Groq Whisper by default).
@@ -67,6 +68,24 @@ func (c *Client) Transcribe(ctx context.Context, audio []byte, filename, languag
 		filename += ".ogg"
 	}
 
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		text, err := c.doTranscribe(ctx, audio, filename, language)
+		if err == nil {
+			return text, nil
+		}
+		lastErr = err
+		if !isRetryable(err) || attempt == maxAttempts {
+			break
+		}
+		if err := sleepBackoff(ctx, attempt); err != nil {
+			return "", err
+		}
+	}
+	return "", lastErr
+}
+
+func (c *Client) doTranscribe(ctx context.Context, audio []byte, filename, language string) (string, error) {
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
 	_ = w.WriteField("model", c.model)
@@ -98,7 +117,7 @@ func (c *Client) Transcribe(ctx context.Context, audio []byte, filename, languag
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("stt HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+		return "", &statusError{code: resp.StatusCode, body: strings.TrimSpace(string(raw))}
 	}
 	var out transcriptionResponse
 	if err := json.Unmarshal(raw, &out); err != nil {
@@ -109,4 +128,45 @@ func (c *Client) Transcribe(ctx context.Context, audio []byte, filename, languag
 		return "", fmt.Errorf("stt returned empty text")
 	}
 	return text, nil
+}
+
+type statusError struct {
+	code int
+	body string
+}
+
+func (e *statusError) Error() string {
+	return fmt.Sprintf("stt HTTP %d: %s", e.code, e.body)
+}
+
+func isRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	if se, ok := err.(*statusError); ok {
+		switch se.code {
+		case http.StatusTooManyRequests, http.StatusInternalServerError,
+			http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+			return true
+		default:
+			return false
+		}
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "timeout") ||
+		strings.Contains(msg, "temporary") ||
+		strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "eof")
+}
+
+func sleepBackoff(ctx context.Context, attempt int) error {
+	d := time.Duration(attempt) * 400 * time.Millisecond
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }

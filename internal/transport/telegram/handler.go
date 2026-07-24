@@ -116,6 +116,7 @@ type MessageHandler struct {
 	miniAppURL      string
 	agent           *AgentBridge
 	stt             ai.SpeechToText
+	vision          ai.Vision
 }
 
 type Deps struct {
@@ -126,6 +127,7 @@ type Deps struct {
 	Processed         *tginfra.ProcessedUpdates
 	Resolver          ai.IntentResolver
 	SpeechToText      ai.SpeechToText
+	Vision            ai.Vision
 	CreateTask        *tasksapp.CreateTask
 	CompleteTask      *tasksapp.CompleteTask
 	CompleteByTitle   *tasksapp.CompleteTaskByTitle
@@ -232,6 +234,7 @@ func NewHandler(d Deps) *MessageHandler {
 		miniAppURL: strings.TrimSpace(d.MiniAppURL),
 		agent:      d.Agent,
 		stt:        d.SpeechToText,
+		vision:     d.Vision,
 	}
 }
 

@@ -30,11 +30,24 @@ func TestDetectMedia(t *testing.T) {
 
 func TestFormatMediaResolveError(t *testing.T) {
 	t.Parallel()
-	cases := []string{"stt_not_configured", "media_needs_caption", "media_too_long", "media_too_large", "other"}
+	cases := []string{"stt_not_configured", "vision_not_configured", "media_needs_caption", "media_too_long", "media_too_large", "other"}
 	for _, c := range cases {
 		if got := formatMediaResolveError(errString(c)); got == "" {
 			t.Fatalf("empty for %s", c)
 		}
+	}
+}
+
+func TestIsImageMedia(t *testing.T) {
+	t.Parallel()
+	if !isImageMedia(mediaSource{MimeType: "image/png"}) {
+		t.Fatal("mime")
+	}
+	if !isImageMedia(mediaSource{Filename: "scan.JPEG"}) {
+		t.Fatal("ext")
+	}
+	if isImageMedia(mediaSource{Filename: "doc.pdf", MimeType: "application/pdf"}) {
+		t.Fatal("pdf should not be image")
 	}
 }
 

@@ -122,6 +122,6 @@
 - Bank API integration
 - GraphQL API
 - ~~Voice messages → STT~~ (Telegram voice / video_note / audio via Whisper)
-- Vision for photos without caption
+- ~~Vision for photos without caption~~ (Groq Llama 4 Scout → agent text)
 - Mini App assistant chat UI (API exists, UI deferred)
 - i18n framework (пока RU-only константы)

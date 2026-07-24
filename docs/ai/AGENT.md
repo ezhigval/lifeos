@@ -5,16 +5,16 @@
 ## Поток (Telegram)
 
 ```
-текст | voice | video_note | audio | photo+caption
-  → resolveIncomingText (STT для голоса/кружочков)
-  → (FSM drafts: задача/проект/сфера)
-  → rulebased known? → dispatchIntent
-  → иначе ConversationalAgent.Handle
-       ├ system prompt + personal memories
-       ├ JSON action: ask | reply | tool
-       ├ tool → domain use case
-       └ до 4 tool-раундов
-  → ответ в Telegram
+текст | voice | video_note | audio | photo | image-document
+  → resolveIncomingText (STT / Vision)
+    → (FSM drafts: задача/проект/сфера)
+    → rulebased known? → dispatchIntent
+    → иначе ConversationalAgent.Handle
+         ├ system prompt + personal memories
+         ├ JSON action: ask | reply | tool
+         ├ tool → domain use case
+         └ до 4 tool-раундов
+    → ответ в Telegram
 ```
 
 Intent-resolver (rulebased→LLM classify) — fallback, если агент выключен или упал.
@@ -23,11 +23,17 @@ Intent-resolver (rulebased→LLM classify) — fallback, если агент в�
 
 | Вход | Поведение |
 |------|-----------|
-| `voice`, `audio`, `video_note` | download → Whisper STT → тот же agent/intent path |
-| `photo` / `document` | пока только **caption**; без подписи — просьба описать текстом |
+| `voice`, `audio`, `video_note` | download → Whisper STT → тот же agent/intent path; UX «Слушаю…» |
+| `photo` / image-`document` без caption | download → Vision → короткая RU-команда → agent path; UX «Смотрю фото…» |
+| `photo` / `document` с caption | берётся caption (vision не вызывается) |
+| не-image `document` без caption | просьба добавить подпись |
 | стикеры | игнор |
 
-Env: `LIFEOS_STT_ENABLED=true`, ключ `LIFEOS_STT_API_KEY` (или `LIFEOS_LLM_API_KEY`), модель по умолчанию `whisper-large-v3-turbo` (Groq). См. [docs/ops/LLM.md](../ops/LLM.md).
+Env:
+- STT: `LIFEOS_STT_ENABLED=true`, ключ `LIFEOS_STT_API_KEY` (или `LIFEOS_LLM_API_KEY`), модель `whisper-large-v3-turbo` (Groq).
+- Vision: `LIFEOS_VISION_ENABLED=true`, ключ `LIFEOS_VISION_API_KEY` (или LLM), модель `meta-llama/llama-4-scout-17b-16e-instruct`.
+
+См. [docs/ops/LLM.md](../ops/LLM.md).
 
 ## Tools
 
@@ -52,7 +58,6 @@ Tools дергают **use cases**, не сырой HTTP.
 
 ## Дальше
 
-- Vision для фото без caption
 - UI-чат Mini App (отложен)
 - nightly learning → few-shot
 - шифрование `user_memories.value` at rest

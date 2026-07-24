@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/valentinezhov/lifeos/internal/ai/stt"
@@ -43,5 +44,31 @@ func TestClientRequiresKey(t *testing.T) {
 	_, err := c.Transcribe(context.Background(), []byte("x"), "a.ogg", "ru")
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestClientRetries5xx(t *testing.T) {
+	t.Parallel()
+	var n atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if n.Add(1) < 3 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`busy`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"text":"привет"}`))
+	}))
+	defer srv.Close()
+
+	c := stt.NewClient(srv.URL, "key", "whisper-large-v3-turbo")
+	got, err := c.Transcribe(context.Background(), []byte("fake-ogg"), "voice.ogg", "ru")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "привет" {
+		t.Fatalf("got %q", got)
+	}
+	if n.Load() != 3 {
+		t.Fatalf("attempts=%d", n.Load())
 	}
 }

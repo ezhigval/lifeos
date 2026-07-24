@@ -113,6 +113,11 @@ type SpeechToText interface {
 	Transcribe(ctx context.Context, audio []byte, filename, language string) (string, error)
 }
 
+// Vision turns an image into a short user-like text command for the agent path.
+type Vision interface {
+	ImageToUserText(ctx context.Context, image []byte, mimeType string) (string, error)
+}
+
 type DialogueTurn struct {
 	Role       string // user | assistant | tool
 	Content    string
