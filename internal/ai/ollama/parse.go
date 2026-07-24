@@ -11,6 +11,8 @@ import (
 type llmPayload struct {
 	Intent       string   `json:"intent"`
 	Title        string   `json:"title"`
+	Message      string   `json:"message"`
+	TimeText     string   `json:"time_text"`
 	Target       string   `json:"target"`
 	Unit         string   `json:"unit"`
 	AmountRubles *float64 `json:"amount_rubles"`
@@ -32,6 +34,8 @@ func parseResponse(raw string) (ai.ResolvedIntent, error) {
 	out := ai.ResolvedIntent{
 		Type:       intent,
 		Title:      strings.TrimSpace(p.Title),
+		Message:    strings.TrimSpace(p.Message),
+		TimeText:   strings.TrimSpace(p.TimeText),
 		Target:     strings.TrimSpace(p.Target),
 		Unit:       strings.TrimSpace(p.Unit),
 		Confidence: p.Confidence,

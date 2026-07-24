@@ -47,6 +47,8 @@ import (
 	tasksinfra "github.com/valentinezhov/lifeos/internal/tasks/infra"
 	tg "github.com/valentinezhov/lifeos/internal/transport/telegram"
 	tginfra "github.com/valentinezhov/lifeos/internal/transport/telegram/infra"
+
+	"github.com/valentinezhov/lifeos/internal/ai/dialogue"
 )
 
 type runtime struct {
@@ -66,6 +68,7 @@ type runtime struct {
 	settings       *settingsinfra.Repository
 	users          *identityinfra.Repository
 	ensureUser     *identityapp.EnsureUserByTelegram
+	agent          *dialogue.Service
 
 	listToday        *tasksapp.ListTasksToday
 	listDueBetween   *tasksapp.ListTasksDueBetween
@@ -337,14 +340,77 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	)
 	rt.ensureUser = ensureUser
 
+	tools := toolDeps{
+		createTask:       createTask,
+		listToday:        listToday,
+		completeTitle:    completeByTitle,
+		cancelTitle:      cancelByTitle,
+		rescheduleTitle:  rescheduleByTitle,
+		rescheduleAll:    reschedule,
+		setAvail:         setAvail,
+		triage:           triage,
+		recordExpense:    recordExpense,
+		recordIncome:     recordIncome,
+		listDebts:        listDebts,
+		createDebt:       createDebt,
+		payDebt:          payDebt,
+		cashFlow:         cashFlow,
+		listFinancePlan:  listFinancePlan,
+		createPlanned:    createPlanned,
+		reminder:         reminder,
+		listReminders:    listReminders,
+		cancelReminder:   cancelReminder,
+		createHabit:      createHabit,
+		trackHabit:       trackHabit,
+		listHabits:       listHabits,
+		createNote:       createNote,
+		listNotes:        listNotes,
+		searchNotes:      searchNotes,
+		deleteNote:       deleteNote,
+		createEvent:      createEvent,
+		listCalendar:     listCalendar,
+		createProject:    createProject,
+		listProjects:     listProjects,
+		archiveProject:   archiveProject,
+		listProjectTasks: listProjectTasks,
+		projectProg:      projectProgress,
+		findProject:      findProject,
+		listSpheres:      listSpheres,
+		findSphere:       findSphere,
+		createSphere:     createSphere,
+		recordWeight:     recordWeight,
+		latestWeight:     latestWeight,
+		recordSteps:      recordSteps,
+		latestSteps:      latestSteps,
+		recordSleep:      recordSleep,
+		latestSleep:      latestSleep,
+		createContact:    createContact,
+		listContacts:     listContacts,
+		createSkill:      createSkill,
+		listSkills:       listSkills,
+		priorities:       priorities,
+		analytics:        analytics,
+		updateMorning:    updateMorning,
+		updateEvening:    updateEvening,
+		updateQuiet:      updateQuiet,
+		tzReader:         tzReader,
+	}
+	rt.agent = newAgentService(cfg, log, p, tools)
+
 	if cfg.TelegramBotToken != "" {
 		client := tg.NewClient(cfg.TelegramBotToken)
 		rt.tgClient = client
 		rt.notifier = notifinfra.NewTelegramNotifier(client, log)
+		var agentBridge *tg.AgentBridge
+		if rt.agent != nil {
+			agentBridge = &tg.AgentBridge{Service: rt.agent}
+		}
 		rt.handler = tg.NewHandler(tg.Deps{
 			Log:               log,
 			Client:            client,
 			Resolver:          newIntentResolver(cfg, log),
+			SpeechToText:      newSpeechToText(cfg, log),
+			Vision:            newVision(cfg, log),
 			Sessions:          sessions,
 			EnsureUser:        ensureUser,
 			Processed:         tginfra.NewProcessedUpdates(p),
@@ -374,6 +440,8 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 			PayDebt:           payDebt,
 			ListDebts:         listDebts,
 			CashFlow:          cashFlow,
+			ListFinancePlan:   listFinancePlan,
+			CreatePlanned:     createPlanned,
 			CreateHabit:       createHabit,
 			TrackHabit:        trackHabit,
 			ListHabits:        listHabits,
@@ -412,6 +480,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 			DeleteUser:        identityapp.NewDeleteUser(userRepo),
 			AdminTelegramID:   cfg.SeedTelegramID,
 			MiniAppURL:        cfg.MiniAppURL,
+			Agent:             agentBridge,
 		})
 		rt.poller = tg.NewPoller(client, rt.handler, log)
 	}

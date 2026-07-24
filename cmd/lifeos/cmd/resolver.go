@@ -6,22 +6,47 @@ import (
 	"github.com/valentinezhov/lifeos/internal/ai"
 	"github.com/valentinezhov/lifeos/internal/ai/composite"
 	"github.com/valentinezhov/lifeos/internal/ai/ollama"
+	"github.com/valentinezhov/lifeos/internal/ai/openaiapi"
 	"github.com/valentinezhov/lifeos/internal/ai/rulebased"
 	"github.com/valentinezhov/lifeos/internal/platform/config"
 )
 
 // newIntentResolver wires production resolve order:
 //  1. rule-based (always) for known intents — fast, offline
-//  2. optional Ollama only when LIFEOS_LLM_ENABLED and primary returns unknown
+//  2. optional LLM only when LIFEOS_LLM_ENABLED and primary returns unknown
 //
-// Ollama down/timeouts degrade to unknown without failing the request.
+// LLM down/timeouts degrade to unknown without failing the request (logged).
 func newIntentResolver(cfg config.Config, log *slog.Logger) ai.IntentResolver {
 	primary := rulebased.NewResolver()
 	if !cfg.LLMEnabled {
 		return primary
 	}
-	client := ollama.NewClient(cfg.OllamaURL, cfg.OllamaModel)
-	llm := ollama.NewResolver(client)
-	log.Info("llm intent resolver enabled", "ollama_url", cfg.OllamaURL, "model", cfg.OllamaModel)
-	return composite.NewFallbackResolver(primary, llm, func() bool { return true })
+	llm := newLLMResolver(cfg, log)
+	return composite.NewFallbackResolver(primary, llm, func() bool { return true }).
+		WithOnDegrade(func(reason string, err error) {
+			if err != nil {
+				log.Warn("llm intent degraded", "reason", reason, "error", err)
+				return
+			}
+			log.Warn("llm intent degraded", "reason", reason)
+		})
+}
+
+func newLLMResolver(cfg config.Config, log *slog.Logger) ai.IntentResolver {
+	if cfg.LLMProvider == "ollama" {
+		client := ollama.NewClient(cfg.OllamaURL, cfg.OllamaModel)
+		log.Info("llm intent resolver enabled",
+			"provider", "ollama",
+			"base_url", cfg.OllamaURL,
+			"model", cfg.OllamaModel,
+		)
+		return ollama.NewResolver(client)
+	}
+	client := openaiapi.NewClient(cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel)
+	log.Info("llm intent resolver enabled",
+		"provider", "openai",
+		"base_url", cfg.LLMBaseURL,
+		"model", cfg.LLMModel,
+	)
+	return openaiapi.NewResolver(client)
 }

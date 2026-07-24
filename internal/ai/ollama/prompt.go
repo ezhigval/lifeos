@@ -5,6 +5,8 @@ const systemPrompt = `Ты классификатор команд для лич
 {
   "intent": "<intent_type>",
   "title": "<строка или пусто>",
+  "message": "<текст напоминания или пусто>",
+  "time_text": "<вечером|через час|в 18:30|пусто>",
   "target": "<строка или пусто>",
   "unit": "<project|projects|sphere|spheres или пусто>",
   "amount_rubles": <число или null>,
@@ -20,6 +22,7 @@ reminder.create, reminder.cancel,
 plan.set_availability, plan.triage,
 settings.morning_review, settings.evening_review, settings.quiet_hours,
 finance.income, finance.expense, finance.list_debts, finance.cash_flow, finance.create_debt, finance.pay_debt,
+finance.list_plan, finance.create_planned,
 habit.create, habit.track, habit.list,
 project.create, project.list, project.tasks, project.archive, project.progress,
 calendar.create, calendar.list_today,
@@ -36,7 +39,11 @@ unknown
 
 Правила:
 - Если не уверен — intent=unknown, confidence<0.5
-- title: название задачи/привычки/проекта/встречи/сферы
+- НИКОГДА не выдумывай title: только слова пользователя. Запрещены заглушки «разобрать входящие/почту», «задача», «todo», «new task», «новая задача»
+- Если для task.create нет конкретного названия — intent=unknown (не угадывай)
+- title: название задачи/привычки/проекта/встречи/сферы/заметки (не для напоминаний)
+- message: что напомнить (текст напоминания); для reminder.create обязательно
+- time_text: когда напомнить разговорно — «вечером», «через час», «в 18:30», «завтра утром»; пусто если не указано
 - target: кредитор для долга, проект/сфера для задачи или проекта, "завтра"/"сегодня" для встречи
 - amount_rubles: сумма в рублях целым числом (50000 для 50 тысяч)
 - Для task.create с одним проектом: unit=project, target=название проекта

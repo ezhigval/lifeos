@@ -17,6 +17,8 @@ type UserSettings struct {
 	QuietHoursStart *TimeOfDay
 	QuietHoursEnd   *TimeOfDay
 	Language        string
+	MemoryEnabled   bool
+	LearningOptIn   bool
 }
 
 // TimeOfDay represents HH:MM in user's local context.
@@ -33,6 +35,8 @@ func DefaultSettings(userID ids.UserID) UserSettings {
 		WeeklyReviewAt:  TimeOfDay{Hour: 10, Minute: 0},
 		MonthlyReviewAt: TimeOfDay{Hour: 10, Minute: 0},
 		Language:        "ru",
+		MemoryEnabled:   true,
+		LearningOptIn:   false,
 	}
 }
 

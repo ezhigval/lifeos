@@ -21,6 +21,7 @@ const (
 	StateAwaitProjectTitle   = "await_project_title"
 	StateAwaitProjectSpheres = "await_project_spheres"
 	StateAwaitSphereName     = "await_sphere_name"
+	StateAwaitAgentTurn      = "await_agent_turn"
 )
 
 type Session struct {

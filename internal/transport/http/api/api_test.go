@@ -1318,11 +1318,10 @@ func TestJWTRejectsWrongUserScope(t *testing.T) {
 	rec := doJSON(t, env.router, http.MethodGet, "/api/v1/tasks/today",
 		map[string]string{"Authorization": "Bearer " + foreignToken}, nil,
 	)
-	// JWT for a non-existent user must not authenticate (user wiped / forged id).
+	// JWT for a wiped / unknown user id must not pass jwtMiddleware.
 	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status=%d want %d", rec.Code, http.StatusUnauthorized)
+		t.Fatalf("status=%d want 401 body=%s", rec.Code, rec.Body.String())
 	}
-	_ = env.user
 }
 
 func TestProjectHTTPFlow(t *testing.T) {

@@ -22,6 +22,21 @@ func TestParseFireAt(t *testing.T) {
 	}
 }
 
+func TestEnsureFutureFireAt(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 7, 14, 15, 0, 0, 0, time.UTC)
+	pastMorning := time.Date(2026, 7, 14, 9, 0, 0, 0, time.UTC)
+	got := rulebased.EnsureFutureFireAt(pastMorning, now)
+	want := pastMorning.Add(24 * time.Hour)
+	if !got.Equal(want) {
+		t.Fatalf("got %s want %s", got, want)
+	}
+	future := now.Add(time.Hour)
+	if keep := rulebased.EnsureFutureFireAt(future, now); !keep.Equal(future) {
+		t.Fatalf("future rolled unexpectedly: %s", keep)
+	}
+}
+
 func TestParseAvailableUntil(t *testing.T) {
 	t.Parallel()
 

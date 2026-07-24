@@ -408,3 +408,54 @@ func (id SphereID) UUID() uuid.UUID {
 func (id SphereID) IsZero() bool {
 	return uuid.UUID(id) == uuid.Nil
 }
+
+type MemoryID uuid.UUID
+type LearningEventID uuid.UUID
+
+func NewMemoryID() MemoryID {
+	return MemoryID(uuid.Must(uuid.NewV7()))
+}
+
+func ParseMemoryID(s string) (MemoryID, error) {
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return MemoryID{}, err
+	}
+	return MemoryID(id), nil
+}
+
+func (id MemoryID) String() string {
+	return uuid.UUID(id).String()
+}
+
+func (id MemoryID) UUID() uuid.UUID {
+	return uuid.UUID(id)
+}
+
+func (id MemoryID) IsZero() bool {
+	return uuid.UUID(id) == uuid.Nil
+}
+
+func NewLearningEventID() LearningEventID {
+	return LearningEventID(uuid.Must(uuid.NewV7()))
+}
+
+func ParseLearningEventID(s string) (LearningEventID, error) {
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return LearningEventID{}, err
+	}
+	return LearningEventID(id), nil
+}
+
+func (id LearningEventID) String() string {
+	return uuid.UUID(id).String()
+}
+
+func (id LearningEventID) UUID() uuid.UUID {
+	return uuid.UUID(id)
+}
+
+func (id LearningEventID) IsZero() bool {
+	return uuid.UUID(id) == uuid.Nil
+}

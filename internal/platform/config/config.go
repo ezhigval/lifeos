@@ -26,9 +26,27 @@ type Config struct {
 	OtelEnabled  bool
 	OtelEndpoint string
 
-	LLMEnabled  bool
-	OllamaURL   string
-	OllamaModel string
+	LLMEnabled      bool
+	LLMAgentEnabled bool   // multi-turn conversational agent (tools + dialogue)
+	LLMProvider     string // "ollama" | "openai" (default)
+	LLMAPIKey       string
+	LLMBaseURL      string // OpenAI-compatible base, e.g. https://api.groq.com/openai/v1
+	LLMModel        string // model for openai provider; if empty use provider default
+	OllamaURL       string
+	OllamaModel     string
+	LearningSalt    string // HMAC salt for anonymous learning subjects
+
+	// Speech-to-text for Telegram voice / video notes (OpenAI-compatible Whisper).
+	STTEnabled bool
+	STTAPIKey  string
+	STTBaseURL string
+	STTModel   string
+
+	// Vision for Telegram photos / image documents without caption.
+	VisionEnabled bool
+	VisionAPIKey  string
+	VisionBaseURL string
+	VisionModel   string
 
 	JWTSecret   string
 	APIKey      string
@@ -47,7 +65,11 @@ func Load() (Config, error) {
 	loadEnvFiles()
 
 	cfg := Config{
-		DatabaseURL:           envOr("LIFEOS_DATABASE_URL", "postgres://lifeos:lifeos@localhost:5433/lifeos?sslmode=disable"),
+		DatabaseURL: firstNonEmpty(
+			os.Getenv("LIFEOS_DATABASE_URL"),
+			os.Getenv("DATABASE_URL"), // Fly.io postgres attach sets this
+			"postgres://lifeos:lifeos@localhost:5433/lifeos?sslmode=disable",
+		),
 		HTTPAddr:              envOr("LIFEOS_HTTP_ADDR", ":8080"),
 		LogLevel:              envOr("LIFEOS_LOG_LEVEL", "info"),
 		LogFormat:             envOr("LIFEOS_LOG_FORMAT", "text"),
@@ -72,8 +94,37 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("LIFEOS_LLM_ENABLED: %w", err)
 	}
 	cfg.LLMEnabled = llmEnabled
+	llmAgent, err := parseBoolDefault(os.Getenv("LIFEOS_LLM_AGENT_ENABLED"), true)
+	if err != nil {
+		return Config{}, fmt.Errorf("LIFEOS_LLM_AGENT_ENABLED: %w", err)
+	}
+	cfg.LLMAgentEnabled = llmAgent
+	cfg.LLMProvider = strings.ToLower(strings.TrimSpace(envOr("LIFEOS_LLM_PROVIDER", "openai")))
+	cfg.LLMAPIKey = firstNonEmpty(os.Getenv("LIFEOS_LLM_API_KEY"), os.Getenv("LIFEOS_OPENAI_API_KEY"))
+	cfg.LLMBaseURL = envOr("LIFEOS_LLM_BASE_URL", "https://api.groq.com/openai/v1")
+	cfg.LLMModel = envOr("LIFEOS_LLM_MODEL", "llama-3.3-70b-versatile")
 	cfg.OllamaURL = envOr("LIFEOS_OLLAMA_URL", "http://localhost:11434")
 	cfg.OllamaModel = envOr("LIFEOS_OLLAMA_MODEL", "llama3.2")
+	cfg.LearningSalt = envOr("LIFEOS_LEARNING_SALT", "lifeos-dev-learning-salt-change-me")
+
+	sttEnabled, err := parseBoolDefault(os.Getenv("LIFEOS_STT_ENABLED"), false)
+	if err != nil {
+		return Config{}, fmt.Errorf("LIFEOS_STT_ENABLED: %w", err)
+	}
+	cfg.STTEnabled = sttEnabled
+	cfg.STTAPIKey = firstNonEmpty(os.Getenv("LIFEOS_STT_API_KEY"), cfg.LLMAPIKey)
+	cfg.STTBaseURL = envOr("LIFEOS_STT_BASE_URL", cfg.LLMBaseURL)
+	cfg.STTModel = envOr("LIFEOS_STT_MODEL", "whisper-large-v3-turbo")
+
+	visionEnabled, err := parseBoolDefault(os.Getenv("LIFEOS_VISION_ENABLED"), false)
+	if err != nil {
+		return Config{}, fmt.Errorf("LIFEOS_VISION_ENABLED: %w", err)
+	}
+	cfg.VisionEnabled = visionEnabled
+	cfg.VisionAPIKey = firstNonEmpty(os.Getenv("LIFEOS_VISION_API_KEY"), cfg.LLMAPIKey)
+	cfg.VisionBaseURL = envOr("LIFEOS_VISION_BASE_URL", cfg.LLMBaseURL)
+	cfg.VisionModel = envOr("LIFEOS_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+
 	cfg.JWTSecret = os.Getenv("LIFEOS_JWT_SECRET")
 	cfg.APIKey = os.Getenv("LIFEOS_API_KEY")
 	cfg.MiniAppURL = strings.TrimSpace(os.Getenv("LIFEOS_MINIAPP_URL"))
@@ -118,6 +169,37 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+func parseInt64List(raw string) ([]int64, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+
+	parts := strings.Split(raw, ",")
+	out := make([]int64, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		n, err := strconv.ParseInt(part, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid id %q: %w", part, err)
+		}
+		out = append(out, n)
+	}
+	return out, nil
 }
 
 func parseInt64Default(raw string, fallback int64) (int64, error) {

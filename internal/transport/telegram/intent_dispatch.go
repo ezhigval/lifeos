@@ -37,6 +37,9 @@ import (
 func (h *MessageHandler) dispatchIntent(ctx context.Context, userID ids.UserID, intent ai.ResolvedIntent) (dispatchResult, error) {
 	switch intent.Type {
 	case ai.IntentTaskCreate:
+		if ai.IsPlaceholderTitle(intent.Title) {
+			return dispatchResult{text: "Не понял название задачи. Например: «добавь задачу купить фильтр»."}, nil
+		}
 		tz, err := h.tzReader.Timezone(ctx, userID)
 		if err != nil {
 			return dispatchResult{}, err
@@ -122,7 +125,7 @@ func (h *MessageHandler) dispatchIntent(ctx context.Context, userID ids.UserID, 
 		if err != nil {
 			return dispatchResult{}, err
 		}
-		fireAt := ensureFutureFireAt(rulebased.ParseFireAt(time.Now().UTC(), tz, intent.TimeText), time.Now().UTC())
+		fireAt := rulebased.EnsureFutureFireAt(rulebased.ParseFireAt(time.Now().UTC(), tz, intent.TimeText), time.Now().UTC())
 		dto, err := h.reminder.Execute(ctx, notifapp.ScheduleReminderInput{
 			UserID: userID, Message: msg, FireAt: fireAt,
 		})
@@ -235,6 +238,42 @@ func (h *MessageHandler) dispatchIntent(ctx context.Context, userID ids.UserID, 
 			return dispatchResult{}, err
 		}
 		return dispatchResult{text: FormatDebtPaid(dto, intent.AmountCents)}, nil
+	case ai.IntentFinanceListPlan:
+		if h.listFinancePlan == nil {
+			return dispatchResult{text: "Финансовый план пока недоступен."}, nil
+		}
+		plan, err := h.listFinancePlan.Execute(ctx, userID)
+		if err != nil {
+			return dispatchResult{}, err
+		}
+		return dispatchResult{text: FormatFinancePlan(plan)}, nil
+	case ai.IntentFinanceCreatePlan:
+		if h.createPlanned == nil {
+			return dispatchResult{text: "Финансовый план пока недоступен."}, nil
+		}
+		kind := strings.ToLower(strings.TrimSpace(intent.Unit))
+		if kind != "income" && kind != "expense" {
+			return dispatchResult{text: "Пример: «запланируй расход 15 тысяч аренда»"}, nil
+		}
+		if intent.AmountCents <= 0 || strings.TrimSpace(intent.Title) == "" {
+			return dispatchResult{text: "Пример: «запланируй доход 100 тысяч зарплата»"}, nil
+		}
+		tz, err := h.tzReader.Timezone(ctx, userID)
+		if err != nil {
+			return dispatchResult{}, err
+		}
+		next, err := timeutil.DateInTimezone(time.Now().UTC(), tz)
+		if err != nil {
+			return dispatchResult{}, err
+		}
+		dto, err := h.createPlanned.Execute(ctx, financeapp.CreatePlannedCashflowInput{
+			UserID: userID, Kind: kind, Title: intent.Title, AmountCents: intent.AmountCents,
+			Interval: "monthly", NextDate: next, Source: events.SourceTelegram,
+		})
+		if err != nil {
+			return dispatchResult{}, err
+		}
+		return dispatchResult{text: FormatPlannedCreated(dto)}, nil
 	case ai.IntentHabitCreate:
 		dto, err := h.createHabit.Execute(ctx, habitsapp.CreateHabitInput{
 			UserID: userID, Name: intent.Title, Source: events.SourceTelegram,
@@ -628,15 +667,9 @@ func matchReminderToCancel(items []notifapp.ReminderDTO, hint string) (uuid.UUID
 	return uuid.Nil, hint, notifapp.ErrReminderNotFound
 }
 
-// ensureFutureFireAt rolls a parsed local default time forward by 24h until it is
-// strictly after now (e.g. "утром" said in the afternoon → tomorrow 09:00).
+// ensureFutureFireAt kept as a thin wrapper for existing telegram tests.
 func ensureFutureFireAt(fireAt, now time.Time) time.Time {
-	fireAt = fireAt.UTC()
-	now = now.UTC()
-	for !fireAt.After(now) {
-		fireAt = fireAt.Add(24 * time.Hour)
-	}
-	return fireAt
+	return rulebased.EnsureFutureFireAt(fireAt, now)
 }
 
 func (h *MessageHandler) resolveNoteToDelete(ctx context.Context, userID ids.UserID, hint string) (ids.NoteID, string, error) {
@@ -782,7 +815,7 @@ func (h *MessageHandler) resolveSphereIDs(ctx context.Context, userID ids.UserID
 }
 
 func (h *MessageHandler) defaultSphereID(ctx context.Context, userID ids.UserID) ([]ids.SphereID, error) {
-	for _, name := range []string{"Карьера GO", "Деньги", "карьера"} {
+	for _, name := range spheresdomain.DefaultSphereNames {
 		sphere, err := h.findSphere.Execute(ctx, userID, name)
 		if err == nil {
 			return []ids.SphereID{sphere.ID}, nil

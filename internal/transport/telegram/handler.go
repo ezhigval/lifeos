@@ -68,6 +68,8 @@ type MessageHandler struct {
 	payDebt           *financeapp.PayDebt
 	listDebts         *financeapp.ListDebts
 	cashFlow          *financeapp.CashFlowSummary
+	listFinancePlan   *financeapp.ListFinancePlan
+	createPlanned     *financeapp.CreatePlannedCashflow
 	createHabit       *habitsapp.CreateHabit
 	trackHabit        *habitsapp.TrackHabit
 	listHabits        *habitsapp.ListHabitsToday
@@ -112,6 +114,9 @@ type MessageHandler struct {
 	deleteUser      *identityapp.DeleteUser
 	adminTelegramID int64
 	miniAppURL      string
+	agent           *AgentBridge
+	stt             ai.SpeechToText
+	vision          ai.Vision
 }
 
 type Deps struct {
@@ -121,6 +126,8 @@ type Deps struct {
 	EnsureUser        *identityapp.EnsureUserByTelegram
 	Processed         *tginfra.ProcessedUpdates
 	Resolver          ai.IntentResolver
+	SpeechToText      ai.SpeechToText
+	Vision            ai.Vision
 	CreateTask        *tasksapp.CreateTask
 	CompleteTask      *tasksapp.CompleteTask
 	CompleteByTitle   *tasksapp.CompleteTaskByTitle
@@ -143,6 +150,8 @@ type Deps struct {
 	PayDebt           *financeapp.PayDebt
 	ListDebts         *financeapp.ListDebts
 	CashFlow          *financeapp.CashFlowSummary
+	ListFinancePlan   *financeapp.ListFinancePlan
+	CreatePlanned     *financeapp.CreatePlannedCashflow
 	CreateHabit       *habitsapp.CreateHabit
 	TrackHabit        *habitsapp.TrackHabit
 	ListHabits        *habitsapp.ListHabitsToday
@@ -187,6 +196,7 @@ type Deps struct {
 	DeleteUser      *identityapp.DeleteUser
 	AdminTelegramID int64
 	MiniAppURL      string
+	Agent           *AgentBridge
 }
 
 func NewHandler(d Deps) *MessageHandler {
@@ -205,6 +215,7 @@ func NewHandler(d Deps) *MessageHandler {
 		triage: d.Triage, reschedule: d.Reschedule,
 		recordIncome: d.RecordIncome, recordExpense: d.RecordExpense,
 		createDebt: d.CreateDebt, payDebt: d.PayDebt, listDebts: d.ListDebts, cashFlow: d.CashFlow,
+		listFinancePlan: d.ListFinancePlan, createPlanned: d.CreatePlanned,
 		createHabit: d.CreateHabit, trackHabit: d.TrackHabit, listHabits: d.ListHabits,
 		createProject: d.CreateProject, findProject: d.FindProject, listProjects: d.ListProjects,
 		listProjectTasks: d.ListProjectTasks, archiveProject: d.ArchiveProject, createEvent: d.CreateEvent, listCalendar: d.ListCalendar,
@@ -221,6 +232,9 @@ func NewHandler(d Deps) *MessageHandler {
 		tzReader:   d.TZReader,
 		deleteUser: d.DeleteUser, adminTelegramID: d.AdminTelegramID,
 		miniAppURL: strings.TrimSpace(d.MiniAppURL),
+		agent:      d.Agent,
+		stt:        d.SpeechToText,
+		vision:     d.Vision,
 	}
 }
 
@@ -228,14 +242,39 @@ func (h *MessageHandler) HandleUpdate(ctx context.Context, update Update) error 
 	if update.CallbackQuery != nil {
 		return h.handleCallback(ctx, update)
 	}
-	if update.Message == nil || update.Message.Text == "" {
+	if update.Message == nil {
 		return nil
 	}
+
 	seen, err := h.processed.Seen(ctx, update.UpdateID)
 	if err != nil {
 		return err
 	}
 	if seen {
+		return nil
+	}
+
+	chatID := update.Message.Chat.ID
+	userMsgID := update.Message.MessageID
+
+	text, resolveErr := h.resolveIncomingText(ctx, chatID, update.Message)
+	if resolveErr != nil {
+		user, uerr := h.ensureUser.Execute(ctx, identityapp.EnsureUserInput{
+			TelegramID:  update.Message.From.ID,
+			DisplayName: FormatDisplayName(update.Message.From),
+		})
+		if uerr != nil {
+			return fmt.Errorf("resolve user: %w", uerr)
+		}
+		out := dispatchResult{text: formatMediaResolveError(resolveErr)}
+		if err := h.present(ctx, user.ID, chatID, out); err != nil {
+			return err
+		}
+		_ = h.client.DeleteMessage(ctx, chatID, userMsgID)
+		return h.processed.Mark(ctx, update.UpdateID)
+	}
+	if strings.TrimSpace(text) == "" {
+		// Unsupported / empty media with nothing to say — ignore silently.
 		return nil
 	}
 
@@ -247,9 +286,7 @@ func (h *MessageHandler) HandleUpdate(ctx context.Context, update Update) error 
 		return fmt.Errorf("resolve user: %w", err)
 	}
 
-	chatID := update.Message.Chat.ID
-	userMsgID := update.Message.MessageID
-	in := classifyInput(update.Message.Text)
+	in := classifyInput(text)
 
 	out, err := h.dispatchNormalized(ctx, user, update.Message.From, chatID, userMsgID, in)
 	if err != nil {
@@ -371,6 +408,18 @@ func (h *MessageHandler) handleFreeText(
 		return h.onSphereNameEntered(ctx, user.ID, text)
 	case tginfra.StateAwaitTaskProjects, tginfra.StateAwaitProjectSpheres:
 		return dispatchResult{text: "Выбери варианты кнопками на экране или напиши «отмена»."}, nil
+	case tginfra.StateAwaitAgentTurn:
+		return h.runAgentDialogue(ctx, user.ID, text, sess)
+	}
+
+	// Known commands: rule-based first (fast, deterministic). Agent only for unknown / chat.
+	primary := rulebased.NewResolver()
+	if intent, err := primary.Resolve(ctx, ai.ResolveInput{Text: text, Language: "ru"}); err == nil && intent.Type != ai.IntentUnknown {
+		return h.dispatchIntent(ctx, user.ID, intent)
+	}
+
+	if h.agent != nil && h.agent.Agent != nil {
+		return h.runAgentDialogue(ctx, user.ID, text, sess)
 	}
 
 	intent, err := h.resolver.Resolve(ctx, ai.ResolveInput{Text: text, Language: "ru"})
