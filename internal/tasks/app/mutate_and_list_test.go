@@ -231,10 +231,6 @@ func TestEditTaskFieldsAndProjects(t *testing.T) {
 		t.Fatal("expected project not found")
 	}
 }
-<<<<<<< HEAD
-
-=======
->>>>>>> origin/cursor/prod-hosting-fe85
 func TestListTasksDueBetween(t *testing.T) {
 	t.Parallel()
 	store := newFakeStore()
