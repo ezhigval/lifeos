@@ -8,6 +8,7 @@ import (
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
 )
 
+<<<<<<< HEAD
 func TestAdvanceOccurrenceWeeklyCatchUp(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 7, 21, 10, 0, 0, 0, time.UTC)
@@ -43,6 +44,8 @@ func TestAdvanceIfOverdueSkipsToday(t *testing.T) {
 	}
 }
 
+=======
+>>>>>>> origin/cursor/prod-hosting-fe85
 func TestNewPlannedCashflowValidation(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 7, 21, 10, 0, 0, 0, time.UTC)
@@ -66,6 +69,7 @@ func TestNewPlannedCashflowValidation(t *testing.T) {
 	if item.Interval != domain.PlanIntervalMonthly {
 		t.Fatalf("default interval=%s", item.Interval)
 	}
+<<<<<<< HEAD
 }
 
 func TestAdvanceOccurrenceOnceAndMonthlyCatchUp(t *testing.T) {
@@ -90,5 +94,9 @@ func TestAdvanceOccurrenceOnceAndMonthlyCatchUp(t *testing.T) {
 	want := time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)
 	if !item.NextDate.Equal(want) {
 		t.Fatalf("next=%v want %v", item.NextDate, want)
+=======
+	if !domain.PlanKindIncome.Valid() || !domain.PlanIntervalWeekly.Valid() {
+		t.Fatal("valid helpers")
+>>>>>>> origin/cursor/prod-hosting-fe85
 	}
 }

@@ -150,7 +150,11 @@ func TestDebtAdvanceInstallment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+<<<<<<< HEAD
 	debt.AdvanceInstallment(now) // no-op without installment
+=======
+	debt.AdvanceInstallment(now)
+>>>>>>> origin/cursor/prod-hosting-fe85
 	if debt.NextPaymentDate != nil {
 		t.Fatalf("noop should keep next nil, got %v", debt.NextPaymentDate)
 	}
