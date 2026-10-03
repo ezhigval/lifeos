@@ -5,9 +5,9 @@ import (
 	"html"
 	"strings"
 
+	"github.com/valentinezhov/lifeos/internal/platform/ids"
 	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
 	spheresapp "github.com/valentinezhov/lifeos/internal/spheres/app"
-	"github.com/valentinezhov/lifeos/internal/platform/ids"
 )
 
 const (

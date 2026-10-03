@@ -273,7 +273,7 @@ export function TaskDetailPage() {
           </div>
           {kind === 'reminder' && (
             <p className="mt-2 text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">
-              Напоминание — push-уведомление в указанное время
+              Push в Telegram утром в день due (время = утренний обзор). Точное время — в Ещё → Напоминания.
             </p>
           )}
         </div>

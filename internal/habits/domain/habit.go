@@ -8,9 +8,9 @@ import (
 )
 
 var (
-	ErrEmptyName         = errors.New("habit name is required")
-	ErrInvalidFrequency  = errors.New("invalid habit frequency")
-	ErrNotFound          = errors.New("habit not found")
+	ErrEmptyName        = errors.New("habit name is required")
+	ErrInvalidFrequency = errors.New("invalid habit frequency")
+	ErrNotFound         = errors.New("habit not found")
 )
 
 type Frequency string

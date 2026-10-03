@@ -141,22 +141,6 @@ export type Reminder = {
   status: string
 }
 
-export type Contact = {
-  id: string
-  name: string
-  company: string
-  role: string
-  notes: string
-  created_at: string
-}
-
-export type Skill = {
-  id: string
-  name: string
-  level: string
-  created_at: string
-}
-
 export type WeightLog = {
   id: string
   weight_kg: number

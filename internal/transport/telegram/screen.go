@@ -2,7 +2,6 @@ package telegram
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
@@ -76,39 +75,6 @@ func (s *Screen) Show(
 	return s.sessions.Save(ctx, sess)
 }
 
-func menuActionLabel(action string) (string, bool) {
-	switch action {
-	case ActionHome:
-		return MenuHome, true
-	case ActionTasksToday:
-		return MenuTasksToday, true
-	case ActionPriorities:
-		return MenuPriorities, true
-	case ActionAddTask:
-		return MenuAddTask, true
-	case ActionProjectProgress:
-		return MenuProjectProgress, true
-	case ActionAddProject:
-		return MenuAddProject, true
-	case ActionTriage:
-		return MenuTriage, true
-	case ActionHabits:
-		return MenuHabits, true
-	case ActionProjects:
-		return MenuProjects, true
-	case ActionCalendar:
-		return MenuCalendar, true
-	case ActionAnalytics:
-		return MenuAnalytics, true
-	case ActionSettings:
-		return MenuSettings, true
-	case ActionMiniApp:
-		return MenuMiniApp, true
-	default:
-		return "", false
-	}
-}
-
 // TextToAction maps menu label text to action id (exported for tests).
 func TextToAction(text string) (string, bool) {
 	return textToAction(text)
@@ -134,15 +100,4 @@ func textToAction(text string) (string, bool) {
 	}
 	action, ok := labels[text]
 	return action, ok
-}
-
-func formatActionName(action string) string {
-	if label, ok := menuActionLabel(action); ok {
-		return label
-	}
-	return action
-}
-
-func actionError(action string, err error) string {
-	return fmt.Sprintf("%s: %v", formatActionName(action), err)
 }

@@ -368,6 +368,15 @@ export const api = {
   deleteFinancePlan: (id: string) =>
     request<void>(`/api/v1/finance/plan/${id}`, { method: 'DELETE' }),
 
+  completeFinancePlan: (id: string) =>
+    request<{
+      deleted: boolean
+      posted?: boolean
+      posted_cents?: number
+      posted_kind?: string
+      item?: import('@/api/types').FinancePlanItem
+    }>(`/api/v1/finance/plan/${id}/complete`, { method: 'POST' }),
+
   reminders: () =>
     request<{ reminders: import('@/api/types').Reminder[] }>('/api/v1/reminders'),
 
@@ -379,34 +388,6 @@ export const api = {
 
   cancelReminder: (id: string) =>
     request(`/api/v1/reminders/${id}`, { method: 'DELETE' }),
-
-  contacts: (q?: string) => {
-    const qs = q ? `?q=${encodeURIComponent(q)}` : ''
-    return request<{ contacts: import('@/api/types').Contact[] }>(`/api/v1/career/contacts${qs}`)
-  },
-
-  createContact: (body: { name: string; company?: string; role?: string; notes?: string }) =>
-    request<import('@/api/types').Contact>('/api/v1/career/contacts', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-
-  deleteContact: (id: string) =>
-    request(`/api/v1/career/contacts/${id}`, { method: 'DELETE' }),
-
-  skills: (q?: string) => {
-    const qs = q ? `?q=${encodeURIComponent(q)}` : ''
-    return request<{ skills: import('@/api/types').Skill[] }>(`/api/v1/career/skills${qs}`)
-  },
-
-  createSkill: (name: string, level?: string) =>
-    request<import('@/api/types').Skill>('/api/v1/career/skills', {
-      method: 'POST',
-      body: JSON.stringify({ name, level: level || '' }),
-    }),
-
-  deleteSkill: (id: string) =>
-    request(`/api/v1/career/skills/${id}`, { method: 'DELETE' }),
 
   latestWeight: () =>
     request<import('@/api/types').WeightLog>('/api/v1/health/weight/latest'),

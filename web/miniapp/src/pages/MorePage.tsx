@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import {
   BarChart3,
-  // Briefcase,
+  Bell,
   Calendar,
   FileText,
   HeartPulse,
@@ -28,6 +28,12 @@ const sections = [
         title: 'Календарь',
         subtitle: 'Задачи по датам',
         icon: <Calendar size={20} />,
+      },
+      {
+        to: '/more/reminders',
+        title: 'Напоминания',
+        subtitle: 'Push в Telegram по времени',
+        icon: <Bell size={20} />,
       },
       {
         to: '/more/settings',
@@ -63,12 +69,6 @@ const sections = [
   {
     title: 'Обзор',
     items: [
-      // {
-      //   to: '/more/career',
-      //   title: 'Карьера',
-      //   subtitle: 'Контакты и навыки',
-      //   icon: <Briefcase size={20} />,
-      // },
       {
         to: '/more/analytics',
         title: 'Аналитика',

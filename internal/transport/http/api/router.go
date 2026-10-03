@@ -64,6 +64,7 @@ type Deps struct {
 	ListFinancePlan  *financeapp.ListFinancePlan
 	CreatePlanned    *financeapp.CreatePlannedCashflow
 	DeletePlanned    *financeapp.DeletePlannedCashflow
+	CompletePlanned  *financeapp.CompletePlanOccurrence
 	CashFlow         *financeapp.CashFlowSummary
 	FinanceOverview  *financeapp.FinanceOverview
 	ListHabits       *habitsapp.ListHabitsToday
@@ -154,6 +155,7 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Post("/finance/debts/{id}/pay", rt.payDebt)
 			r.Get("/finance/plan", rt.listFinancePlan)
 			r.Post("/finance/plan", rt.createPlannedCashflow)
+			r.Post("/finance/plan/{id}/complete", rt.completePlannedCashflow)
 			r.Delete("/finance/plan/{id}", rt.deletePlannedCashflow)
 			r.Get("/habits/today", rt.listHabitsToday)
 			r.Post("/habits", rt.createHabit)
@@ -285,19 +287,19 @@ func timeUntil(exp time.Time) int {
 }
 
 type taskJSON struct {
-	ID              string  `json:"id"`
-	Title           string  `json:"title"`
-	Description     *string `json:"description,omitempty"`
-	Status          string  `json:"status"`
-	Priority        string  `json:"priority"`
-	Kind            string  `json:"kind"`
-	Address         *string `json:"address,omitempty"`
-	NoteID          *string `json:"note_id,omitempty"`
-	DueDate         *string `json:"due_date,omitempty"`
-	DurationMinutes *int    `json:"duration_minutes,omitempty"`
+	ID              string   `json:"id"`
+	Title           string   `json:"title"`
+	Description     *string  `json:"description,omitempty"`
+	Status          string   `json:"status"`
+	Priority        string   `json:"priority"`
+	Kind            string   `json:"kind"`
+	Address         *string  `json:"address,omitempty"`
+	NoteID          *string  `json:"note_id,omitempty"`
+	DueDate         *string  `json:"due_date,omitempty"`
+	DurationMinutes *int     `json:"duration_minutes,omitempty"`
 	Tags            []string `json:"tags,omitempty"`
 	ProjectIDs      []string `json:"project_ids,omitempty"`
-	CreatedAt       string  `json:"created_at"`
+	CreatedAt       string   `json:"created_at"`
 }
 
 func taskToJSON(dto tasksapp.TaskDTO) taskJSON {
@@ -440,6 +442,7 @@ func (rt *Router) createTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.syncTaskReminder(r.Context(), userID, dto)
 	writeJSON(w, http.StatusCreated, taskToJSON(dto))
 }
 
@@ -504,21 +507,21 @@ func (rt *Router) listTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 type editTaskRequest struct {
-	Title            *string         `json:"title"`
-	Description      nullableString  `json:"description"`
-	ClearDescription bool            `json:"clear_description"`
-	Priority         *string         `json:"priority"`
-	DueDate          nullableString  `json:"due_date"`
-	ClearDueDate     bool            `json:"clear_due_date"`
-	DurationMinutes  *int            `json:"duration_minutes"`
-	ClearDuration    bool            `json:"clear_duration"`
-	Tags             *[]string       `json:"tags"`
-	Kind             *string         `json:"kind"`
-	Address          nullableString  `json:"address"`
-	ClearAddress     bool            `json:"clear_address"`
-	NoteID           nullableString  `json:"note_id"`
-	ClearNoteID      bool            `json:"clear_note_id"`
-	ProjectIDs       *[]string       `json:"project_ids"`
+	Title            *string        `json:"title"`
+	Description      nullableString `json:"description"`
+	ClearDescription bool           `json:"clear_description"`
+	Priority         *string        `json:"priority"`
+	DueDate          nullableString `json:"due_date"`
+	ClearDueDate     bool           `json:"clear_due_date"`
+	DurationMinutes  *int           `json:"duration_minutes"`
+	ClearDuration    bool           `json:"clear_duration"`
+	Tags             *[]string      `json:"tags"`
+	Kind             *string        `json:"kind"`
+	Address          nullableString `json:"address"`
+	ClearAddress     bool           `json:"clear_address"`
+	NoteID           nullableString `json:"note_id"`
+	ClearNoteID      bool           `json:"clear_note_id"`
+	ProjectIDs       *[]string      `json:"project_ids"`
 }
 
 func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
@@ -644,6 +647,7 @@ func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.syncTaskReminder(r.Context(), userID, dto)
 	writeJSON(w, http.StatusOK, taskToJSON(dto))
 }
 
@@ -669,6 +673,7 @@ func (rt *Router) completeTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.cancelTaskReminders(r.Context(), userID, taskID)
 	writeJSON(w, http.StatusOK, taskToJSON(dto))
 }
 
@@ -698,6 +703,7 @@ func (rt *Router) reopenTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.syncTaskReminder(r.Context(), userID, dto)
 	writeJSON(w, http.StatusOK, taskToJSON(dto))
 }
 
@@ -727,6 +733,7 @@ func (rt *Router) cancelTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.cancelTaskReminders(r.Context(), userID, taskID)
 	writeJSON(w, http.StatusOK, taskToJSON(dto))
 }
 
@@ -770,6 +777,7 @@ func (rt *Router) rescheduleTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.syncTaskReminder(r.Context(), userID, dto)
 	writeJSON(w, http.StatusOK, taskToJSON(dto))
 }
 
@@ -791,6 +799,7 @@ type ReminderLister interface {
 // ReminderCanceller is implemented by *notifapp.CancelReminder.
 type ReminderCanceller interface {
 	Execute(ctx context.Context, in notifapp.CancelReminderInput) (notifapp.ReminderDTO, error)
+	CancelForTask(ctx context.Context, userID ids.UserID, taskID string) error
 }
 
 func (rt *Router) analyticsSummary(w http.ResponseWriter, r *http.Request) {
@@ -816,7 +825,7 @@ func (rt *Router) analyticsSummary(w http.ResponseWriter, r *http.Request) {
 		"period_label":      summary.PeriodLabel,
 		"tasks_created":     summary.TasksCreated,
 		"tasks_completed":   summary.TasksCompleted,
-		"completion_rate":   summary.CompletionRate,   // int 0–100
+		"completion_rate":   summary.CompletionRate, // int 0–100
 		"open_tasks":        summary.OpenTasks,
 		"habit_consistency": summary.HabitConsistency, // int 0–100
 		"habit_completions": summary.HabitCompletions,

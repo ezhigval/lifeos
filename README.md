@@ -74,6 +74,7 @@ make docker-up       # пересоздать app с новым LIFEOS_MINIAPP_U
 | Mini App Frontend lead | [docs/miniapp/FRONTEND_LEAD_PROMPT.md](docs/miniapp/FRONTEND_LEAD_PROMPT.md) |
 | Mini App Backend | [docs/miniapp/BACKEND_PROMPT.md](docs/miniapp/BACKEND_PROMPT.md) |
 | OpenAPI | [docs/api/openapi.yaml](docs/api/openapi.yaml) |
+| Production (Fly / VPS) | [docs/ops/PRODUCTION.md](docs/ops/PRODUCTION.md) |
 | Агенты (Architect / Backend / Frontend / Telegram) | [docs/agents/](docs/agents/) |
 
 ## Деплой
@@ -85,6 +86,8 @@ docker compose -f deployments/docker-compose.yml up
 docker compose -f deployments/docker-compose.yml --profile observability up   # + prometheus, grafana, jaeger
 # or: make observability-up
 ```
+
+Для стабильного HTTPS (Mini App + webhook, без trycloudflare): **[docs/ops/PRODUCTION.md](docs/ops/PRODUCTION.md)** — Fly.io или VPS+Caddy.
 
 `GET /metrics` exposes Prometheus metrics on the app (scraped by `deployments/prometheus/prometheus.yml` → `app:8080`). OTel tracing is off by default (`LIFEOS_OTEL_ENABLED=false`).
 

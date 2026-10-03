@@ -323,6 +323,25 @@ func (s *fakeDebtStore) SavePlanned(_ context.Context, item financedomain.Planne
 	return nil
 }
 
+func (s *fakeDebtStore) GetPlanned(_ context.Context, userID ids.UserID, id ids.PlannedCashflowID) (financedomain.PlannedCashflow, error) {
+	p, ok := s.plans[id]
+	if !ok || p.UserID != userID {
+		return financedomain.PlannedCashflow{}, financedomain.ErrPlanNotFound
+	}
+	return p, nil
+}
+
+func (s *fakeDebtStore) UpdatePlannedNextDate(_ context.Context, item financedomain.PlannedCashflow) error {
+	p, ok := s.plans[item.ID]
+	if !ok || p.UserID != item.UserID {
+		return financedomain.ErrPlanNotFound
+	}
+	p.NextDate = item.NextDate
+	p.UpdatedAt = item.UpdatedAt
+	s.plans[item.ID] = p
+	return nil
+}
+
 func (s *fakeDebtStore) ListPlanned(_ context.Context, userID ids.UserID) ([]financedomain.PlannedCashflow, error) {
 	var out []financedomain.PlannedCashflow
 	for _, p := range s.plans {
@@ -641,6 +660,10 @@ func (a cancelReminderAdapter) Execute(ctx context.Context, in notifapp.CancelRe
 	return a.ExecuteCancel(ctx, in)
 }
 
+func (a cancelReminderAdapter) CancelForTask(_ context.Context, _ ids.UserID, _ string) error {
+	return nil
+}
+
 type fakeAnalytics struct {
 	summary query.ProductivitySummary
 }
@@ -940,6 +963,7 @@ func newTestEnv(t *testing.T) testEnv {
 		ListFinancePlan:  financeapp.NewListFinancePlan(debtStore, debtStore),
 		CreatePlanned:    financeapp.NewCreatePlannedCashflow(debtStore, fakeEvents{}, fakeTx{}),
 		DeletePlanned:    financeapp.NewDeletePlannedCashflow(debtStore),
+		CompletePlanned:  financeapp.NewCompletePlanOccurrence(debtStore, fakeEvents{}, fakeTx{}, nil, nil),
 		CreateNote:       knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
 		ListNotes:        knowledgeapp.NewListNotes(noteStore),
 		SearchNotes:      knowledgeapp.NewSearchNotes(noteStore),
@@ -1184,11 +1208,11 @@ func TestTaskLifecycleEditClearArchiveDelete(t *testing.T) {
 		t.Fatalf("create status=%d body=%s", createRec.Code, createRec.Body.String())
 	}
 	var created struct {
-		ID          string  `json:"id"`
-		Title       string  `json:"title"`
-		Description *string `json:"description"`
+		ID          string   `json:"id"`
+		Title       string   `json:"title"`
+		Description *string  `json:"description"`
 		Tags        []string `json:"tags"`
-		DueDate     *string `json:"due_date"`
+		DueDate     *string  `json:"due_date"`
 	}
 	if err := json.Unmarshal(createRec.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
@@ -1708,11 +1732,11 @@ func TestFinanceOverviewHTTP(t *testing.T) {
 		t.Fatalf("status=%d body=%s", okRec.Code, okRec.Body.String())
 	}
 	var body struct {
-		PeriodLabel  string  `json:"period_label"`
-		IncomeCents  int64   `json:"income_cents"`
-		ExpenseCents int64   `json:"expense_cents"`
-		NetCents     int64   `json:"net_cents"`
-		Currency     string  `json:"currency"`
+		PeriodLabel  string `json:"period_label"`
+		IncomeCents  int64  `json:"income_cents"`
+		ExpenseCents int64  `json:"expense_cents"`
+		NetCents     int64  `json:"net_cents"`
+		Currency     string `json:"currency"`
 		Categories   []struct {
 			Name        string  `json:"name"`
 			AmountCents int64   `json:"amount_cents"`

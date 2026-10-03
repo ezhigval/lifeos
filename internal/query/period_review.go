@@ -15,14 +15,14 @@ import (
 )
 
 type PeriodStats struct {
-	PeriodLabel       string
-	CompletedTasks    int64
-	OpenTasks         int64
-	HabitCompletions  int64
-	IncomeCents       int64
-	ExpenseCents      int64
-	NetCents          int64
-	ActiveProjects    int
+	PeriodLabel      string
+	CompletedTasks   int64
+	OpenTasks        int64
+	HabitCompletions int64
+	IncomeCents      int64
+	ExpenseCents     int64
+	NetCents         int64
+	ActiveProjects   int
 }
 
 type PeriodReview struct {
@@ -79,16 +79,16 @@ func (r *PeriodReview) stats(ctx context.Context, userID ids.UserID, start, end 
 		return PeriodStats{}, fmt.Errorf("count habit completions: %w", err)
 	}
 	income, err := q.SumIncomeBetween(ctx, db.SumIncomeBetweenParams{
-		UserID:     uid,
-		OccurredAt: pgconv.TimestamptzValue(start),
+		UserID:       uid,
+		OccurredAt:   pgconv.TimestamptzValue(start),
 		OccurredAt_2: pgconv.TimestamptzValue(end),
 	})
 	if err != nil {
 		return PeriodStats{}, fmt.Errorf("sum income: %w", err)
 	}
 	expense, err := q.SumExpenseBetween(ctx, db.SumExpenseBetweenParams{
-		UserID:     uid,
-		OccurredAt: pgconv.TimestamptzValue(start),
+		UserID:       uid,
+		OccurredAt:   pgconv.TimestamptzValue(start),
 		OccurredAt_2: pgconv.TimestamptzValue(end),
 	})
 	if err != nil {

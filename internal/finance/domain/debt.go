@@ -28,17 +28,17 @@ func (s DebtStatus) Valid() bool {
 }
 
 type Debt struct {
-	ID                   ids.DebtID
-	UserID               ids.UserID
-	Creditor             string
-	AmountCents          int64
-	PaidCents            int64
-	DueDate              *time.Time
-	InstallmentCents     int64
-	InstallmentInterval  string // none|weekly|monthly
-	NextPaymentDate      *time.Time
-	Status               DebtStatus
-	CreatedAt            time.Time
+	ID                  ids.DebtID
+	UserID              ids.UserID
+	Creditor            string
+	AmountCents         int64
+	PaidCents           int64
+	DueDate             *time.Time
+	InstallmentCents    int64
+	InstallmentInterval string // none|weekly|monthly
+	NextPaymentDate     *time.Time
+	Status              DebtStatus
+	CreatedAt           time.Time
 }
 
 func (d Debt) RemainingCents() int64 {
