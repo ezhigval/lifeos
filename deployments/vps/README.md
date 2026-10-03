@@ -27,3 +27,27 @@ ssh root@<IP> 'cd /opt/lifeos/src && /usr/local/go/bin/go build -o /opt/lifeos/b
 - Quick-туннель trycloudflare меняет хост при рестарте сервиса → обновить `LIFEOS_MINIAPP_URL` и отправить боту `/start`. Для постоянного домена — named tunnel (`cloudflared tunnel login`).
 - `PASTE-BOT-TOKEN`/`PASTE-TUNNEL-HOST` в создаваемом `.env` — единственные поля, которые нужно вписать руками; секреты JWT/API генерируются автоматически.
 - Проверено локально: bash -n ОК. Реальный прогон — на машине (ждём IP/ключ).
+
+## Telegram-эгресс через Cloudflare Worker (tg-proxy) — бесплатно, внутри ВМ
+
+Yandex Cloud блокирует исходящие к api.telegram.org, но **не** блокирует Cloudflare.
+Схема: приложение → локальный forward-proxy `127.0.0.1:8081` (tg-proxy.py) → ваш Cloudflare
+Worker (`*.workers.dev`) → api.telegram.org. Всё бесплатно (тариф Workers 100k запросов/день).
+
+1. Задеплойте воркер (один раз, с любой машины): dash.cloudflare.com → Workers → Create →
+   вставьте код `deployments/vps/tg-proxy-worker.js` → Deploy. Или:
+   `cd deployments/vps && npx --yes wrangler deploy` (потребуется `npx wrangler login`).
+   Запомните URL: `https://tg-proxy.<ваш-сабдомен>.workers.dev`.
+2. На ВМ:
+   ```bash
+   scp deployments/vps/tg-proxy.py deployments/vps/tg-proxy.sh smailikin70@<VM>:/tmp/
+   ssh smailikin70@<VM>
+   sudo LIFEOS_TG_PROXY_WORKER_URL=https://tg-proxy.<sub>.workers.dev bash /tmp/tg-proxy.sh install
+   sudo bash /tmp/tg-proxy.sh test   # getMe через прокси
+   ```
+3. Приложение само подхватит `LIFEOS_HTTP_PROXY` из `/opt/lifeos/lifeos.env` (сервис перезапускается).
+   После этого работают polling и webhook (webhook тоже проходит: TG→Cloudflare→туннель — входящее).
+4. Отключить: `sudo bash /tmp/tg-proxy.sh remove`.
+
+Примечание: base URL клиента Telegram намеренно `http://` — plain-forward proxy ретранслирует
+absolute-form URI без CONNECT/TLS-туннелирования; сам хоп до Worker идёт по HTTPS внутри tg-proxy.py.
