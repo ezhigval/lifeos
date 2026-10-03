@@ -31,7 +31,7 @@ func NewClient(token string) *Client {
 	}
 	return &Client{
 		token: token,
-		base:  "http://api.telegram.org/bot" + token, // http scheme: plain-HTTP forward proxy (tg-proxy) relays without CONNECT/TLS tunneling
+		base:  "https://api.telegram.org/bot" + token, // https default; LIFEOS_HTTP_PROXY relay still applies via transport
 		http:  &http.Client{Timeout: 15 * time.Second, Transport: tr},
 	}
 }
@@ -553,7 +553,7 @@ func (c *Client) DownloadFile(ctx context.Context, filePath string, maxBytes int
 	if maxBytes <= 0 {
 		maxBytes = 20 << 20
 	}
-	url := "http://api.telegram.org/file/bot" + c.token + "/" + filePath // http scheme: relayed by tg-proxy when LIFEOS_HTTP_PROXY is set
+	url := "https://api.telegram.org/file/bot" + c.token + "/" + filePath
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err

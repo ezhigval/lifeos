@@ -54,7 +54,7 @@ cp deployments/.env.prod.example deployments/.env.prod
 # LIFEOS_JWT_SECRET=...
 # LIFEOS_TELEGRAM_WEBHOOK_SECRET=...
 # POSTGRES_PASSWORD=...
-# LIFEOS_SEED_TELEGRAM_ID=1034074077
+# LIFEOS_SEED_TELEGRAM_ID=<YOUR_TELEGRAM_ID>
 
 # DNS: A-запись LIFEOS_DOMAIN → IP VPS
 # Firewall: 80/tcp, 443/tcp
@@ -72,7 +72,7 @@ export TELEGRAM_BOT_TOKEN=...
 export LIFEOS_MINIAPP_URL=https://lifeos.example.com/app/
 export LIFEOS_TELEGRAM_WEBHOOK_URL=https://lifeos.example.com/webhook/telegram
 export LIFEOS_TELEGRAM_WEBHOOK_SECRET=...
-export LIFEOS_NOTIFY_CHAT_ID=1034074077
+export LIFEOS_NOTIFY_CHAT_ID=<YOUR_TELEGRAM_ID>
 ./scripts/set-telegram-urls.sh
 ```
 

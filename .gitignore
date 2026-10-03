@@ -1,12 +1,49 @@
-# Environment
+# Environment & secrets (NEVER commit)
 .env
+.env.*
 .env.local
 deployments/vps/lifeos-deploy.env
-# Local secrets & SSH keys
-.env.*
+lifeos-deploy.env
+
+# SSH keys / certificates
 *.pem
 *.key
-!*.pub
+*.p12
+*.pfx
 id_rsa*
+id_ed25519*
 *_vm_key
 ssh/
+known_hosts*
+!*.pub
+
+# Local data & dumps
+*.dump
+*.sql.gz
+backups/
+*.bak
+
+# Build artifacts
+# bin/lifeos stays tracked: shipped build artifact
+#bin/
+dist/
+build/
+*.exe
+
+# Go
+vendor/
+coverage.out
+
+# Node
+node_modules/
+web/miniapp/dist/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Logs & runtime
+*.log
+run/
