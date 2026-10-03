@@ -1275,6 +1275,13 @@ paths:
       summary: Events for today
       security:
         - bearerAuth: []
+      parameters:
+        - in: query
+          name: day
+          schema:
+            type: string
+            format: date
+          description: Optional user-local calendar day (YYYY-MM-DD); defaults to today
       responses:
         '200':
           description: Event list

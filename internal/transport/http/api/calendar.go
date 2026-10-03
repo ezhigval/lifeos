@@ -33,7 +33,15 @@ func (rt *Router) listCalendarToday(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotImplemented, "calendar is not configured")
 		return
 	}
-	items, err := rt.deps.ListCalendar.Execute(r.Context(), userID)
+	// Optional ?day=YYYY-MM-DD (user-local calendar day); defaults to today.
+	day := strings.TrimSpace(r.URL.Query().Get("day"))
+	if day != "" {
+		if _, err := time.Parse("2006-01-02", day); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid day, use YYYY-MM-DD")
+			return
+		}
+	}
+	items, err := rt.deps.ListCalendar.ExecuteForDay(r.Context(), userID, day)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

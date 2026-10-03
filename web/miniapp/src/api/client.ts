@@ -252,8 +252,10 @@ export const api = {
       method: 'POST',
     }),
 
-  calendarToday: () =>
-    request<{ events: import('@/api/types').CalendarEvent[] }>('/api/v1/calendar/today'),
+  calendarToday: (day?: string) =>
+    request<{ events: import('@/api/types').CalendarEvent[] }>(
+      `/api/v1/calendar/today${day ? `?day=${day}` : ''}`,
+    ),
 
   createCalendarEvent: (title: string, starts_at: string) =>
     request<import('@/api/types').CalendarEvent>('/api/v1/calendar/events', {

@@ -101,14 +101,19 @@
 
 | ID | Story | Priority | Phase |
 |----|-------|----------|-------|
-| MA-A1 | Auth `POST /auth/telegram-webapp` | P0 | A (backend) |
+| MA-A1 | Auth `POST /auth/telegram-webapp` | P0 | A ✅ (verify-webapp-auth.sh — 6/6) |
 | MA-A2 | Telegram BackButton on nested routes | P0 | A ✅ frontend |
-| MA-A4 | Finance overview API + Mini App wire | P0 | A (backend) |
+| MA-A4 | Finance overview API + Mini App wire | P0 | A ✅ |
 | MA-A3 | Tab «Ещё» + Settings stub | P1 | A ✅ frontend |
 | MA-A5 | Sheet motion | P1 | A ✅ frontend |
 | MA-A6 | Query error/retry | P1 | A ✅ frontend |
-| MA-B4 | Habits today + track | P1 | B |
-| MA-B1 | CreateTask sheet (priority/due) | P1 | B |
+| MA-B4 | Habits today + track | P1 | B ✅ (HomeHabits + HabitsPage, optimistic track) |
+| MA-B1 | CreateTask sheet (priority/due) | P1 | B ✅ (FAB на Home → CreateTaskSheet) |
+| MA-B2 | Task complete из tree preview | P1 | B ✅ (UpcomingTasks/TaskCard complete) |
+| MA-B3 | Priorities с реальным taskId + complete | P1 | B ✅ |
+| MA-B5 | Calendar today + create event sheet | P2 | B ✅ (CalendarPage events + CreateEventSheet; API day param) |
+| MA-B6 | Settings: review times, quiet hours | P2 | B ✅ (SettingsPage) |
+| MA-B7 | Spheres CRUD в Settings | P2 | B ✅ (create/rename/delete, confirm) |
 
 Остальные MA-* — в UX_UI_PLAN §8.
 

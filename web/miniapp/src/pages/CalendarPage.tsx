@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react'
 import { api } from '@/api/client'
 import type { Task } from '@/api/types'
 import { Header } from '@/components/layout/Header'
+import { CreateEventSheet } from '@/components/calendar/CreateEventSheet'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -22,6 +23,7 @@ export function CalendarPage() {
   const queryClient = useQueryClient()
   const [selectedDay, setSelectedDay] = useState(() => toDateKey(new Date()))
   const [createOpen, setCreateOpen] = useState(false)
+  const [eventOpen, setEventOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [kind, setKind] = useState<'task' | 'reminder' | 'meeting'>('task')
   const [dueDate, setDueDate] = useState(() => toDateKey(new Date()))
@@ -49,6 +51,15 @@ export function CalendarPage() {
     queryFn: async () => {
       const res = await api.tasksDueBetween(range.from, range.to)
       return Array.isArray(res.tasks) ? res.tasks : []
+    },
+  })
+
+  // MA-B5: calendar events for the selected day (user-local TZ resolved on the server).
+  const { data: eventsData } = useQuery({
+    queryKey: ['calendar', 'day', selectedDay],
+    queryFn: async () => {
+      const res = await api.calendarToday(selectedDay)
+      return Array.isArray(res.events) ? res.events : []
     },
   })
 
@@ -111,7 +122,11 @@ export function CalendarPage() {
     <>
       <Header title="Календарь" subtitle="Задачи по датам на 2 недели" />
       <div className="space-y-4 px-4 pb-4">
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-2">
+          <Button size="sm" variant="secondary" onClick={() => setEventOpen(true)}>
+            <Plus size={16} className="mr-1" />
+            Событие
+          </Button>
           <Button size="sm" onClick={openCreate}>
             <Plus size={16} className="mr-1" />
             Задача
@@ -154,6 +169,25 @@ export function CalendarPage() {
           {formatDayLong(selectedDay)}
         </h3>
 
+        {(eventsData?.length ?? 0) > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--tg-theme-hint-color,#64748b)]">
+              События
+            </p>
+            {eventsData!.map((ev) => (
+              <div
+                key={ev.id}
+                className="flex items-center gap-3 rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3"
+              >
+                <span className="shrink-0 text-sm font-medium text-[var(--tg-theme-link-color,#22c55e)]">
+                  {formatTime(ev.starts_at)}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{ev.title}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {isLoading && (
           <div className="space-y-2">
             <Skeleton className="h-14 w-full" />
@@ -165,7 +199,7 @@ export function CalendarPage() {
           <QueryError message="Не удалось загрузить задачи" onRetry={() => void refetch()} />
         )}
 
-        {!isLoading && !isError && selectedTasks.length === 0 && totalCount === 0 && (
+        {!isLoading && !isError && selectedTasks.length === 0 && (eventsData?.length ?? 0) === 0 && totalCount === 0 && (
           <EmptyState
             title="Нет задач с датой"
             description="Добавь задачу, встречу или напоминание"
@@ -174,7 +208,7 @@ export function CalendarPage() {
           />
         )}
 
-        {!isLoading && !isError && selectedTasks.length === 0 && totalCount > 0 && (
+        {!isLoading && !isError && selectedTasks.length === 0 && (eventsData?.length ?? 0) === 0 && totalCount > 0 && (
           <p className="text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">На этот день пусто</p>
         )}
 
@@ -259,6 +293,8 @@ export function CalendarPage() {
           Создать
         </Button>
       </Sheet>
+
+      <CreateEventSheet open={eventOpen} onClose={() => setEventOpen(false)} day={selectedDay} />
     </>
   )
 }
@@ -268,6 +304,13 @@ function toDateKey(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+/** Format an RFC3339 instant as HH:mm in the user's browser locale. */
+function formatTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatDayShort(iso: string): string {

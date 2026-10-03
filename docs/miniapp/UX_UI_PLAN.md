@@ -236,14 +236,14 @@ Dev: API key + telegram_id (как сейчас).
 
 | ID | Work | Priority |
 |----|------|----------|
-| MA-A1 | Backend: telegram-webapp auth | P0 |
-| MA-A2 | Telegram `BackButton` на nested routes | P0 |
-| MA-A3 | Таб «Ещё» (заглушки + Settings stub) | P1 |
-| MA-A4 | Finance overview API + wire legend/periods | P0 |
-| MA-A5 | Sheet motion + swipe dismiss | P1 |
-| MA-A6 | Error/retry banners for queries | P1 |
-| MA-A7 | Убрать Vite leftovers (react/vite svg noise) | P2 |
-| MA-A8 | Fix nested button a11y в ProjectCard | P1 |
+| MA-A1 | Backend: telegram-webapp auth | P0 ✅ |
+| MA-A2 | Telegram `BackButton` на nested routes | P0 ✅ |
+| MA-A3 | Таб «Ещё» (заглушки + Settings stub) | P1 ✅ |
+| MA-A4 | Finance overview API + wire legend/periods | P0 ✅ |
+| MA-A5 | Sheet motion + swipe dismiss | P1 ✅ |
+| MA-A6 | Error/retry banners for queries | P1 ✅ |
+| MA-A7 | Убрать Vite leftovers (react/vite svg noise) | P2 ✅ (в public только favicon.svg, ссылок нет) |
+| MA-A8 | Fix nested button a11y в ProjectCard | P1 ✅ (role="button" в SphereViews) |
 
 **Exit:** открытие из бота → Home с задачами и finance без пустых нулей на текущем месяце.
 
@@ -253,13 +253,13 @@ Dev: API key + telegram_id (как сейчас).
 
 | ID | Work | Priority |
 |----|------|----------|
-| MA-B1 | CreateTask sheet: title + optional priority/due | P1 |
-| MA-B2 | Task complete из tree preview (не только bullets) | P1 |
-| MA-B3 | Priorities с реальным taskId + complete | P1 |
-| MA-B4 | Habits today + track | P1 |
-| MA-B5 | Calendar today + create event sheet | P2 |
-| MA-B6 | Settings: review times, quiet hours | P2 |
-| MA-B7 | Spheres CRUD в Settings | P2 |
+| MA-B1 | CreateTask sheet: title + optional priority/due | P1 ✅ |
+| MA-B2 | Task complete из tree preview (не только bullets) | P1 ✅ |
+| MA-B3 | Priorities с реальным taskId + complete | P1 ✅ |
+| MA-B4 | Habits today + track | P1 ✅ |
+| MA-B5 | Calendar today + create event sheet | P2 ✅ (CalendarPage + CreateEventSheet) |
+| MA-B6 | Settings: review times, quiet hours | P2 ✅ (SettingsPage) |
+| MA-B7 | Spheres CRUD в Settings | P2 ✅ (create/rename/delete, confirm) |
 
 **Exit:** утренний цикл (задачи + привычки + finance) целиком в Mini App.
 
