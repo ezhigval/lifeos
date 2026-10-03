@@ -97,17 +97,23 @@ func runServe() error {
 	}
 
 	if rt.tgClient != nil && cfg.TelegramMode == "webhook" {
-		if err := tg.RegisterWebhook(ctx, rt.tgClient, cfg.TelegramWebhookURL, cfg.TelegramWebhookSecret); err != nil {
-			return fmt.Errorf("register telegram webhook: %w", err)
-		}
-		log.Info("telegram webhook registered", "url", cfg.TelegramWebhookURL)
-		defer func() {
-			clearCtx, clearCancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer clearCancel()
-			if err := tg.ClearWebhook(clearCtx, rt.tgClient); err != nil {
-				log.Warn("clear telegram webhook failed", "error", err)
+		// Registration is done externally (lifeos telegram set-webhook) from a
+		// network where api.telegram.org is reachable — e.g. when the host
+		// blocks outbound Telegram (Yandex Cloud). Here we only verify that the
+		// webhook Telegram actually points at matches our config; on mismatch
+		// we attempt to (re)register once but never abort startup because of it.
+		if info, err := rt.tgClient.GetWebhookInfo(ctx); err != nil {
+			log.Warn("cannot query telegram webhook info (host may block api.telegram.org)", "error", err)
+		} else if info.URL != cfg.TelegramWebhookURL {
+			log.Warn("telegram webhook mismatch, attempting registration", "current", info.URL, "want", cfg.TelegramWebhookURL)
+			if err := tg.RegisterWebhook(ctx, rt.tgClient, cfg.TelegramWebhookURL, cfg.TelegramWebhookSecret); err != nil {
+				log.Error("telegram webhook registration failed; run `lifeos telegram set-webhook` from a reachable network", "error", err)
+			} else {
+				log.Info("telegram webhook registered", "url", cfg.TelegramWebhookURL)
 			}
-		}()
+		} else {
+			log.Info("telegram webhook active", "url", info.URL, "pending", info.PendingUpdateCount)
+		}
 	}
 
 	sigCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

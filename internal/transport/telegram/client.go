@@ -43,17 +43,17 @@ type Update struct {
 }
 
 type Message struct {
-	MessageID  int64       `json:"message_id"`
-	Text       string      `json:"text"`
-	Caption    string      `json:"caption"`
-	Chat       Chat        `json:"chat"`
-	From       User        `json:"from"`
-	Voice      *Voice      `json:"voice"`
-	Audio      *Audio      `json:"audio"`
-	VideoNote  *VideoNote  `json:"video_note"`
-	Video      *Video      `json:"video"`
-	Photo      []PhotoSize `json:"photo"`
-	Document   *Document   `json:"document"`
+	MessageID int64       `json:"message_id"`
+	Text      string      `json:"text"`
+	Caption   string      `json:"caption"`
+	Chat      Chat        `json:"chat"`
+	From      User        `json:"from"`
+	Voice     *Voice      `json:"voice"`
+	Audio     *Audio      `json:"audio"`
+	VideoNote *VideoNote  `json:"video_note"`
+	Video     *Video      `json:"video"`
+	Photo     []PhotoSize `json:"photo"`
+	Document  *Document   `json:"document"`
 }
 
 type Voice struct {
@@ -602,4 +602,48 @@ func (c *Client) postAPI(ctx context.Context, method string, payload any) error 
 		return fmt.Errorf("telegram %s: %s", method, out.Description)
 	}
 	return nil
+}
+
+// getAPIResult performs a GET Bot API call and returns the raw "result" JSON.
+func (c *Client) getAPIResult(ctx context.Context, method string) (json.RawMessage, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/"+method, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var out struct {
+		OK          bool            `json:"ok"`
+		Description string          `json:"description"`
+		Result      json.RawMessage `json:"result"`
+	}
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, err
+	}
+	if !out.OK {
+		return nil, fmt.Errorf("telegram %s: %s", method, out.Description)
+	}
+	return out.Result, nil
+}
+
+// WebhookInfo reports the currently registered webhook for this bot.
+type WebhookInfo struct {
+	URL                string `json:"url"`
+	PendingUpdateCount int    `json:"pending_update_count"`
+	LastError          string `json:"last_error_message"`
+}
+
+// GetWebhookInfo queries Telegram about the active webhook configuration.
+func (c *Client) GetWebhookInfo(ctx context.Context) (WebhookInfo, error) {
+	result, err := c.getAPIResult(ctx, "getWebhookInfo")
+	if err != nil {
+		return WebhookInfo{}, err
+	}
+	var info WebhookInfo
+	err = json.Unmarshal(result, &info)
+	return info, err
 }
