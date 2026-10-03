@@ -54,7 +54,13 @@ export function TaskDetailPage() {
   const [address, setAddress] = useState('')
   const [description, setDescription] = useState('')
   const [noteText, setNoteText] = useState('')
+  const [projectIds, setProjectIds] = useState<string[]>([])
   const [dirty, setDirty] = useState(false)
+
+  const { data: projectsData } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => api.projects(),
+  })
 
   useEffect(() => {
     if (!data) return
@@ -64,6 +70,7 @@ export function TaskDetailPage() {
     setDueDate(data.due_date ?? '')
     setAddress(data.address ?? '')
     setDescription(data.description ?? '')
+    setProjectIds(data.project_ids ?? [])
     setNoteText('')
     setDirty(false)
   }, [data])
@@ -104,6 +111,7 @@ export function TaskDetailPage() {
         ...(note && noteId ? { note_id: noteId } : {}),
         ...(!note && data?.note_id ? { clear_note_id: true } : {}),
         ...(desc ? { description: desc } : { clear_description: true }),
+        project_ids: projectIds,
       })
     },
     onSuccess: () => {
@@ -368,6 +376,38 @@ export function TaskDetailPage() {
             className="w-full resize-none rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none disabled:opacity-60"
           />
         </label>
+
+        {(projectsData?.projects?.length ?? 0) > 0 && (
+          <div>
+            <p className="mb-2 text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Проекты</p>
+            <div className="flex flex-wrap gap-2">
+              {projectsData!.projects.map((pr) => {
+                const active = projectIds.includes(pr.id)
+                return (
+                  <button
+                    key={pr.id}
+                    type="button"
+                    disabled={readOnly}
+                    onClick={() => {
+                      setProjectIds((prev) =>
+                        active ? prev.filter((x) => x !== pr.id) : [...prev, pr.id],
+                      )
+                      markDirty()
+                    }}
+                    className={cn(
+                      'rounded-full px-3 py-1.5 text-sm disabled:opacity-50',
+                      active
+                        ? 'bg-[var(--tg-theme-button-color,#22c55e)] text-[var(--tg-theme-button-text-color,#fff)]'
+                        : 'bg-[var(--tg-theme-secondary-bg-color,#1e293b)] text-[var(--tg-theme-hint-color,#94a3b8)]',
+                    )}
+                  >
+                    {pr.name}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {!readOnly && (
           <div className="space-y-2">

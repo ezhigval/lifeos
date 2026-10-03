@@ -1304,6 +1304,96 @@ func TestEditTaskNotFoundReturns404(t *testing.T) {
 	}
 }
 
+func TestEditTaskProjectIDsRoundTrip(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	token := issueToken(t, env)
+	auth := map[string]string{"Authorization": "Bearer " + token}
+
+	sphereRec := doJSON(t, env.router, http.MethodPost, "/api/v1/settings/spheres", auth, map[string]any{
+		"name": "TK-14 sphere",
+	})
+	if sphereRec.Code != http.StatusCreated {
+		t.Fatalf("sphere create status=%d body=%s", sphereRec.Code, sphereRec.Body.String())
+	}
+	var sphere struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(sphereRec.Body.Bytes(), &sphere); err != nil {
+		t.Fatal(err)
+	}
+
+	projRec := doJSON(t, env.router, http.MethodPost, "/api/v1/projects", auth, map[string]any{
+		"name":       "TK-14 project",
+		"sphere_ids": []string{sphere.ID},
+	})
+	if projRec.Code != http.StatusCreated {
+		t.Fatalf("project create status=%d body=%s", projRec.Code, projRec.Body.String())
+	}
+	var proj struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(projRec.Body.Bytes(), &proj); err != nil {
+		t.Fatal(err)
+	}
+
+	taskRec := doJSON(t, env.router, http.MethodPost, "/api/v1/tasks", auth, map[string]any{
+		"title": "TK-14 task",
+	})
+	if taskRec.Code != http.StatusCreated {
+		t.Fatalf("task create status=%d body=%s", taskRec.Code, taskRec.Body.String())
+	}
+	var task struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(taskRec.Body.Bytes(), &task); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assign via PATCH (Mini App save flow sends project_ids on every save).
+	patchRec := doJSON(t, env.router, http.MethodPatch, "/api/v1/tasks/"+task.ID, auth, map[string]any{
+		"title":       "TK-14 task",
+		"project_ids": []string{proj.ID},
+	})
+	if patchRec.Code != http.StatusOK {
+		t.Fatalf("patch status=%d body=%s", patchRec.Code, patchRec.Body.String())
+	}
+	var patched struct {
+		ProjectIDs []string `json:"project_ids"`
+	}
+	if err := json.Unmarshal(patchRec.Body.Bytes(), &patched); err != nil {
+		t.Fatal(err)
+	}
+	if len(patched.ProjectIDs) != 1 || patched.ProjectIDs[0] != proj.ID {
+		t.Fatalf("expected project_ids=[%s], got %v", proj.ID, patched.ProjectIDs)
+	}
+
+	// Unassign with empty array.
+	clearRec := doJSON(t, env.router, http.MethodPatch, "/api/v1/tasks/"+task.ID, auth, map[string]any{
+		"project_ids": []string{},
+	})
+	if clearRec.Code != http.StatusOK {
+		t.Fatalf("clear status=%d body=%s", clearRec.Code, clearRec.Body.String())
+	}
+	var cleared struct {
+		ProjectIDs []string `json:"project_ids"`
+	}
+	if err := json.Unmarshal(clearRec.Body.Bytes(), &cleared); err != nil {
+		t.Fatal(err)
+	}
+	if len(cleared.ProjectIDs) != 0 {
+		t.Fatalf("expected empty project_ids, got %v", cleared.ProjectIDs)
+	}
+
+	// Invalid id must be rejected.
+	badRec := doJSON(t, env.router, http.MethodPatch, "/api/v1/tasks/"+task.ID, auth, map[string]any{
+		"project_ids": []string{"not-a-uuid"},
+	})
+	if badRec.Code != http.StatusBadRequest {
+		t.Fatalf("bad id status=%d want 400 body=%s", badRec.Code, badRec.Body.String())
+	}
+}
+
 func TestJWTRejectsWrongUserScope(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
