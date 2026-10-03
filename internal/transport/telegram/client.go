@@ -325,6 +325,15 @@ func (c *Client) SetChatMenuButton(ctx context.Context, text, webAppURL string) 
 	})
 }
 
+// SetMyCommands publishes the bot "/" command list to Telegram clients.
+// Best-effort: on transient API errors the previous list stays in place.
+func (c *Client) SetMyCommands(ctx context.Context, cmds []BotCommandInfo) error {
+	if len(cmds) == 0 {
+		return nil
+	}
+	return c.postAPI(ctx, "setMyCommands", map[string]any{"commands": cmds})
+}
+
 // DeleteMessage removes a chat message. Best-effort: callers may ignore errors
 // (e.g. message already gone / too old).
 func (c *Client) DeleteMessage(ctx context.Context, chatID, messageID int64) error {

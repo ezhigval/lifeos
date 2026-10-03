@@ -5,6 +5,7 @@ import {
   Calendar,
   FileText,
   HeartPulse,
+  ListChecks,
   Settings,
   Sparkles,
   Wallet,
@@ -34,6 +35,12 @@ const sections = [
         title: 'Напоминания',
         subtitle: 'Push в Telegram по времени',
         icon: <Bell size={20} />,
+      },
+      {
+        to: '/more/triage',
+        title: 'Triage',
+        subtitle: 'Разбор просрочек и low-задач',
+        icon: <ListChecks size={20} />,
       },
       {
         to: '/more/settings',

@@ -104,6 +104,7 @@ type runtime struct {
 	trackHabit       *habitsapp.TrackHabit
 	listCalendar     *calendarapp.ListEventsToday
 	createEvent      *calendarapp.CreateEvent
+	triageUC         *planapp.TriageOverloadedDay
 	listProjects     *projectsapp.ListProjects
 	createProject    *projectsapp.CreateProject
 	archiveProject   *projectsapp.ArchiveProject
@@ -291,6 +292,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		trackHabit:       trackHabit,
 		listCalendar:     listCalendar,
 		createEvent:      createEvent,
+		triageUC:         triage,
 		listProjects:     listProjects,
 		createProject:    createProject,
 		archiveProject:   archiveProject,

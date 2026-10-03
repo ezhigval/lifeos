@@ -102,6 +102,7 @@ type Deps struct {
 	ListSleep        *healthapp.ListSleep
 	ListCalendar     *calendarapp.ListEventsToday
 	CreateEvent      *calendarapp.CreateEvent
+	Triage           TriageProposer
 	ListProjects     *projectsapp.ListProjects
 	CreateProject    *projectsapp.CreateProject
 	ListProjectTasks *tasksapp.ListTasksByProject
@@ -185,6 +186,8 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Post("/health/sleep", rt.recordSleep)
 			r.Get("/calendar/today", rt.listCalendarToday)
 			r.Post("/calendar/events", rt.createCalendarEvent)
+			r.Get("/planning/triage", rt.triageProposal)
+			r.Post("/planning/triage/defer", rt.triageDefer)
 			r.Get("/projects", rt.listProjects)
 			r.Post("/projects", rt.createProject)
 			r.Get("/projects/{id}/tasks", rt.listProjectTasks)

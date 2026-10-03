@@ -1357,6 +1357,60 @@ paths:
                 $ref: '#/components/schemas/CalendarEvent'
         '400':
           description: Invalid title or starts_at
+  /api/v1/planning/triage:
+    get:
+      summary: Overloaded-day triage proposal
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Triage proposal for today
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [text, low_priority_ids]
+                properties:
+                  text:
+                    type: string
+                    description: Formatted overload summary (emoji per priority)
+                  low_priority_ids:
+                    type: array
+                    items:
+                      type: string
+                      format: uuid
+                    description: Task ids that can be deferred to tomorrow
+  /api/v1/planning/triage/defer:
+    post:
+      summary: Defer selected low-priority tasks to tomorrow
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [task_ids]
+              properties:
+                task_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: Number of tasks moved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [moved]
+                properties:
+                  moved:
+                    type: integer
+        '400':
+          description: Invalid task ids
   /api/v1/projects:
     get:
       summary: List active projects

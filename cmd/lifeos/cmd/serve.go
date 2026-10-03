@@ -96,6 +96,13 @@ func runServe() error {
 		}
 	}
 
+	if rt.tgClient != nil {
+		// Advertise "/" commands (incl. /triage) in the Telegram client menu.
+		if err := rt.tgClient.SetMyCommands(ctx, tg.DefaultBotCommands()); err != nil {
+			log.Warn("set bot commands failed", "error", err)
+		}
+	}
+
 	if rt.tgClient != nil && cfg.TelegramMode == "webhook" {
 		// Registration is done externally (lifeos telegram set-webhook) from a
 		// network where api.telegram.org is reachable — e.g. when the host

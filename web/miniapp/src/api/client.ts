@@ -300,6 +300,16 @@ export const api = {
       body: JSON.stringify({ start_hour, start_minute, end_hour, end_minute }),
     }),
 
+  // MA-C6: overloaded-day triage (proposal + defer low-priority tasks to tomorrow).
+  triageProposal: () =>
+    request<{ text: string; low_priority_ids: string[] }>('/api/v1/planning/triage'),
+
+  triageDefer: (task_ids: string[]) =>
+    request<{ moved: number }>('/api/v1/planning/triage/defer', {
+      method: 'POST',
+      body: JSON.stringify({ task_ids }),
+    }),
+
   analyticsSummary: () =>
     request<import('@/api/types').AnalyticsSummary>('/api/v1/analytics/summary'),
 
