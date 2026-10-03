@@ -2,3 +2,11 @@
 .env
 .env.local
 deployments/vps/lifeos-deploy.env
+# Local secrets & SSH keys
+.env.*
+*.pem
+*.key
+!*.pub
+id_rsa*
+*_vm_key
+ssh/

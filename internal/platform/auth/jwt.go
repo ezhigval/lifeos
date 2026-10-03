@@ -15,8 +15,8 @@ type TokenService struct {
 }
 
 func NewTokenService(secret string, ttl time.Duration) (*TokenService, error) {
-	if secret == "" {
-		return nil, fmt.Errorf("jwt secret is required")
+	if len(secret) < 32 {
+		return nil, fmt.Errorf("jwt secret must be at least 32 bytes")
 	}
 	if ttl <= 0 {
 		ttl = 24 * time.Hour

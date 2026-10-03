@@ -40,8 +40,8 @@ Worker (`*.workers.dev`) → api.telegram.org. Всё бесплатно (тар
    Запомните URL: `https://tg-proxy.<ваш-сабдомен>.workers.dev`.
 2. На ВМ:
    ```bash
-   scp deployments/vps/tg-proxy.py deployments/vps/tg-proxy.sh smailikin70@<VM>:/tmp/
-   ssh smailikin70@<VM>
+   scp deployments/vps/tg-proxy.py deployments/vps/tg-proxy.sh <user>@<VM>:/tmp/
+   ssh <user>@<VM>
    sudo LIFEOS_TG_PROXY_WORKER_URL=https://tg-proxy.<sub>.workers.dev bash /tmp/tg-proxy.sh install
    sudo bash /tmp/tg-proxy.sh test   # getMe через прокси
    ```

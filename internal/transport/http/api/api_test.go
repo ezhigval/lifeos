@@ -50,7 +50,7 @@ import (
 
 const (
 	testAPIKey    = "test-api-key"
-	testJWTSecret = "test-secret-key-32bytes-min!!"
+	testJWTSecret = "test-secret-key-32-bytes-minimum!!"
 	testTelegram  = int64(900001)
 )
 
