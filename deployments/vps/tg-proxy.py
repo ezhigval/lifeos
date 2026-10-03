@@ -38,7 +38,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             n = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(n)
         req = urllib.request.Request(
-            WORKER + "/fetch?path=" + t.lstrip("/"),
+            WORKER + "/fetch?path=" + t,  # keep leading slash: /bot<token>/<method>
             data=body,
             method=method,
             headers={"Content-Type": "application/json"},
