@@ -66,7 +66,7 @@ LIFEOS_HTTP_ADDR=:8080
 LIFEOS_LOG_LEVEL=info
 LIFEOS_LOG_FORMAT=json
 LIFEOS_TELEGRAM_MODE=polling
-LIFEOS_TELEGRAM_BOT_TOKEN=PASTE-BOT-TOKEN
+LIFEOS_TELEGRAM_BOT_TOKEN=${TG_TOKEN:-PASTE-BOT-TOKEN}
 LIFEOS_SEED_TIMEZONE=Europe/Moscow
 LIFEOS_JWT_SECRET=${JWT}
 LIFEOS_API_KEY=${AK}
@@ -135,9 +135,14 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
 
 # --- firewall: only ssh + http; app stays on loopback -----------------------------
-ufw allow OpenSSH >/dev/null 2>&1 || true
-ufw allow 80/tcp  >/dev/null 2>&1 || true
-ufw --force enable >/dev/null 2>&1 || true
+# NOTE: this sandbox/dev-box is NOT the admin host — do not enable ufw here.
+if command -v ufw >/dev/null 2>&1 && [ "${ALLOW_UFW:-0}" = "1" ]; then
+  ufw allow OpenSSH >/dev/null 2>&1 || true
+  ufw allow 80/tcp  >/dev/null 2>&1 || true
+  ufw --force enable >/dev/null 2>&1 || true
+else
+  log "Skipping UFW (set ALLOW_UFW=1 to enable; Yandex Cloud security groups are preferred)"
+fi
 
 systemctl daemon-reload
 systemctl enable --now lifeos-tunnel.service
