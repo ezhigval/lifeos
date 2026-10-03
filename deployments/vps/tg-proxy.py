@@ -18,7 +18,7 @@ import urllib.request
 WORKER = sys.argv[1].rstrip("/")
 PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 8081
 
-_PATH_RE = re.compile(r"^http://api\.telegram\.org(/.*)$")
+_PATH_RE = re.compile(r"^https?://api\.telegram\.org(/.*)$")
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
