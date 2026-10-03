@@ -1,5 +1,4 @@
 # Environment
 .env
-
-# VPS deploy secrets
+.env.local
 deployments/vps/lifeos-deploy.env

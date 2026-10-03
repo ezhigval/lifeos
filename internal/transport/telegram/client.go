@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -18,10 +20,19 @@ type Client struct {
 }
 
 func NewClient(token string) *Client {
+	// Default transport honours HTTP(S)_PROXY env vars; hosts that block
+	// Telegram IPs (e.g. Yandex Cloud) can route via LIFEOS_HTTP_PROXY.
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	if p := os.Getenv("LIFEOS_HTTP_PROXY"); p != "" {
+		u, err := url.Parse(p)
+		if err == nil {
+			tr.Proxy = http.ProxyURL(u)
+		}
+	}
 	return &Client{
 		token: token,
 		base:  "https://api.telegram.org/bot" + token,
-		http:  &http.Client{Timeout: 15 * time.Second},
+		http:  &http.Client{Timeout: 15 * time.Second, Transport: tr},
 	}
 }
 
@@ -140,7 +151,7 @@ func (c *Client) GetUpdates(ctx context.Context, offset int64, timeout int) ([]U
 		return nil, err
 	}
 	// Long polling: Telegram holds the connection up to `timeout` seconds.
-	pollClient := &http.Client{Timeout: time.Duration(timeout+10) * time.Second}
+	pollClient := &http.Client{Timeout: time.Duration(timeout+10) * time.Second, Transport: c.http.Transport}
 	resp, err := pollClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -545,7 +556,7 @@ func (c *Client) DownloadFile(ctx context.Context, filePath string, maxBytes int
 	}
 	client := c.http
 	if client == nil || client.Timeout < 60*time.Second {
-		client = &http.Client{Timeout: 60 * time.Second}
+		client = &http.Client{Timeout: 60 * time.Second, Transport: c.http.Transport}
 	}
 	resp, err := client.Do(req)
 	if err != nil {
