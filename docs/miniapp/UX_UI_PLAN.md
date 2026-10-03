@@ -269,15 +269,15 @@ Dev: API key + telegram_id (как сейчас).
 
 | ID | Work | Priority |
 |----|------|----------|
-| MA-C1 | Analytics / reviews screens | P2 |
-| MA-C2 | Notes list/search | P2 |
-| MA-C3 | Health (weight/steps/sleep) | P3 |
-| MA-C4 | Career contacts/skills | P3 |
-| MA-C5 | Reminders list | P3 |
-| MA-C6 | Triage / day availability UI | P3 |
-| MA-C7 | Debts UI (finance) | P2 |
+| MA-C1 | Analytics / reviews screens | P2 ✅ (AnalyticsPage + /analytics/summary; настройки reviews — SettingsPage) |
+| MA-C2 | Notes list/search | P2 ✅ (NotesPage: поиск, создание, удаление) |
+| MA-C3 | Health (weight/steps/sleep) | P3 ✅ (HealthPage: latest weight/steps/sleep + добавление) |
+| MA-C4 | Career contacts/skills | P3 ✅ (CareerPage: контакты и навыки) |
+| MA-C5 | Reminders list | P3 ✅ (RemindersPage: список, создание, отмена) |
+| MA-C6 | Triage / day availability UI | P3 ❌ нет эндпоинта в HTTP API (только бот-команда); требует сначала backend-задачи |
+| MA-C7 | Debts UI (finance) | P2 ✅ (DebtsPage + CreateDebtSheet, route more/debts) |
 
-**Exit:** Roadmap «Mini App: full feature parity with bot» можно закрывать по чеклисту доменов.
+**Exit:** 6 из 7 пунктов закрыты; для полного exit нужен MA-C6 (сначала API triage/availability).
 
 ### Phase D — Polish
 

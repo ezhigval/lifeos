@@ -79,9 +79,9 @@
 | ID | Story | Priority | Status |
 |----|-------|----------|--------|
 | FN / HB / CAL / knowledge / health / career | Telegram + REST | P2 | ✅ |
-| MA-FIN | Mini App finance overview/ring | P2 | 🚧 client scaffold; overview API gaps TBD |
-| MA-HAB / MA-CAL | Mini App habits/calendar screens | P2 | 🚧 WIP branches |
-| MA-SET | Mini App settings + spheres CRUD UI | P2 | ⏳ |
+| MA-FIN | Mini App finance overview/ring | P2 | ✅ (FinancePage: overview API + ring; debts — MA-C7) |
+| MA-HAB / MA-CAL | Mini App habits/calendar screens | P2 | ✅ (HomeHabits + HabitsPage; CalendarPage + CreateEventSheet) |
+| MA-SET | Mini App settings + spheres CRUD UI | P2 | ✅ (SettingsPage: reviews/quiet hours; SpheresPage CRUD) |
 
 ## Epic: Stabilization (next stage — bugfix)
 
