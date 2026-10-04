@@ -164,6 +164,7 @@ export const api = {
     clear_duration?: boolean
     tags?: string[]
     project_ids?: string[]
+    sphere_ids?: string[]
   }) =>
     request<import('@/api/types').Task>(`/api/v1/tasks/${id}`, {
       method: 'PATCH',

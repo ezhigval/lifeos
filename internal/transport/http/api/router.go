@@ -308,6 +308,7 @@ type taskJSON struct {
 	DurationMinutes *int     `json:"duration_minutes,omitempty"`
 	Tags            []string `json:"tags,omitempty"`
 	ProjectIDs      []string `json:"project_ids,omitempty"`
+	SphereIDs       []string `json:"sphere_ids,omitempty"`
 	CreatedAt       string   `json:"created_at"`
 }
 
@@ -323,6 +324,7 @@ func taskToJSON(dto tasksapp.TaskDTO) taskJSON {
 		DurationMinutes: dto.DurationMinutes,
 		Tags:            dto.Tags,
 		ProjectIDs:      projectIDsToStrings(dto.ProjectIDs),
+		SphereIDs:       sphereIDsToStrings(dto.SphereIDs),
 		CreatedAt:       dto.CreatedAt.UTC().Format(time.RFC3339),
 	}
 	if out.Kind == "" {
@@ -379,6 +381,7 @@ type createTaskRequest struct {
 	DurationMinutes *int     `json:"duration_minutes"`
 	Tags            []string `json:"tags"`
 	ProjectIDs      []string `json:"project_ids"`
+	SphereIDs       []string `json:"sphere_ids"`
 }
 
 func (rt *Router) createTask(w http.ResponseWriter, r *http.Request) {
@@ -404,6 +407,11 @@ func (rt *Router) createTask(w http.ResponseWriter, r *http.Request) {
 	projectIDs, err := parseProjectIDs(req.ProjectIDs)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid project_ids")
+		return
+	}
+	sphereIDs, err := parseSphereIDList(req.SphereIDs)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid sphere_ids")
 		return
 	}
 	var desc *string
@@ -445,6 +453,7 @@ func (rt *Router) createTask(w http.ResponseWriter, r *http.Request) {
 		DurationMinutes: req.DurationMinutes,
 		Tags:            req.Tags,
 		ProjectIDs:      projectIDs,
+		SphereIDs:       sphereIDs,
 		Source:          events.SourceHTTP,
 	})
 	if err != nil {
@@ -530,6 +539,7 @@ type editTaskRequest struct {
 	NoteID           nullableString `json:"note_id"`
 	ClearNoteID      bool           `json:"clear_note_id"`
 	ProjectIDs       *[]string      `json:"project_ids"`
+	SphereIDs        *[]string      `json:"sphere_ids"`
 }
 
 func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
@@ -593,6 +603,15 @@ func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
 		}
 		projectIDs = &parsed
 	}
+	var sphereIDs *[]ids.SphereID
+	if req.SphereIDs != nil {
+		parsedSpheres, err := parseSphereIDList(*req.SphereIDs)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid sphere_ids")
+			return
+		}
+		sphereIDs = &parsedSpheres
+	}
 	var title *string
 	if req.Title != nil {
 		trimmed := strings.TrimSpace(*req.Title)
@@ -645,6 +664,7 @@ func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
 		NoteID:           noteID,
 		ClearNoteID:      clearNoteID,
 		ProjectIDs:       projectIDs,
+		SphereIDs:        sphereIDs,
 		Source:           events.SourceHTTP,
 	})
 	if err != nil {
@@ -843,6 +863,22 @@ func parseProjectIDs(raw []string) ([]ids.ProjectID, error) {
 	out := make([]ids.ProjectID, 0, len(raw))
 	for _, s := range raw {
 		id, err := ids.ParseProjectID(strings.TrimSpace(s))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, nil
+}
+
+// parseSphereIDList разбирает строковые id сфер (TASK-011 п.7, N:M задачи↔сферы).
+func parseSphereIDList(raw []string) ([]ids.SphereID, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	out := make([]ids.SphereID, 0, len(raw))
+	for _, s := range raw {
+		id, err := ids.ParseSphereID(strings.TrimSpace(s))
 		if err != nil {
 			return nil, err
 		}

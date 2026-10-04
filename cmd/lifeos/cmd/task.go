@@ -18,6 +18,7 @@ import (
 	"github.com/valentinezhov/lifeos/internal/platform/postgres"
 	"github.com/valentinezhov/lifeos/internal/platform/timeutil"
 	projectsinfra "github.com/valentinezhov/lifeos/internal/projects/infra"
+	spheresinfra "github.com/valentinezhov/lifeos/internal/spheres/infra"
 	tasksapp "github.com/valentinezhov/lifeos/internal/tasks/app"
 	"github.com/valentinezhov/lifeos/internal/tasks/domain"
 	tasksinfra "github.com/valentinezhov/lifeos/internal/tasks/infra"
@@ -68,7 +69,7 @@ func runTaskCreate(title string) error {
 	}
 	defer deps.pool.Close()
 
-	uc := tasksapp.NewCreateTask(deps.store, deps.publisher, deps.transactor, projectsinfra.NewProjectReader(deps.pool.Pool))
+	uc := tasksapp.NewCreateTask(deps.store, deps.publisher, deps.transactor, projectsinfra.NewProjectReader(deps.pool.Pool), spheresinfra.NewRepository(deps.pool.Pool))
 
 	tz, err := deps.tzReader.Timezone(deps.ctx, deps.userID)
 	if err != nil {

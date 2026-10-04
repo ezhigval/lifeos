@@ -54,6 +54,12 @@ export function TaskDetailPage() {
     enabled: Boolean(taskId),
   })
 
+  // TASK-011 item 7: N:M task↔sphere links (multi-select editor)
+  const { data: spheresData } = useQuery({
+    queryKey: ['spheres'],
+    queryFn: () => api.spheres(),
+  })
+
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState('medium')
   const [kind, setKind] = useState<'task' | 'reminder' | 'meeting'>('task')
@@ -61,6 +67,7 @@ export function TaskDetailPage() {
   const [address, setAddress] = useState('')
   const [description, setDescription] = useState('')
   const [noteText, setNoteText] = useState('')
+  const [sphereIds, setSphereIds] = useState<string[]>([])
   const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
@@ -72,6 +79,7 @@ export function TaskDetailPage() {
     setAddress(data.address ?? '')
     setDescription(data.description ?? '')
     setNoteText('')
+    setSphereIds(data.sphere_ids ?? [])
     setDirty(false)
   }, [data])
 
@@ -111,6 +119,7 @@ export function TaskDetailPage() {
         ...(note && noteId ? { note_id: noteId } : {}),
         ...(!note && data?.note_id ? { clear_note_id: true } : {}),
         ...(desc ? { description: desc } : { clear_description: true }),
+        sphere_ids: sphereIds,
       })
     },
     onSuccess: () => {
@@ -358,6 +367,41 @@ export function TaskDetailPage() {
             className="w-full resize-none rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none disabled:opacity-60"
           />
         </label>
+
+        {/* TASK-011 item 7: сферы жизни (N:M) */}
+        {(spheresData?.spheres?.length ?? 0) > 0 && (
+          <div>
+            <p className="mb-2 text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">Сферы</p>
+            <div className="flex flex-wrap gap-2">
+              {spheresData!.spheres.map((sphere) => {
+                const active = sphereIds.includes(sphere.id)
+                return (
+                  <button
+                    key={sphere.id}
+                    type="button"
+                    disabled={readOnly}
+                    onClick={() => {
+                      setSphereIds((prev) =>
+                        prev.includes(sphere.id)
+                          ? prev.filter((id) => id !== sphere.id)
+                          : [...prev, sphere.id],
+                      )
+                      markDirty()
+                    }}
+                    className={cn(
+                      'rounded-full px-3 py-1.5 text-sm disabled:opacity-50',
+                      active
+                        ? 'bg-[var(--tg-theme-button-color,#22c55e)] text-[var(--tg-theme-button-text-color,#fff)]'
+                        : 'bg-[var(--tg-theme-secondary-bg-color,#1e293b)] text-[var(--tg-theme-hint-color,#94a3b8)]',
+                    )}
+                  >
+                    {sphere.name}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         <label className="block">
           <span className="mb-1.5 block text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">

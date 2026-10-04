@@ -125,6 +125,16 @@ func (s *fakeStore) SetProjects(_ context.Context, taskID ids.TaskID, projectIDs
 	return nil
 }
 
+func (s *fakeStore) SetSpheres(_ context.Context, taskID ids.TaskID, sphereIDs []ids.SphereID) error {
+	task, ok := s.tasks[taskID]
+	if !ok {
+		return errors.New("not found")
+	}
+	task.SphereIDs = sphereIDs
+	s.tasks[taskID] = task
+	return nil
+}
+
 func (s *fakeStore) ListByProject(_ context.Context, userID ids.UserID, projectID ids.ProjectID) ([]domain.Task, error) {
 	var out []domain.Task
 	for _, task := range s.tasks {

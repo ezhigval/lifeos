@@ -81,6 +81,25 @@ func (r *Repository) loadProjectIDs(ctx context.Context, taskID ids.TaskID) ([]i
 	return out, nil
 }
 
+// attachSpheres подгружает N:M связи задач↔сферы (TASK-011 п.7).
+func (r *Repository) attachSpheres(ctx context.Context, task domain.Task) (domain.Task, error) {
+	sphereIDs, err := r.loadSphereIDs(ctx, task.ID)
+	if err != nil {
+		return domain.Task{}, err
+	}
+	task.SphereIDs = sphereIDs
+	return task, nil
+}
+
+// attachRelations подгружает project_ids и sphere_ids к доменной задаче.
+func (r *Repository) attachRelations(ctx context.Context, task domain.Task) (domain.Task, error) {
+	task, err := r.attachProjects(ctx, task)
+	if err != nil {
+		return domain.Task{}, err
+	}
+	return r.attachSpheres(ctx, task)
+}
+
 func (r *Repository) attachProjects(ctx context.Context, task domain.Task) (domain.Task, error) {
 	ids, err := r.loadProjectIDs(ctx, task.ID)
 	if err != nil {
@@ -134,7 +153,7 @@ func (r *Repository) GetByID(ctx context.Context, userID ids.UserID, taskID ids.
 		}
 		return domain.Task{}, fmt.Errorf("get task: %w", err)
 	}
-	return r.attachProjects(ctx, mapTask(row))
+	return r.attachRelations(ctx, mapTask(row))
 }
 
 func (r *Repository) ListByDueDate(ctx context.Context, userID ids.UserID, dueDate time.Time) ([]domain.Task, error) {
@@ -192,7 +211,7 @@ func (r *Repository) FindOpenByTitle(ctx context.Context, userID ids.UserID, tit
 		}
 		return domain.Task{}, fmt.Errorf("find task: %w", err)
 	}
-	return r.attachProjects(ctx, mapTask(row))
+	return r.attachRelations(ctx, mapTask(row))
 }
 
 func (r *Repository) Update(ctx context.Context, task domain.Task) error {
@@ -231,7 +250,7 @@ func (r *Repository) Update(ctx context.Context, task domain.Task) error {
 func (r *Repository) mapTasks(ctx context.Context, rows []db.Task) ([]domain.Task, error) {
 	out := make([]domain.Task, 0, len(rows))
 	for _, row := range rows {
-		task, err := r.attachProjects(ctx, mapTask(row))
+		task, err := r.attachRelations(ctx, mapTask(row))
 		if err != nil {
 			return nil, err
 		}

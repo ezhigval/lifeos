@@ -157,6 +157,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	listReminders := notifapp.NewListReminders(p)
 	cancelReminder := notifapp.NewCancelReminder(p)
 	ensureSettings := settingsapp.NewEnsureDefaults(settingsRepo)
+	sphereRepo := spheresinfra.NewRepository(p)
 
 	createTask := tasksapp.NewCreateTask(taskRepo, eventPub, transactor, projectsinfra.NewProjectReader(p), sphereRepo)
 	completeTask := tasksapp.NewCompleteTask(taskRepo, eventPub, transactor)
@@ -209,7 +210,6 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	listSkills := careerapp.NewListSkills(careerRepo)
 	searchSkills := careerapp.NewSearchSkills(careerRepo)
 	deleteSkill := careerapp.NewDeleteSkill(careerRepo, eventPub, transactor)
-	sphereRepo := spheresinfra.NewRepository(p)
 	createSphere := spheresapp.NewCreateSphere(sphereRepo, eventPub, transactor)
 	listSpheres := spheresapp.NewListSpheres(sphereRepo)
 	updateSphere := spheresapp.NewUpdateSphere(sphereRepo, eventPub, transactor)

@@ -11,6 +11,7 @@ export type Task = {
   duration_minutes?: number
   tags?: string[]
   project_ids?: string[]
+  sphere_ids?: string[]
   created_at?: string
 }
 

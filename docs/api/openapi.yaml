@@ -198,6 +198,12 @@ paths:
                   items:
                     type: string
                     format: uuid
+                sphere_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: N:M связи задачи со сферами жизни (TASK-011 п.7)
       responses:
         '201':
           description: Created
@@ -267,6 +273,12 @@ paths:
                   items:
                     type: string
                     format: uuid
+                sphere_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: Replace task↔sphere links (N:M, TASK-011 п.7)
       responses:
         '200':
           description: Updated

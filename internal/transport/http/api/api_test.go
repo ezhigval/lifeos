@@ -170,6 +170,16 @@ func (s *fakeTaskStore) SetProjects(_ context.Context, taskID ids.TaskID, projec
 	return nil
 }
 
+func (s *fakeTaskStore) SetSpheres(_ context.Context, taskID ids.TaskID, sphereIDs []ids.SphereID) error {
+	task, ok := s.tasks[taskID]
+	if !ok {
+		return errors.New("not found")
+	}
+	task.SphereIDs = sphereIDs
+	s.tasks[taskID] = task
+	return nil
+}
+
 func (s *fakeTaskStore) ListByProject(context.Context, ids.UserID, ids.ProjectID) ([]taskdomain.Task, error) {
 	return nil, nil
 }
@@ -931,7 +941,7 @@ func newTestEnv(t *testing.T) testEnv {
 		t.Fatal(err)
 	}
 	store := newFakeTaskStore()
-	create := tasksapp.NewCreateTask(store, fakeEvents{}, fakeTx{}, nil)
+	create := tasksapp.NewCreateTask(store, fakeEvents{}, fakeTx{}, nil, nil)
 	complete := tasksapp.NewCompleteTask(store, fakeEvents{}, fakeTx{})
 	cancel := tasksapp.NewCancelTask(store, fakeEvents{}, fakeTx{})
 	edit := tasksapp.NewEditTask(store, fakeEvents{}, fakeTx{}, nil, nil)
