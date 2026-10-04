@@ -948,9 +948,44 @@ func (s *fakeSphereStore) HasLinkedProjects(context.Context, ids.SphereID) (bool
 	return false, nil
 }
 
+func (s *fakeSphereStore) AllExist(_ context.Context, userID ids.UserID, sphereIDs []ids.SphereID) (bool, error) {
+	for _, id := range sphereIDs {
+		sphere, ok := s.spheres[id]
+		if !ok || sphere.UserID != userID {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 type testEnv struct {
 	user   domain.User
 	router chi.Router
+	sphere *fakeSphereStore
+	tasks  *fakeTaskStore
+}
+
+// seedAgendaTask inserts a task with due date and spheres directly into the
+// fake store (bypasses HTTP validation; used by agenda filter tests).
+func (e testEnv) seedAgendaTask(t *testing.T, title string, due time.Time, sphereIDs ...ids.SphereID) ids.TaskID {
+	t.Helper()
+	task, err := taskdomain.NewTask(e.user.ID, title, taskdomain.PriorityMedium, &due, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	task.SphereIDs = append([]ids.SphereID(nil), sphereIDs...)
+	_ = e.tasks.Save(context.Background(), task)
+	return task.ID
+}
+
+func (e testEnv) seedSphere(t *testing.T, name string) ids.SphereID {
+	t.Helper()
+	sphere, err := spheresdomain.NewSphere(e.user.ID, name, 0, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = e.sphere.Save(context.Background(), sphere)
+	return sphere.ID
 }
 
 func newTestEnv(t *testing.T) testEnv {
@@ -964,21 +999,23 @@ func newTestEnv(t *testing.T) testEnv {
 		t.Fatal(err)
 	}
 	store := newFakeTaskStore()
-	create := tasksapp.NewCreateTask(store, fakeEvents{}, fakeTx{}, nil, nil)
+	projectStore := newFakeProjectStore()
+	habitStore := newFakeHabitStore()
+	calendarStore := &fakeCalendarStore{}
+	settingsStore := newFakeSettingsStore()
+	sphereStore := newFakeSphereStore()
+	create := tasksapp.NewCreateTask(store, fakeEvents{}, fakeTx{}, projectStore, sphereStore)
 	complete := tasksapp.NewCompleteTask(store, fakeEvents{}, fakeTx{})
 	cancel := tasksapp.NewCancelTask(store, fakeEvents{}, fakeTx{})
-	edit := tasksapp.NewEditTask(store, fakeEvents{}, fakeTx{}, nil, nil)
+	edit := tasksapp.NewEditTask(store, fakeEvents{}, fakeTx{}, projectStore, sphereStore)
 	reschedule := tasksapp.NewRescheduleTask(store, fakeEvents{}, fakeTx{})
 	listToday := tasksapp.NewListTasksToday(store, fakeTZ{})
 	listByTag := tasksapp.NewListTasksByTag(store)
 	getTask := tasksapp.NewGetTask(store)
 	archive := tasksapp.NewArchiveTask(store, fakeEvents{}, fakeTx{})
 	deleteTask := tasksapp.NewDeleteTask(store, fakeEvents{}, fakeTx{})
-	projectStore := newFakeProjectStore()
-	habitStore := newFakeHabitStore()
-	calendarStore := &fakeCalendarStore{}
-	settingsStore := newFakeSettingsStore()
-	sphereStore := newFakeSphereStore()
+	listTasksBetween := tasksapp.NewListCalendarTasks(store)
+	listEventsBetween := calendarapp.NewListEventsBetween(calendarStore)
 	debtStore := newFakeDebtStore()
 	noteStore := &fakeNoteStore{}
 	contactStore := &fakeContactStore{}
@@ -989,33 +1026,36 @@ func newTestEnv(t *testing.T) testEnv {
 	tzFn := func(context.Context, ids.UserID) (string, error) { return "UTC", nil }
 
 	rt := api.NewRouter(api.Deps{
-		Log:            slog.Default(),
-		APIKey:         testAPIKey,
-		BotToken:       "123456:TESTTOKEN",
-		WebAppAuthTTL:  time.Hour,
-		Tokens:         tokens,
-		GetUser:        identityapp.NewGetUserByTelegram(users),
-		GetUserByID:    identityapp.NewGetUserByID(users),
-		EnsureUser:     identityapp.NewEnsureUserByTelegram(users, nil, "UTC", nil),
-		ListToday:      listToday,
-		CreateTask:     create,
-		Complete:       complete,
-		CancelTask:     cancel,
-		EditTask:       edit,
-		RescheduleTask: reschedule,
-		ListByTag:      listByTag,
-		GetTask:        getTask,
-		ArchiveTask:    archive,
-		DeleteTask:     deleteTask,
-		CreateProject:  projectsapp.NewCreateProject(projectStore, fakeEvents{}, fakeTx{}),
-		ListProjects:   projectsapp.NewListProjects(projectStore),
-		ProjectProg:    projectsapp.NewGetProjectProgress(projectStore),
-		ListHabits:     habitsapp.NewListHabitsToday(habitStore, habitStore, fakeTZ{}),
-		CreateHabit:    habitsapp.NewCreateHabit(habitStore, fakeEvents{}, fakeTx{}),
-		TrackHabit:     habitsapp.NewTrackHabit(habitStore, habitStore, fakeEvents{}, fakeTx{}, fakeTZ{}),
-		ListCalendar:   calendarapp.NewListEventsToday(calendarStore, fakeTZ{}),
-		CreateEvent:    calendarapp.NewCreateEvent(calendarStore, fakeEvents{}, fakeTx{}),
-		GetSettings:    settingsapp.NewGetSettings(settingsStore),
+		Log:               slog.Default(),
+		APIKey:            testAPIKey,
+		BotToken:          "123456:TESTTOKEN",
+		WebAppAuthTTL:     time.Hour,
+		Tokens:            tokens,
+		GetUser:           identityapp.NewGetUserByTelegram(users),
+		GetUserByID:       identityapp.NewGetUserByID(users),
+		EnsureUser:        identityapp.NewEnsureUserByTelegram(users, nil, "UTC", nil),
+		ListToday:         listToday,
+		CreateTask:        create,
+		Complete:          complete,
+		CancelTask:        cancel,
+		EditTask:          edit,
+		RescheduleTask:    reschedule,
+		ListByTag:         listByTag,
+		GetTask:           getTask,
+		ArchiveTask:       archive,
+		DeleteTask:        deleteTask,
+		CreateProject:     projectsapp.NewCreateProject(projectStore, fakeEvents{}, fakeTx{}),
+		ListProjects:      projectsapp.NewListProjects(projectStore),
+		ProjectProg:       projectsapp.NewGetProjectProgress(projectStore),
+		ListHabits:        habitsapp.NewListHabitsToday(habitStore, habitStore, fakeTZ{}),
+		CreateHabit:       habitsapp.NewCreateHabit(habitStore, fakeEvents{}, fakeTx{}),
+		TrackHabit:        habitsapp.NewTrackHabit(habitStore, habitStore, fakeEvents{}, fakeTx{}, fakeTZ{}),
+		ListCalendar:      calendarapp.NewListEventsToday(calendarStore, fakeTZ{}),
+		CreateEvent:       calendarapp.NewCreateEvent(calendarStore, fakeEvents{}, fakeTx{}),
+		ListTasksBetween:  listTasksBetween,
+		ListEventsBetween: listEventsBetween,
+		ListNotesBetween:  knowledgeapp.NewListNotesBetween(noteStore),
+		GetSettings:       settingsapp.NewGetSettings(settingsStore),
 		UpdateMorning: settingsapp.NewUpdateMorningReview(
 			settingsStore, noopReviewRescheduler{}, tzFn, settingsinfra.ReviewAt,
 		),
@@ -1076,7 +1116,7 @@ func newTestEnv(t *testing.T) testEnv {
 	})
 	r := chi.NewRouter()
 	rt.Mount(r)
-	return testEnv{user: user, router: r}
+	return testEnv{user: user, router: r, sphere: sphereStore, tasks: store}
 }
 
 func doJSON(t *testing.T, handler http.Handler, method, path string, headers map[string]string, body any) *httptest.ResponseRecorder {
@@ -1647,6 +1687,98 @@ func TestCalendarHTTPContract(t *testing.T) {
 	})
 	if bad.Code != http.StatusBadRequest {
 		t.Fatalf("bad starts_at status=%d", bad.Code)
+	}
+}
+
+func TestCalendarAgendaSphereFilter(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	token := issueToken(t, env)
+	auth := map[string]string{"Authorization": "Bearer " + token}
+
+	sphereA := env.seedSphere(t, "Здоровье")
+	sphereB := env.seedSphere(t, "Карьера")
+	from := time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC)
+	taskA := env.seedAgendaTask(t, "ТРенировка", from.Add(24*time.Hour), sphereA)
+	taskB := env.seedAgendaTask(t, "Собеседование", from.Add(48*time.Hour), sphereB)
+
+	type item struct {
+		Type      string   `json:"type"`
+		ID        string   `json:"id"`
+		SphereIDs []string `json:"sphere_ids"`
+	}
+	type agendaBody struct {
+		View  string `json:"view"`
+		From  string `json:"from"`
+		To    string `json:"to"`
+		Items []item `json:"items"`
+	}
+
+	get := func(query string) (*httptest.ResponseRecorder, agendaBody) {
+		rec := doJSON(t, env.router, http.MethodGet, "/api/v1/calendar/agenda"+query, auth, nil)
+		var out agendaBody
+		if rec.Code == http.StatusOK {
+			if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+				t.Fatalf("unmarshal: %v body=%s", err, rec.Body.String())
+			}
+		}
+		return rec, out
+	}
+
+	// Unfiltered window contains both tasks with sphere_ids populated.
+	rec, all := get("?view=week&from=2026-10-05&to=2026-10-11")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("agenda status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if all.View != "week" || all.From != "2026-10-05" || all.To != "2026-10-11" {
+		t.Fatalf("window=%s %s..%s", all.View, all.From, all.To)
+	}
+	byID := map[string]item{}
+	for _, it := range all.Items {
+		if it.Type == "task" {
+			byID[it.ID] = it
+		}
+	}
+	itemA, okA := byID[taskA.String()]
+	itemB, okB := byID[taskB.String()]
+	_ = itemB
+	if !okA || !okB {
+		t.Fatalf("tasks missing from agenda: %+v", all.Items)
+	}
+	if len(itemA.SphereIDs) != 1 || itemA.SphereIDs[0] != sphereA.String() {
+		t.Fatalf("task A sphere_ids=%v want [%s]", itemA.SphereIDs, sphereA)
+	}
+
+	// ?spheres=<A> keeps only task A.
+	rec, filtered := get("?view=week&from=2026-10-05&to=2026-10-11&spheres=" + sphereA.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("filtered status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if len(filtered.Items) != 1 || filtered.Items[0].ID != taskA.String() {
+		t.Fatalf("sphere filter leaked: %+v", filtered.Items)
+	}
+
+	// Multi-value CSV filter keeps both.
+	rec, both := get("?view=week&from=2026-10-05&to=2026-10-11&spheres=" + sphereA.String() + "," + sphereB.String())
+	if rec.Code != http.StatusOK || len(both.Items) != 2 {
+		t.Fatalf("csv filter items=%+v status=%d", both.Items, rec.Code)
+	}
+
+	// types=note excludes tasks entirely.
+	rec, notesOnly := get("?view=week&from=2026-10-05&to=2026-10-11&types=note")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("types filter status=%d", rec.Code)
+	}
+	for _, it := range notesOnly.Items {
+		if it.Type == "task" {
+			t.Fatalf("types=note leaked task: %+v", it)
+		}
+	}
+
+	// Invalid from -> 400.
+	badRec := doJSON(t, env.router, http.MethodGet, "/api/v1/calendar/agenda?from=nope&to=2026-10-11", auth, nil)
+	if badRec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid from status=%d", badRec.Code)
 	}
 }
 

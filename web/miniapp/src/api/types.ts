@@ -90,6 +90,7 @@ export type AgendaItem = {
   starts_at: string
   all_day?: boolean
   project_ids?: string[]
+  sphere_ids?: string[]
   done?: boolean
 }
 

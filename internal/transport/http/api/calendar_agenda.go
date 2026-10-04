@@ -18,6 +18,7 @@ type agendaItemJSON struct {
 	StartsAt   string   `json:"starts_at"` // RFC3339 UTC
 	AllDay     bool     `json:"all_day,omitempty"`
 	ProjectIDs []string `json:"project_ids,omitempty"`
+	SphereIDs  []string `json:"sphere_ids,omitempty"`
 	Done       bool     `json:"done,omitempty"`
 }
 
@@ -104,6 +105,7 @@ func (rt *Router) listCalendarAgenda(w http.ResponseWriter, r *http.Request) {
 	}
 
 	projectFilter := queryCSV(r, "projects")
+	sphereFilter := queryCSV(r, "spheres")
 	typesFilter := queryCSV(r, "types")
 	wantsType := func(t string) bool {
 		return len(typesFilter) == 0 || typesFilter[t]
@@ -138,10 +140,26 @@ func (rt *Router) listCalendarAgenda(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 			}
+			sphereIDs := make([]string, 0, len(t.SphereIDs))
+			for _, sid := range t.SphereIDs {
+				sphereIDs = append(sphereIDs, sid.String())
+			}
+			if len(sphereFilter) > 0 {
+				match := false
+				for _, sid := range sphereIDs {
+					if sphereFilter[sid] {
+						match = true
+						break
+					}
+				}
+				if !match {
+					continue
+				}
+			}
 			items = append(items, agendaItemJSON{
 				Type: "task", ID: t.ID.String(), Title: t.Title,
 				StartsAt: t.DueDate.UTC().Format(time.RFC3339), AllDay: true,
-				ProjectIDs: projectIDs, Done: t.Status == taskdomain.StatusDone,
+				ProjectIDs: projectIDs, SphereIDs: sphereIDs, Done: t.Status == taskdomain.StatusDone,
 			})
 		}
 	}

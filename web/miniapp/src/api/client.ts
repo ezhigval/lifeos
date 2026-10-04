@@ -278,10 +278,12 @@ export const api = {
     to: string
     types?: string
     projects?: string
+    spheres?: string
   }) => {
     const q = new URLSearchParams({ view: params.view, from: params.from, to: params.to })
     if (params.types) q.set('types', params.types)
     if (params.projects) q.set('projects', params.projects)
+    if (params.spheres) q.set('spheres', params.spheres)
     return request<import('@/api/types').AgendaResponse>(`/api/v1/calendar/agenda?${q.toString()}`)
   },
 

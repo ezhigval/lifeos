@@ -28,6 +28,8 @@ export function CalendarPage() {
   const [kind, setKind] = useState<'task' | 'reminder' | 'meeting'>('task')
   const [dueDate, setDueDate] = useState(() => toDateKey(new Date()))
   const [formError, setFormError] = useState<string | null>(null)
+  // TASK-011 п.4: filter the agenda by sphere (multi-select chips).
+  const [selectedSpheres, setSelectedSpheres] = useState<string[]>([])
 
   const range = useMemo(() => {
     const from = new Date()
@@ -47,12 +49,31 @@ export function CalendarPage() {
   }, [])
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['tasks', 'calendar', range.from, range.to],
+    queryKey: ['tasks', 'calendar', range.from, range.to, selectedSpheres],
     queryFn: async () => {
       const res = await api.tasksDueBetween(range.from, range.to)
-      return Array.isArray(res.tasks) ? res.tasks : []
+      const all = Array.isArray(res.tasks) ? res.tasks : []
+      if (selectedSpheres.length === 0) return all
+      return all.filter((t) => (t.sphere_ids ?? []).some((s) => selectedSpheres.includes(s)))
     },
   })
+
+  // Sphere list for the filter chips (TASK-011 п.4).
+  const { data: spheresData } = useQuery({
+    queryKey: ['settings', 'spheres'],
+    queryFn: async () => {
+      const res = await api.spheres()
+      return Array.isArray(res.spheres) ? res.spheres : []
+    },
+  })
+  const spheres = spheresData ?? []
+
+  const toggleSphere = (id: string) => {
+    hapticLight()
+    setSelectedSpheres((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    )
+  }
 
   // MA-B5: calendar events for the selected day (user-local TZ resolved on the server).
   const { data: eventsData } = useQuery({
@@ -132,6 +153,44 @@ export function CalendarPage() {
             Задача
           </Button>
         </div>
+
+        {spheres.length > 0 && (
+          <div className="-mx-1 flex gap-2 overflow-x-auto pb-1">
+            <button
+              type="button"
+              onClick={() => {
+                hapticLight()
+                setSelectedSpheres([])
+              }}
+              className={cn(
+                'shrink-0 rounded-full px-3 py-1.5 text-sm',
+                selectedSpheres.length === 0
+                  ? 'bg-[var(--tg-theme-button-color,#22c55e)] text-[var(--tg-theme-button-text-color,#fff)]'
+                  : 'bg-[var(--tg-theme-secondary-bg-color,#1e293b)] text-[var(--tg-theme-hint-color,#94a3b8)]',
+              )}
+            >
+              Все сферы
+            </button>
+            {spheres.map((s) => {
+              const active = selectedSpheres.includes(s.id)
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => toggleSphere(s.id)}
+                  className={cn(
+                    'shrink-0 rounded-full px-3 py-1.5 text-sm',
+                    active
+                      ? 'bg-[var(--tg-theme-button-color,#22c55e)] text-[var(--tg-theme-button-text-color,#fff)]'
+                      : 'bg-[var(--tg-theme-secondary-bg-color,#1e293b)] text-[var(--tg-theme-hint-color,#94a3b8)]',
+                  )}
+                >
+                  {s.name}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         <div className="-mx-1 flex gap-2 overflow-x-auto pb-1">
           {days.map((day) => {

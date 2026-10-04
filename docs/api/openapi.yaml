@@ -1413,6 +1413,11 @@ paths:
           schema:
             type: string
         - in: query
+          name: spheres
+          description: Comma-separated sphere UUIDs filter (matches task sphere links)
+          schema:
+            type: string
+        - in: query
           name: types
           description: Comma-separated item types (task,event,reminder,note)
           schema:
@@ -1454,6 +1459,11 @@ paths:
                         all_day:
                           type: boolean
                         project_ids:
+                          type: array
+                          items:
+                            type: string
+                            format: uuid
+                        sphere_ids:
                           type: array
                           items:
                             type: string
