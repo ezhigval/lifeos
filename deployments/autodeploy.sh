@@ -11,9 +11,24 @@ REPO="$BASE/repo"
 echo "==> LifeOS autodeploy setup (branch=$BRANCH)"
 
 # 1. Docker
+install_docker() {
+  # Принудительно IPv4: на ВМ без IPv6-маршрута get.docker.com падает с
+  # "connect (101: Network is unreachable)" из-за AAAA-записи download.docker.com.
+  # mirror через переменную окружения DOWNLOAD_URL: apt-репозиторий Docker
+  # (https://apt.docker.com) работает напрямую, в отличие от Cloudflare-фронта
+  # download.docker.com. Скрипт подхватывает DOWNLOAD_URL, если он задан.
+  if curl -4 -fsSL https://get.docker.com -o /tmp/get-docker.sh; then
+    if DOWNLOAD_URL="https://apt.docker.com" sh /tmp/get-docker.sh; then return 0; fi
+    if sh /tmp/get-docker.sh; then return 0; fi
+  fi
+  echo "!! get.docker.com недоступен — ставим docker из репозитория Ubuntu" >&2
+  apt-get update -y
+  apt-get install -y docker.io docker-compose-plugin
+}
+
 if ! command -v docker >/dev/null 2>&1; then
   echo "==> Installing Docker"
-  curl -fsSL https://get.docker.com | sh
+  install_docker
 fi
 systemctl enable --now docker
 

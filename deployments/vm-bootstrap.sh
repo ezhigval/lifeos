@@ -41,10 +41,22 @@ step "[1] Окружение: docker, compose, git, ssh (установка ТО
 if command -v docker >/dev/null 2>&1; then
   ok "docker уже установлен: $(docker --version)"
 else
-  echo "    docker не найден — устанавливаю через get.docker.com ..."
+  echo "    docker не найден — устанавливаю через get.docker.com (IPv4) ..."
   apt-get update -y >/dev/null && apt-get install -y ca-certificates curl gnupg >/dev/null
-  curl -fsSL https://get.docker.com | sh >/dev/null 2>&1 || die "установка docker не удалась"
-  ok "docker установлен: $(docker --version)"
+  # Принудительно IPv4: без IPv6-маршрута curl падает на AAAA download.docker.com
+  # с "connect (101: Network is unreachable)". DOWNLOAD_URL=https://apt.docker.com —
+  # apt-репозиторий Docker работает напрямую, в отличие от Cloudflare-фронта
+  # download.docker.com. Если скрипт недоступен — fallback на docker.io из
+  # репозитория Ubuntu.
+  if curl -4 -fsSL https://get.docker.com -o /tmp/get-docker.sh >/dev/null 2>&1 \
+     && { DOWNLOAD_URL="https://apt.docker.com" sh /tmp/get-docker.sh >/dev/null 2>&1 \
+          || sh /tmp/get-docker.sh >/dev/null 2>&1; }; then
+    ok "docker установлен: $(docker --version)"
+  elif apt-get install -y docker.io docker-compose-plugin >/dev/null 2>&1; then
+    ok "docker установлен из репозитория Ubuntu: $(docker --version)"
+  else
+    die "установка docker не удалась"
+  fi
 fi
 systemctl enable --now docker >/dev/null 2>&1 || die "не удалось запустить docker"
 if docker compose version >/dev/null 2>&1; then
