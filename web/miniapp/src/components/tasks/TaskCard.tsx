@@ -21,10 +21,26 @@ type Props = {
   priority?: string
   kind?: string
   done?: boolean
+  /** TASK-011 item 7: sphere badges (N:M task↔sphere) */
+  spheres?: { id: string; name: string }[]
   /** Swipe right → complete */
   onComplete?: () => void
   /** Tap → open detail */
   onOpen?: () => void
+}
+
+const SPHERE_BADGE_COLORS = [
+  'bg-sky-500/15 text-sky-400',
+  'bg-violet-500/15 text-violet-400',
+  'bg-emerald-500/15 text-emerald-400',
+  'bg-rose-500/15 text-rose-400',
+  'bg-amber-500/15 text-amber-400',
+]
+
+function hashSphereId(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
+  return Math.abs(h)
 }
 
 const SWIPE_THRESHOLD = 72
@@ -35,6 +51,7 @@ export function TaskCard({
   priority = 'medium',
   kind = 'task',
   done,
+  spheres,
   onComplete,
   onOpen,
 }: Props) {
@@ -110,6 +127,26 @@ export function TaskCard({
           <p className="mt-0.5 text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">
             {[KIND_LABEL[kind] ?? kind, detail].filter(Boolean).join(' · ')}
           </p>
+          {spheres && spheres.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {spheres.slice(0, 3).map((s) => (
+                <span
+                  key={s.id}
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-[10px] font-medium',
+                    SPHERE_BADGE_COLORS[hashSphereId(s.id) % SPHERE_BADGE_COLORS.length],
+                  )}
+                >
+                  {s.name}
+                </span>
+              ))}
+              {spheres.length > 3 && (
+                <span className="rounded-full bg-slate-500/15 px-2 py-0.5 text-[10px] text-slate-400">
+                  +{spheres.length - 3}
+                </span>
+              )}
+            </div>
+          )}
           {!done && onComplete && (
             <p className="mt-1 text-[10px] text-[var(--tg-theme-hint-color,#64748b)]">
               Свайп вправо — выполнить · тап — открыть

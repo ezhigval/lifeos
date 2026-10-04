@@ -29,6 +29,13 @@ export function UpcomingTasks() {
     },
   })
 
+  // TASK-011 item 7: sphere names for badges on task cards.
+  const { data: spheresData } = useQuery({
+    queryKey: ['spheres'],
+    queryFn: () => api.spheres(),
+  })
+  const sphereById = new Map((spheresData?.spheres ?? []).map((s) => [s.id, s]))
+
   const complete = useMutation({
     mutationFn: (id: string) => api.completeTask(id),
     onSuccess: () => {
@@ -86,6 +93,9 @@ export function UpcomingTasks() {
               detail={t.due_date ? formatDue(t.due_date) : 'сегодня'}
               priority={t.priority || 'medium'}
               kind={t.kind || 'task'}
+              spheres={(t.sphere_ids ?? [])
+                .map((id) => sphereById.get(id))
+                .filter((s): s is NonNullable<typeof s> => Boolean(s))}
               onComplete={() => {
                 hapticLight()
                 setActionError(null)

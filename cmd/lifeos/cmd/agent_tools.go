@@ -103,7 +103,7 @@ type toolDeps struct {
 func registerAgentTools(reg *agent.Registry, d toolDeps) {
 	reg.Register(agent.ToolTaskCreate,
 		"Создать задачу на сегодня",
-		`{"title":"string","priority":"low|medium|high optional"}`,
+		`{"title":"string","priority":"low|medium|high optional","sphere":"название сферы optional","project":"название проекта optional"}`,
 		func(ctx context.Context, userID ids.UserID, args map[string]any) (string, error) {
 			title := strings.TrimSpace(argString(args, "title", "name"))
 			if ai.IsPlaceholderTitle(title) {
@@ -123,8 +123,25 @@ func registerAgentTools(reg *agent.Registry, d toolDeps) {
 			if err != nil {
 				return "", err
 			}
+			var sphereIDs []ids.SphereID
+			if sName := argString(args, "sphere"); sName != "" && d.findSphere != nil {
+				s, err := d.findSphere.Execute(ctx, userID, sName)
+				if err != nil {
+					return "", fmt.Errorf("сфера %q не найдена: %w", sName, err)
+				}
+				sphereIDs = []ids.SphereID{s.ID}
+			}
+			var projectIDs []ids.ProjectID
+			if pName := argString(args, "project"); pName != "" && d.findProject != nil {
+				p, err := d.findProject.Execute(ctx, userID, pName)
+				if err != nil {
+					return "", fmt.Errorf("проект %q не найден: %w", pName, err)
+				}
+				projectIDs = []ids.ProjectID{p.ID}
+			}
 			dto, err := d.createTask.Execute(ctx, tasksapp.CreateTaskInput{
-				UserID: userID, Title: title, Priority: prio, DueDate: &today, Source: events.SourceTelegram,
+				UserID: userID, Title: title, Priority: prio, DueDate: &today,
+				SphereIDs: sphereIDs, ProjectIDs: projectIDs, Source: events.SourceTelegram,
 			})
 			if err != nil {
 				return "", err
