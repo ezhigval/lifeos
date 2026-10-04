@@ -17,6 +17,7 @@ type EditTask struct {
 	transactor Transactor
 	projects   ProjectChecker
 	spheres    SphereChecker
+	rules      *DomainRules
 	now        func() time.Time
 }
 
@@ -25,6 +26,12 @@ func NewEditTask(store TaskStore, events EventLog, transactor Transactor, projec
 		store: store, events: events, transactor: transactor, projects: projects, spheres: spheres,
 		now: func() time.Time { return time.Now().UTC() },
 	}
+}
+
+// WithDomainRules подключает домен-правила (TASK-011 п.8) после редактирования задачи.
+func (uc *EditTask) WithDomainRules(rules *DomainRules) *EditTask {
+	uc.rules = rules
+	return uc
 }
 
 type EditTaskInput struct {
@@ -139,6 +146,10 @@ func (uc *EditTask) Execute(ctx context.Context, in EditTaskInput) (TaskDTO, err
 	})
 	if err != nil {
 		return TaskDTO{}, fmt.Errorf("edit task: %w", err)
+	}
+	if uc.rules != nil {
+		// best-effort: правило не должно отменять уже сохранённое редактирование
+		_ = uc.rules.Apply(ctx, in.UserID, result)
 	}
 	return result, nil
 }

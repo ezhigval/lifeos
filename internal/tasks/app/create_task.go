@@ -17,6 +17,7 @@ type CreateTask struct {
 	transactor Transactor
 	projects   ProjectChecker
 	spheres    SphereChecker
+	rules      *DomainRules
 	now        func() time.Time
 }
 
@@ -25,6 +26,12 @@ func NewCreateTask(store TaskStore, events EventLog, transactor Transactor, proj
 		store: store, events: events, transactor: transactor, projects: projects, spheres: spheres,
 		now: func() time.Time { return time.Now().UTC() },
 	}
+}
+
+// WithDomainRules подключает домен-правила (TASK-011 п.8) после создания задачи.
+func (uc *CreateTask) WithDomainRules(rules *DomainRules) *CreateTask {
+	uc.rules = rules
+	return uc
 }
 
 type CreateTaskInput struct {
@@ -146,5 +153,10 @@ func (uc *CreateTask) Execute(ctx context.Context, in CreateTaskInput) (TaskDTO,
 		return TaskDTO{}, fmt.Errorf("create task: %w", err)
 	}
 
-	return ToDTO(task), nil
+	dto := ToDTO(task)
+	if uc.rules != nil {
+		// best-effort: правило не должно отменять уже созданную задачу
+		_ = uc.rules.Apply(ctx, in.UserID, dto)
+	}
+	return dto, nil
 }

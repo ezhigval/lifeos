@@ -188,6 +188,11 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	cashFlow := financeapp.NewCashFlowSummary(financeRepo, tzReader)
 	financeOverview := financeapp.NewFinanceOverview(financeRepo, tzReader)
 	habitRepo := habitsinfra.NewRepository(p)
+	// Домен-правила TASK-011 п.8: задачи в сферах «Деньги»/«Здоровье» авто-создают
+	// план дохода / habit-трекер (идемпотентно).
+	domainRules := tasksapp.NewDomainRules(sphereRepo, financeRepo, habitRepo)
+	createTask.WithDomainRules(domainRules)
+	editTask.WithDomainRules(domainRules)
 	createHabit := habitsapp.NewCreateHabit(habitRepo, eventPub, transactor)
 	updateHabit := habitsapp.NewUpdateHabit(habitRepo, eventPub, transactor)
 	deleteHabit := habitsapp.NewDeleteHabit(habitRepo, eventPub, transactor)
