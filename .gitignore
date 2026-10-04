@@ -20,7 +20,7 @@ coverage.html
 *.swo
 *~
 
-# Env & secrets
+# Env & secrets — NEVER commit real credentials, tokens or keys
 .env
 .env.*
 !.env.example
@@ -52,7 +52,6 @@ logs/
 
 # Node
 node_modules/
-web/miniapp/dist/
 
 # Mini App
 web/miniapp/node_modules/

@@ -76,6 +76,27 @@ Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST +
 | WS-09 | Telegram: смена контекста `/ws <name>`, создание задач/трат в воркспейсе | P2 |
 | WS-10 | Разделение экономики: бюджеты/отчёты воркспейса отдельно, сводка «личное + бизнес» опционально | P2 |
 
+### Дополнительные истории (правки owner, чат 2026-10-04)
+> UX-баги и правки, не ждущие Stage 4, вынесены в [TASK-011-ux-p0-fixes](../agents/inbox/TASK-011-ux-p0-fixes.md)
+> (валидация planned-форм, задачи на главной, habit CRUD+срок, календарь M/W/D, двусторонние заметки/напоминания, настройки блоков главной).
+> Ниже — новые WS-истории, которые выполняются вместе с Epic Workspaces:
+
+| ID | Story | Priority |
+|----|-------|----------|
+| WS-11 | Multi-link задач: `task_spheres` N:M к сферам + FE-мультивыбор (привязка к проектам `task_projects` уже реализована BE; основная связь сохраняется для обратной совместимости) | P1 |
+| WS-12 | Bidirectional notes/reminders: polymorphic `note_targets` / `reminder_targets` (workspace\|sphere\|project\|task); каскадный picker ws→сфера→проект→задача; бейджи связи и отвязка | P1 |
+| WS-13 | Календарь в контексте ws: aggregate-endpoint отдаёт tagged items {type,id,date,title,color,context}, фильтры по воркспейсам и сферам во всех видах (M/W/D из TASK-011 п.4) | P1 |
+| WS-14 | Привычки в контексте ws + linked_habit_id у задач (трекер подключается к задаче: проект «Похудеть» → задача «Бег» → привычка «Бег») | P1 |
+| WS-15 | Domain links сфер: таблица `sphere_domain_links` (money→finance, health→habits, career→workspaces) + `sphere_project_links` (project→workspace); правила автоматической генерации сущностей (задача «зарплата Имя 100000» → планируемый расход в ws + зеркало в личном через WS-06) | P0 |
+| WS-16 | Настройки главной v2: per-user `home.layout` — видимость и порядок блоков (задачи, трекер, финансы, заметки, календарь, напоминания, долги) + какие воркспейсы подмешивать; выключенный блок не рендерится и не дёргает API | P1 |
+
+Модели (дополнение к эскизу выше):
+- `task_spheres(task_id, sphere_id)` — N:M привязки задач к сферам (для проектов уже существует `task_projects`, миграция 00023).
+- `note_targets(note_id, target_type, target_id)` / `reminder_targets(...)` — polymorphic-привязки.
+- `sphere_domain_links(sphere_id, domain ∈ {finance, habits, workspace})` — поведение сфер по умолчанию.
+- `sphere_project_links(project_id, link_type='workspace', target_workspace_id)` — проект-«мост» в воркспейс (Карьера→Бизнес): открытие такого проекта переключает контекст на ws, физическое копирование данных НЕ происходит (подмешивание через WS-03/WS-04).
+- `habits.linked_task_id` (nullable) — связь привычки с задачей для трекера.
+
 ### Decision Gate
 | Gate | Criteria | Status |
 |------|----------|--------|
