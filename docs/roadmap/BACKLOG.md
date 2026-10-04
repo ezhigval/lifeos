@@ -83,6 +83,23 @@
 | MA-HAB / MA-CAL | Mini App habits/calendar screens | P2 | 🚧 WIP branches |
 | MA-SET | Mini App settings + spheres CRUD UI | P2 | ⏳ |
 
+## Epic: Workspaces (shared spheres) — Stage 4, после фикса багов
+
+| ID | Story | Priority | Status |
+|----|-------|----------|--------|
+| WS-01 | Миграции: workspaces + workspace_members + workspace_id во всех доменах (NULL=личное) | P0 | ⏳ |
+| WS-02 | API: CRUD воркспейсов, инвайты сотрудников, роли owner/editor/viewer | P0 | ⏳ |
+| WS-03 | Контекст запросов `?context=personal\|ws:<id>\|all` во всех list-API | P0 | ⏳ |
+| WS-04 | Главная: экраны «Все / Личное / Воркспейсы»; свои задачи/события ws подмешиваются, чужие — нет; внутри ws — всё всех участников | P0 | ⏳ |
+| WS-05 | Настройки: что шерить на главную (воркспейсы/домены) | P1 | ⏳ |
+| WS-06 | Фин-синхронизация: «зарплата сотруднику X» в ws → личный планируемый доход X (идемпотентно, origin_txn_id) | P0 | ⏳ |
+| WS-07 | Календарь воркспейса + общий вид на главной | P1 | ⏳ |
+| WS-08 | Заметки / долги / привычки / аналитика в контексте ws | P1 | ⏳ |
+| WS-09 | Telegram: `/ws <name>` смена контекста, создание в ws | P2 | ⏳ |
+| WS-10 | Отдельная экономика ws: бюджеты/отчёты; опциональная сводка «личное+бизнес» | P2 | ⏳ |
+
+Детали и модели: [ROADMAP.md § Stage 4](ROADMAP.md)
+
 ## Epic: Stabilization (next stage — bugfix)
 
 | ID | Story | Owner agent | Priority | Status |

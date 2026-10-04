@@ -45,6 +45,49 @@ Foundation (M1–M4) ✅ · Hardening dogfood 🚧 · Expansion domains + REST +
 - [x] **3.1 TASK-006:** Thin Telegram handler (strangler) — handler.go ~−51%
 - [x] **3.2 TASK-007:** Intelligence polish (LLM composite + assistant HTML-safe)
 
+## Stage 4 — Shared Workspaces (planned, после закрытия багов TASK-008)
+
+> Стартует **после** фикса P0-багов dogfood (`TASK-008-dogfood-p0`). Новая функциональность сейчас не добавляется.
+> Задание для агентов: [docs/agents/inbox/TASK-010-workspaces.md](../agents/inbox/TASK-010-workspaces.md).
+
+**Идея:** сфера (life_sphere) может быть шерирована как **воркспейс** (например «Бизнес»):
+сотрудники, общая экономика, календарь, заметки, задачи — изолированно от личного,
+но с возможностью «подмешивать» на главную и синхронизировать cross-context финансы.
+
+### Модели данных (эскиз)
+- `workspaces` — расширяет `life_spheres`: `is_shared`, `owner_id`, `slug`, `role` (owner/editor/viewer).
+- `workspace_members` — user ↔ workspace + роль; сотрудники = участники воркспейса.
+- Все доменные таблицы (tasks / events / transactions / notes / habits / debts …) получают
+  nullable `workspace_id` (NULL = личное). Личное и воркспейсные данные не смешиваются в запросах по умолчанию.
+- Экономическая связь: транзакция «зарплата → сотруднику X» в воркспейсе при участнике=X
+  автоматически порождает зеркальную запись в личном контексте (планируемый доход). Идемпотентно, через `origin_txn_id`.
+
+### Пользовательские истории
+| ID | Story | Priority |
+|----|-------|----------|
+| WS-01 | Миграции: workspaces/members + `workspace_id` во всех доменах | P0 |
+| WS-02 | API: CRUD воркспейсов, инвайты (Telegram-приглашение), роли | P0 |
+| WS-03 | Контекст запросов: фильтр `?context=personal\|ws:<id>\|all` во всех list-API | P0 |
+| WS-04 | Главная Mini App: экраны «Все / Личное / Воркспейсы», подмешивание задач и событий выбранных воркспейсов; чужие задачи сотрудников НЕ видны в «Всех» | P0 |
+| WS-05 | Настройки: что шерить на главную (какие воркспейсы/домены), порядок блоков | P1 |
+| WS-06 | Финансовая синхронизация: зарплата сотрудника→личный планируемый доход; двойные записи, идемпотентность | P0 |
+| WS-07 | Календарь воркспейса + общий вид на главной (свои+выбранные ws); внутри воркспейса — дела/задачи всех участников | P1 |
+| WS-08 | Заметки / долги / привычки / аналитика в контексте воркспейса | P1 |
+| WS-09 | Telegram: смена контекста `/ws <name>`, создание задач/трат в воркспейсе | P2 |
+| WS-10 | Разделение экономики: бюджеты/отчёты воркспейса отдельно, сводка «личное + бизнес» опционально | P2 |
+
+### Decision Gate
+| Gate | Criteria | Status |
+|------|----------|--------|
+| Bugfix → Stage 4 | TASK-008 P0 closed | ⏳ |
+
+## Infra & Deploy (активно, параллельно с багфиксом)
+
+- [x] Инструкция: заливка секретов на Yandex Cloud VM — [docs/deploy/YANDEX_CLOUD_SECRETS.md](../deploy/YANDEX_CLOUD_SECRETS.md) (без IP/данных)
+- [x] `.gitignore` усилен: ключи (`*.key`, `id_rsa`), `secrets/`, локальные deploy-оверраиды
+- [x] `deployments/docker-compose.override.example.yml` — шаблон prod-оверрая (реальный оверрай не коммитится)
+- [ ] Owner: применить инструкцию на ВМ (YC), заменить dev-секреты на боевые
+
 ## Remaining debt (ongoing)
 
 - [x] OpenAPI ↔ router parity CI (`make openapi-check`)

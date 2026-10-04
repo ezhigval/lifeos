@@ -1,0 +1,20 @@
+# Production overrides for Yandex Cloud VM deployment.
+# Copy to deployments/docker-compose.override.yml ON THE VM (file is gitignored).
+# NEVER put real secrets here — secrets live in /opt/lifeos/.env (chmod 600) only.
+
+services:
+  postgres:
+    # Do not expose DB port to the internet on a public VM.
+    ports: []
+    environment:
+      POSTGRES_PASSWORD: ${LIFEOS_DB_PASSWORD:?set in .env}
+
+  app:
+    restart: always
+    env_file:
+      - ../.env
+    # Set your real HTTPS URL of the Mini App (Telegram requires HTTPS):
+    # environment:
+    #   LIFEOS_MINIAPP_URL: https://<your-domain>/app/
+    #   LIFEOS_TELEGRAM_MODE: webhook
+    #   LIFEOS_TELEGRAM_WEBHOOK_URL: https://<your-domain>/webhook/telegram

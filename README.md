@@ -69,6 +69,7 @@ make docker-up       # пересоздать app с новым LIFEOS_MINIAPP_U
 | ER / Sequence | [docs/diagrams/](docs/diagrams/) |
 | ADR (001–009) | [docs/adr/](docs/adr/) |
 | Roadmap | [docs/roadmap/ROADMAP.md](docs/roadmap/ROADMAP.md) |
+| Деплой на Yandex Cloud VM (секреты) | [docs/deploy/YANDEX_CLOUD_SECRETS.md](docs/deploy/YANDEX_CLOUD_SECRETS.md) |
 | Mini App UX/UI | [docs/miniapp/UX_UI_PLAN.md](docs/miniapp/UX_UI_PLAN.md) |
 | Mini App local | [docs/miniapp/LOCAL_DEV.md](docs/miniapp/LOCAL_DEV.md) |
 | Mini App Frontend lead | [docs/miniapp/FRONTEND_LEAD_PROMPT.md](docs/miniapp/FRONTEND_LEAD_PROMPT.md) |
@@ -89,6 +90,8 @@ docker compose -f deployments/docker-compose.yml --profile observability up   # 
 `GET /metrics` exposes Prometheus metrics on the app (scraped by `deployments/prometheus/prometheus.yml` → `app:8080`). OTel tracing is off by default (`LIFEOS_OTEL_ENABLED=false`).
 
 Telegram: **long polling** по умолчанию; webhook — опционально.
+
+**Yandex Cloud VM (продакшен):** полная инструкция по ВМ и заливке секретов — [docs/deploy/YANDEX_CLOUD_SECRETS.md](docs/deploy/YANDEX_CLOUD_SECRETS.md). Кратко: секреты живут только в `/opt/lifeos/.env` на ВМ (`chmod 600`), в git — никогда; прод-настройки через `deployments/docker-compose.override.yml` (копируется из `*.example.yml`, тоже вне git).
 
 ## Стек
 

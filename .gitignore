@@ -25,7 +25,13 @@ coverage.html
 .env.*
 !.env.example
 *.pem
+*.key
+id_rsa
+*_rsa
 credentials.json
+.vm_ssh_key
+secrets/
+deployments/**/secrets/
 
 # Docker
 docker-data/
@@ -51,3 +57,6 @@ web/miniapp/dist/
 # Mini App
 web/miniapp/node_modules/
 web/miniapp/dist/
+
+# Local deploy overrides (copy from .example.yml, never commit real overrides)
+deployments/docker-compose.override.yml

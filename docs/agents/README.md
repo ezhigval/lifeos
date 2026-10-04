@@ -24,6 +24,7 @@ Architect ревьюит → CLOSED / REWORK в том же отчёте
 2. Source of truth: код + `docs/architecture/*` + OpenAPI. При расхождении — чинить docs в том же изменении.
 3. Stage 1 после планирования: **bugfix**. Каждый агент чинит только свои баги.
 4. Не мержить чужие ветки / не трогать чужой tree «заодно».
+5. **Секреты никогда не попадают в git** (токены, пароли, SSH-ключи, IP ВМ). Только `.env` (gitignored) и заливка на ВМ по [docs/deploy/YANDEX_CLOUD_SECRETS.md](../deploy/YANDEX_CLOUD_SECRETS.md). Перед push — `git status`/`git diff --cached` на предмет секретов; в отчётах и тестах — только плейсхолдеры.
 
 ## Snapshots
 
