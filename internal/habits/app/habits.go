@@ -14,6 +14,8 @@ import (
 
 type HabitStore interface {
 	Save(ctx context.Context, habit domain.Habit) error
+	Update(ctx context.Context, habit domain.Habit) (bool, error)
+	Delete(ctx context.Context, userID ids.UserID, habitID ids.HabitID) (bool, error)
 	GetByID(ctx context.Context, userID ids.UserID, habitID ids.HabitID) (domain.Habit, error)
 	FindByName(ctx context.Context, userID ids.UserID, name string) (domain.Habit, error)
 	ListWithToday(ctx context.Context, userID ids.UserID, today time.Time) ([]HabitDayRow, error)
@@ -45,6 +47,8 @@ type HabitDTO struct {
 	ID        ids.HabitID
 	Name      string
 	Frequency domain.Frequency
+	StartDate *time.Time
+	EndDate   *time.Time
 }
 
 type HabitDayDTO struct {
@@ -52,6 +56,9 @@ type HabitDayDTO struct {
 	Name           string
 	TodayCompleted bool
 	Streak         int
+	StartDate      *time.Time
+	EndDate        *time.Time
+	Active         bool // today is inside the deadline window
 }
 
 type CreateHabit struct {
@@ -69,9 +76,11 @@ func NewCreateHabit(habits HabitStore, events EventLog, transactor Transactor) *
 }
 
 type CreateHabitInput struct {
-	UserID ids.UserID
-	Name   string
-	Source events.Source
+	UserID    ids.UserID
+	Name      string
+	StartDate *time.Time
+	EndDate   *time.Time
+	Source    events.Source
 }
 
 func (uc *CreateHabit) Execute(ctx context.Context, in CreateHabitInput) (HabitDTO, error) {
@@ -79,7 +88,7 @@ func (uc *CreateHabit) Execute(ctx context.Context, in CreateHabitInput) (HabitD
 		return HabitDTO{}, fmt.Errorf("user id is required")
 	}
 	now := uc.now()
-	habit, err := domain.NewHabit(in.UserID, in.Name, domain.FrequencyDaily, now)
+	habit, err := domain.NewHabitWithDates(in.UserID, in.Name, domain.FrequencyDaily, in.StartDate, in.EndDate, now)
 	if err != nil {
 		return HabitDTO{}, err
 	}
@@ -100,7 +109,133 @@ func (uc *CreateHabit) Execute(ctx context.Context, in CreateHabitInput) (HabitD
 	if err != nil {
 		return HabitDTO{}, fmt.Errorf("create habit: %w", err)
 	}
-	return HabitDTO{ID: habit.ID, Name: habit.Name, Frequency: habit.Frequency}, nil
+	return habitToDTO(habit), nil
+}
+
+func habitToDTO(h domain.Habit) HabitDTO {
+	return HabitDTO{ID: h.ID, Name: h.Name, Frequency: h.Frequency, StartDate: h.StartDate, EndDate: h.EndDate}
+}
+
+// UpdateHabit edits name/frequency/deadline of an existing habit.
+type UpdateHabit struct {
+	habits     HabitStore
+	events     EventLog
+	transactor Transactor
+	now        func() time.Time
+}
+
+func NewUpdateHabit(habits HabitStore, events EventLog, transactor Transactor) *UpdateHabit {
+	return &UpdateHabit{
+		habits: habits, events: events, transactor: transactor,
+		now: func() time.Time { return time.Now().UTC() },
+	}
+}
+
+type UpdateHabitInput struct {
+	UserID    ids.UserID
+	HabitID   ids.HabitID
+	Name      string
+	StartDate *time.Time
+	EndDate   *time.Time
+	Source    events.Source
+}
+
+func (uc *UpdateHabit) Execute(ctx context.Context, in UpdateHabitInput) (HabitDTO, error) {
+	if in.UserID.IsZero() || in.HabitID.IsZero() {
+		return HabitDTO{}, fmt.Errorf("user id and habit id are required")
+	}
+	habit, err := uc.habits.GetByID(ctx, in.UserID, in.HabitID)
+	if err != nil {
+		return HabitDTO{}, err
+	}
+	if in.Name != "" {
+		habit.Name = in.Name
+	}
+	habit.StartDate = in.StartDate
+	habit.EndDate = in.EndDate
+	if habit.StartDate != nil && habit.EndDate != nil && habit.EndDate.Before(*habit.StartDate) {
+		return HabitDTO{}, domain.ErrInvalidDeadline
+	}
+	if habit.Name == "" {
+		return HabitDTO{}, domain.ErrEmptyName
+	}
+	now := uc.now()
+	err = uc.transactor.WithinTransaction(ctx, func(txCtx context.Context) error {
+		ok, err := uc.habits.Update(txCtx, habit)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return domain.ErrNotFound
+		}
+		return uc.events.Append(txCtx, events.Record{
+			UserID:        in.UserID,
+			AggregateType: "habit",
+			AggregateID:   habit.ID.UUID(),
+			EventType:     "HabitUpdated",
+			Payload:       map[string]any{"name": habit.Name},
+			Source:        in.Source,
+			OccurredAt:    now,
+		})
+	})
+	if err != nil {
+		return HabitDTO{}, fmt.Errorf("update habit: %w", err)
+	}
+	return habitToDTO(habit), nil
+}
+
+// DeleteHabit removes a habit; logs cascade at the DB level (FK ON DELETE CASCADE).
+type DeleteHabit struct {
+	habits     HabitStore
+	events     EventLog
+	transactor Transactor
+	now        func() time.Time
+}
+
+func NewDeleteHabit(habits HabitStore, events EventLog, transactor Transactor) *DeleteHabit {
+	return &DeleteHabit{
+		habits: habits, events: events, transactor: transactor,
+		now: func() time.Time { return time.Now().UTC() },
+	}
+}
+
+type DeleteHabitInput struct {
+	UserID  ids.UserID
+	HabitID ids.HabitID
+	Source  events.Source
+}
+
+func (uc *DeleteHabit) Execute(ctx context.Context, in DeleteHabitInput) error {
+	if in.UserID.IsZero() || in.HabitID.IsZero() {
+		return fmt.Errorf("user id and habit id are required")
+	}
+	habit, err := uc.habits.GetByID(ctx, in.UserID, in.HabitID)
+	if err != nil {
+		return err
+	}
+	now := uc.now()
+	err = uc.transactor.WithinTransaction(ctx, func(txCtx context.Context) error {
+		ok, err := uc.habits.Delete(txCtx, in.UserID, in.HabitID)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return domain.ErrNotFound
+		}
+		return uc.events.Append(txCtx, events.Record{
+			UserID:        in.UserID,
+			AggregateType: "habit",
+			AggregateID:   habit.ID.UUID(),
+			EventType:     "HabitDeleted",
+			Payload:       map[string]any{"name": habit.Name},
+			Source:        in.Source,
+			OccurredAt:    now,
+		})
+	})
+	if err != nil {
+		return fmt.Errorf("delete habit: %w", err)
+	}
+	return nil
 }
 
 type TrackHabit struct {
@@ -252,6 +387,9 @@ func (uc *ListHabitsToday) Execute(ctx context.Context, userID ids.UserID) ([]Ha
 			Name:           row.Habit.Name,
 			TodayCompleted: row.TodayCompleted,
 			Streak:         streak,
+			StartDate:      row.Habit.StartDate,
+			EndDate:        row.Habit.EndDate,
+			Active:         row.Habit.Active(today),
 		})
 	}
 	return out, nil

@@ -68,6 +68,8 @@ type Deps struct {
 	FinanceOverview  *financeapp.FinanceOverview
 	ListHabits       *habitsapp.ListHabitsToday
 	CreateHabit      *habitsapp.CreateHabit
+	UpdateHabit      *habitsapp.UpdateHabit
+	DeleteHabit      *habitsapp.DeleteHabit
 	TrackHabit       *habitsapp.TrackHabit
 	ScheduleReminder ReminderScheduler
 	ListReminders    ReminderLister
@@ -157,6 +159,8 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Delete("/finance/plan/{id}", rt.deletePlannedCashflow)
 			r.Get("/habits/today", rt.listHabitsToday)
 			r.Post("/habits", rt.createHabit)
+			r.Patch("/habits/{id}", rt.updateHabit)
+			r.Delete("/habits/{id}", rt.deleteHabit)
 			r.Post("/habits/{id}/track", rt.trackHabit)
 			r.Post("/reminders", rt.createReminder)
 			r.Get("/reminders", rt.listReminders)

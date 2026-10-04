@@ -31,8 +31,39 @@ func (r *Repository) Save(ctx context.Context, habit domain.Habit) error {
 		UserID:    pgconv.UserID(habit.UserID),
 		Name:      habit.Name,
 		Frequency: string(habit.Frequency),
+		StartDate: pgconv.DatePtr(habit.StartDate),
+		EndDate:   pgconv.DatePtr(habit.EndDate),
 		CreatedAt: pgconv.TimestamptzValue(habit.CreatedAt),
 	})
+}
+
+// Update overwrites editable fields; returns false when the habit does not exist
+// for this user.
+func (r *Repository) Update(ctx context.Context, habit domain.Habit) (bool, error) {
+	rows, err := r.queries(ctx).UpdateHabit(ctx, db.UpdateHabitParams{
+		ID:        pgconv.HabitID(habit.ID),
+		UserID:    pgconv.UserID(habit.UserID),
+		Name:      habit.Name,
+		Frequency: string(habit.Frequency),
+		StartDate: pgconv.DatePtr(habit.StartDate),
+		EndDate:   pgconv.DatePtr(habit.EndDate),
+	})
+	if err != nil {
+		return false, fmt.Errorf("update habit: %w", err)
+	}
+	return rows > 0, nil
+}
+
+// Delete removes the habit (logs cascade via FK); returns false when not found.
+func (r *Repository) Delete(ctx context.Context, userID ids.UserID, habitID ids.HabitID) (bool, error) {
+	rows, err := r.queries(ctx).DeleteHabit(ctx, db.DeleteHabitParams{
+		ID:     pgconv.HabitID(habitID),
+		UserID: pgconv.UserID(userID),
+	})
+	if err != nil {
+		return false, fmt.Errorf("delete habit: %w", err)
+	}
+	return rows > 0, nil
 }
 
 func (r *Repository) GetByID(ctx context.Context, userID ids.UserID, habitID ids.HabitID) (domain.Habit, error) {
@@ -83,6 +114,8 @@ func (r *Repository) ListWithToday(ctx context.Context, userID ids.UserID, today
 				UserID:    pgconv.FromUserID(row.UserID),
 				Name:      row.Name,
 				Frequency: domain.Frequency(row.Frequency),
+				StartDate: pgconv.FromDate(row.StartDate),
+				EndDate:   pgconv.FromDate(row.EndDate),
 				CreatedAt: row.CreatedAt.Time,
 			},
 			TodayCompleted: completed,
@@ -128,6 +161,8 @@ func mapHabit(row db.Habit) domain.Habit {
 		UserID:    pgconv.FromUserID(row.UserID),
 		Name:      row.Name,
 		Frequency: domain.Frequency(row.Frequency),
+		StartDate: pgconv.FromDate(row.StartDate),
+		EndDate:   pgconv.FromDate(row.EndDate),
 		CreatedAt: row.CreatedAt.Time,
 	}
 }

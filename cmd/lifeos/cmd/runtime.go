@@ -98,6 +98,8 @@ type runtime struct {
 	financeOverview  *financeapp.FinanceOverview
 	listHabits       *habitsapp.ListHabitsToday
 	createHabit      *habitsapp.CreateHabit
+	updateHabit      *habitsapp.UpdateHabit
+	deleteHabit      *habitsapp.DeleteHabit
 	trackHabit       *habitsapp.TrackHabit
 	listCalendar     *calendarapp.ListEventsToday
 	createEvent      *calendarapp.CreateEvent
@@ -182,6 +184,8 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	financeOverview := financeapp.NewFinanceOverview(financeRepo, tzReader)
 	habitRepo := habitsinfra.NewRepository(p)
 	createHabit := habitsapp.NewCreateHabit(habitRepo, eventPub, transactor)
+	updateHabit := habitsapp.NewUpdateHabit(habitRepo, eventPub, transactor)
+	deleteHabit := habitsapp.NewDeleteHabit(habitRepo, eventPub, transactor)
 	trackHabit := habitsapp.NewTrackHabit(habitRepo, habitRepo, eventPub, transactor, tzReader)
 	listHabits := habitsapp.NewListHabitsToday(habitRepo, habitRepo, tzReader)
 	noteRepo := knowledgeinfra.NewRepository(p)
@@ -281,6 +285,8 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		financeOverview:  financeOverview,
 		listHabits:       listHabits,
 		createHabit:      createHabit,
+		updateHabit:      updateHabit,
+		deleteHabit:      deleteHabit,
 		trackHabit:       trackHabit,
 		listCalendar:     listCalendar,
 		createEvent:      createEvent,
@@ -354,6 +360,8 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		listReminders:    listReminders,
 		cancelReminder:   cancelReminder,
 		createHabit:      createHabit,
+		updateHabit:      updateHabit,
+		deleteHabit:      deleteHabit,
 		trackHabit:       trackHabit,
 		listHabits:       listHabits,
 		createNote:       createNote,

@@ -12,7 +12,7 @@ import (
 )
 
 const findHabitByName = `-- name: FindHabitByName :one
-SELECT id, user_id, name, frequency, created_at
+SELECT id, user_id, name, frequency, start_date, end_date, created_at
 FROM habits
 WHERE user_id = $1 AND lower(name) = lower($2)
 `
@@ -30,13 +30,15 @@ func (q *Queries) FindHabitByName(ctx context.Context, arg FindHabitByNameParams
 		&i.UserID,
 		&i.Name,
 		&i.Frequency,
+		&i.StartDate,
+		&i.EndDate,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getHabitByID = `-- name: GetHabitByID :one
-SELECT id, user_id, name, frequency, created_at
+SELECT id, user_id, name, frequency, start_date, end_date, created_at
 FROM habits
 WHERE id = $1 AND user_id = $2
 `
@@ -54,14 +56,16 @@ func (q *Queries) GetHabitByID(ctx context.Context, arg GetHabitByIDParams) (Hab
 		&i.UserID,
 		&i.Name,
 		&i.Frequency,
+		&i.StartDate,
+		&i.EndDate,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const insertHabit = `-- name: InsertHabit :exec
-INSERT INTO habits (id, user_id, name, frequency, created_at)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO habits (id, user_id, name, frequency, start_date, end_date, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type InsertHabitParams struct {
@@ -69,6 +73,8 @@ type InsertHabitParams struct {
 	UserID    pgtype.UUID
 	Name      string
 	Frequency string
+	StartDate pgtype.Date
+	EndDate   pgtype.Date
 	CreatedAt pgtype.Timestamptz
 }
 
@@ -78,13 +84,15 @@ func (q *Queries) InsertHabit(ctx context.Context, arg InsertHabitParams) error 
 		arg.UserID,
 		arg.Name,
 		arg.Frequency,
+		arg.StartDate,
+		arg.EndDate,
 		arg.CreatedAt,
 	)
 	return err
 }
 
 const listHabits = `-- name: ListHabits :many
-SELECT id, user_id, name, frequency, created_at
+SELECT id, user_id, name, frequency, start_date, end_date, created_at
 FROM habits
 WHERE user_id = $1
 ORDER BY created_at ASC
@@ -104,6 +112,8 @@ func (q *Queries) ListHabits(ctx context.Context, userID pgtype.UUID) ([]Habit, 
 			&i.UserID,
 			&i.Name,
 			&i.Frequency,
+			&i.StartDate,
+			&i.EndDate,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -114,4 +124,55 @@ func (q *Queries) ListHabits(ctx context.Context, userID pgtype.UUID) ([]Habit, 
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateHabit = `-- name: UpdateHabit :execrows
+UPDATE habits
+SET name = $3,
+    frequency = $4,
+    start_date = $5,
+    end_date = $6
+WHERE id = $1 AND user_id = $2
+`
+
+type UpdateHabitParams struct {
+	ID        pgtype.UUID
+	UserID    pgtype.UUID
+	Name      string
+	Frequency string
+	StartDate pgtype.Date
+	EndDate   pgtype.Date
+}
+
+func (q *Queries) UpdateHabit(ctx context.Context, arg UpdateHabitParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateHabit,
+		arg.ID,
+		arg.UserID,
+		arg.Name,
+		arg.Frequency,
+		arg.StartDate,
+		arg.EndDate,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteHabit = `-- name: DeleteHabit :execrows
+DELETE FROM habits
+WHERE id = $1 AND user_id = $2
+`
+
+type DeleteHabitParams struct {
+	ID     pgtype.UUID
+	UserID pgtype.UUID
+}
+
+func (q *Queries) DeleteHabit(ctx context.Context, arg DeleteHabitParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteHabit, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

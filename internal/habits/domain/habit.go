@@ -8,9 +8,10 @@ import (
 )
 
 var (
-	ErrEmptyName         = errors.New("habit name is required")
-	ErrInvalidFrequency  = errors.New("invalid habit frequency")
-	ErrNotFound          = errors.New("habit not found")
+	ErrEmptyName        = errors.New("habit name is required")
+	ErrInvalidFrequency = errors.New("invalid habit frequency")
+	ErrInvalidDeadline  = errors.New("habit deadline ends before it starts")
+	ErrNotFound         = errors.New("habit not found")
 )
 
 type Frequency string
@@ -26,10 +27,27 @@ type Habit struct {
 	UserID    ids.UserID
 	Name      string
 	Frequency Frequency
+	StartDate *time.Time // optional; nil = from creation day
+	EndDate   *time.Time // optional deadline ("срок"); nil = open-ended
 	CreatedAt time.Time
 }
 
+// Active reports whether the habit applies on the given day (deadline window).
+func (h Habit) Active(day time.Time) bool {
+	if h.StartDate != nil && day.Before(*h.StartDate) {
+		return false
+	}
+	if h.EndDate != nil && day.After(*h.EndDate) {
+		return false
+	}
+	return true
+}
+
 func NewHabit(userID ids.UserID, name string, frequency Frequency, now time.Time) (Habit, error) {
+	return NewHabitWithDates(userID, name, frequency, nil, nil, now)
+}
+
+func NewHabitWithDates(userID ids.UserID, name string, frequency Frequency, startDate, endDate *time.Time, now time.Time) (Habit, error) {
 	if name == "" {
 		return Habit{}, ErrEmptyName
 	}
@@ -39,11 +57,23 @@ func NewHabit(userID ids.UserID, name string, frequency Frequency, now time.Time
 	if !frequency.Valid() {
 		return Habit{}, ErrInvalidFrequency
 	}
+	if startDate != nil && endDate != nil && endDate.Before(*startDate) {
+		return Habit{}, ErrInvalidDeadline
+	}
+	day := func(t *time.Time) *time.Time {
+		if t == nil {
+			return nil
+		}
+		d := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+		return &d
+	}
 	return Habit{
 		ID:        ids.NewHabitID(),
 		UserID:    userID,
 		Name:      name,
 		Frequency: frequency,
+		StartDate: day(startDate),
+		EndDate:   day(endDate),
 		CreatedAt: now.UTC(),
 	}, nil
 }

@@ -711,6 +711,14 @@ paths:
               properties:
                 name:
                   type: string
+                start_date:
+                  type: string
+                  format: date
+                  description: Optional start day YYYY-MM-DD
+                end_date:
+                  type: string
+                  format: date
+                  description: Optional deadline day YYYY-MM-DD
       responses:
         '201':
           description: Created
@@ -719,7 +727,66 @@ paths:
               schema:
                 $ref: '#/components/schemas/Habit'
         '400':
-          description: Invalid name
+          description: Invalid name or dates
+  /api/v1/habits/{id}:
+    patch:
+      summary: Update habit (name and/or deadline)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                start_date:
+                  type: string
+                  format: date
+                  nullable: true
+                end_date:
+                  type: string
+                  format: date
+                  nullable: true
+                  description: null clears the deadline
+      responses:
+        '200':
+          description: Updated habit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Habit'
+        '400':
+          description: Invalid input
+        '404':
+          description: Habit not found
+    delete:
+      summary: Delete habit (tracking history cascades)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '400':
+          description: Invalid habit id
+        '404':
+          description: Habit not found
   /api/v1/habits/{id}/track:
     post:
       summary: Track habit completion
@@ -1687,6 +1754,16 @@ components:
         frequency:
           type: string
           example: daily
+        start_date:
+          type: string
+          format: date
+          nullable: true
+          description: Optional start day (YYYY-MM-DD); null = from creation day
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          description: Optional deadline day (YYYY-MM-DD); null = open-ended
     HabitDay:
       type: object
       required: [id, name, today_completed, streak]
@@ -1700,6 +1777,17 @@ components:
           type: boolean
         streak:
           type: integer
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        active:
+          type: boolean
+          description: Today is inside the habit deadline window
     CalendarEvent:
       type: object
       required: [id, title, starts_at]

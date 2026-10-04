@@ -241,10 +241,24 @@ export const api = {
   habitsToday: () =>
     request<{ habits: import('@/api/types').HabitDay[] }>('/api/v1/habits/today'),
 
-  createHabit: (name: string) =>
-    request<{ id: string; name: string; frequency: string }>('/api/v1/habits', {
+  createHabit: (input: { name: string; start_date?: string | null; end_date?: string | null }) =>
+    request<import('@/api/types').Habit>('/api/v1/habits', {
       method: 'POST',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(input),
+    }),
+
+  updateHabit: (
+    id: string,
+    input: { name?: string; start_date?: string | null; end_date?: string | null },
+  ) =>
+    request<import('@/api/types').Habit>(`/api/v1/habits/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+
+  deleteHabit: (id: string) =>
+    request<void>(`/api/v1/habits/${id}`, {
+      method: 'DELETE',
     }),
 
   trackHabit: (id: string) =>

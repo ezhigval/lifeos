@@ -61,6 +61,17 @@ export type HabitDay = {
   name: string
   today_completed: boolean
   streak: number
+  start_date?: string | null
+  end_date?: string | null
+  active?: boolean
+}
+
+export type Habit = {
+  id: string
+  name: string
+  frequency: string
+  start_date?: string | null
+  end_date?: string | null
 }
 
 export type CalendarEvent = {

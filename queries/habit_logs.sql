@@ -16,6 +16,8 @@ SELECT
     h.user_id,
     h.name,
     h.frequency,
+    h.start_date,
+    h.end_date,
     h.created_at,
     hl.completed AS today_completed
 FROM habits h

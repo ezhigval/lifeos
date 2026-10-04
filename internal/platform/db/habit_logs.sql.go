@@ -55,6 +55,8 @@ SELECT
     h.user_id,
     h.name,
     h.frequency,
+    h.start_date,
+    h.end_date,
     h.created_at,
     hl.completed AS today_completed
 FROM habits h
@@ -73,6 +75,8 @@ type ListHabitsWithTodayLogRow struct {
 	UserID         pgtype.UUID
 	Name           string
 	Frequency      string
+	StartDate      pgtype.Date
+	EndDate        pgtype.Date
 	CreatedAt      pgtype.Timestamptz
 	TodayCompleted pgtype.Bool
 }
@@ -91,6 +95,8 @@ func (q *Queries) ListHabitsWithTodayLog(ctx context.Context, arg ListHabitsWith
 			&i.UserID,
 			&i.Name,
 			&i.Frequency,
+			&i.StartDate,
+			&i.EndDate,
 			&i.CreatedAt,
 			&i.TodayCompleted,
 		); err != nil {
