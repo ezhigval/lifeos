@@ -29,11 +29,13 @@ mkdir -p /root/.ssh && chmod 700 /root/.ssh
 if [ ! -f /root/.ssh/lifeos_deploy ]; then
   ssh-keygen -t ed25519 -f /root/.ssh/lifeos_deploy -N '' -C "lifeos-deploy@$(hostname)" -q
 fi
-cat >> /root/.ssh/config <<EOF || true
+if ! grep -q 'lifeos_deploy' /root/.ssh/config 2>/dev/null; then
+  cat >> /root/.ssh/config <<'CFGEOF'
 Host github.com
   IdentityFile /root/.ssh/lifeos_deploy
   IdentitiesOnly yes
-EOF
+CFGEOF
+fi
 chmod 600 /root/.ssh/config 2>/dev/null || true
 ssh-keyscan -t ed25519 github.com >> /root/.ssh/known_hosts 2>/dev/null || true
 
@@ -93,7 +95,6 @@ ENVEOF
   echo "     LIFEOS_MINIAPP_URL   — https://ваш-домен/app/ (опционально)"
   echo "   nano $BASE/.env"
 fi
-grep -q '^COMPOSE_PROJECT_NAME=' "$BASE/.env" || echo 'COMPOSE_PROJECT_NAME=lifeos' >> "$BASE/.env"
 grep -q '^COMPOSE_PROJECT_NAME=' "$BASE/.env" || echo 'COMPOSE_PROJECT_NAME=lifeos' >> "$BASE/.env"
 
 echo "==> [6] systemd юниты автодеплоя (из репозитория)"
