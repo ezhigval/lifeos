@@ -2,6 +2,7 @@ package infra
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -43,7 +44,36 @@ func (r *Repository) Get(ctx context.Context, userID ids.UserID) (domain.UserSet
 		QuietHoursStart: pgTimePtr(row.QuietHoursStart),
 		QuietHoursEnd:   pgTimePtr(row.QuietHoursEnd),
 		Language:        row.Language,
+		HomeWidgets:     decodeHomeWidgets(row.HomeWidgets),
 	}, nil
+}
+
+func decodeHomeWidgets(raw []byte) map[string]bool {
+	out := map[string]bool{}
+	if len(raw) == 0 {
+		return out
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return out
+	}
+	for k, v := range m {
+		if b, ok := v.(bool); ok {
+			out[k] = b
+		}
+	}
+	return out
+}
+
+func (r *Repository) UpdateHomeWidgets(ctx context.Context, userID ids.UserID, widgets map[string]bool) error {
+	raw, err := json.Marshal(widgets)
+	if err != nil {
+		return err
+	}
+	return db.New(r.pool).UpdateHomeWidgets(ctx, db.UpdateHomeWidgetsParams{
+		UserID:      pgconv.UserID(userID),
+		HomeWidgets: raw,
+	})
 }
 
 func pgTimeToDomain(t pgtype.Time) domain.TimeOfDay {

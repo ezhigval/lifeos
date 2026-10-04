@@ -46,7 +46,40 @@ func (rt *Router) getSettings(w http.ResponseWriter, r *http.Request) {
 		"quiet_hours_start": timeOfDayPtrToJSON(s.QuietHoursStart),
 		"quiet_hours_end":   timeOfDayPtrToJSON(s.QuietHoursEnd),
 		"language":          s.Language,
+		"home_widgets":      s.HomeWidgets,
 	})
+}
+
+// updateHomeWidgetsRequest: partial map widget_key -> visible. Unknown keys are rejected.
+type updateHomeWidgetsRequest struct {
+	Widgets map[string]bool `json:"widgets"`
+}
+
+func (rt *Router) updateHomeWidgets(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if rt.deps.UpdateHomeWidgets == nil {
+		writeError(w, http.StatusNotImplemented, "home widgets settings is not configured")
+		return
+	}
+	var req updateHomeWidgetsRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	if len(req.Widgets) == 0 {
+		writeError(w, http.StatusBadRequest, "widgets is required")
+		return
+	}
+	merged, err := rt.deps.UpdateHomeWidgets.Execute(r.Context(), userID, req.Widgets)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"home_widgets": merged})
 }
 
 type updateReviewTimeRequest struct {

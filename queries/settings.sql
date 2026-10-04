@@ -18,3 +18,8 @@ WHERE user_id = $1;
 UPDATE user_settings
 SET quiet_hours_start = $2, quiet_hours_end = $3, updated_at = now()
 WHERE user_id = $1;
+
+-- name: UpdateHomeWidgets :exec
+UPDATE user_settings
+SET home_widgets = $2::jsonb, updated_at = now()
+WHERE user_id = $1;

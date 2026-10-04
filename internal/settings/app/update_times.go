@@ -14,6 +14,7 @@ type SettingsStore interface {
 	UpdateMorningReview(ctx context.Context, userID ids.UserID, at domain.TimeOfDay) error
 	UpdateEveningReview(ctx context.Context, userID ids.UserID, at domain.TimeOfDay) error
 	UpdateQuietHours(ctx context.Context, userID ids.UserID, start, end domain.TimeOfDay) error
+	UpdateHomeWidgets(ctx context.Context, userID ids.UserID, widgets map[string]bool) error
 }
 
 type ReviewRescheduler interface {

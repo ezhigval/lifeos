@@ -115,6 +115,7 @@ type Deps struct {
 	UpdateMorning     *settingsapp.UpdateMorningReview
 	UpdateEvening     *settingsapp.UpdateEveningReview
 	UpdateQuiet       *settingsapp.UpdateQuietHours
+	UpdateHomeWidgets *settingsapp.UpdateHomeWidgets
 	Dialogue          *dialogue.Service
 }
 
@@ -197,6 +198,7 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Get("/projects/{id}/tasks", rt.listProjectTasks)
 			r.Post("/projects/{id}/archive", rt.archiveProject)
 			r.Get("/settings", rt.getSettings)
+			r.Put("/settings/home-widgets", rt.updateHomeWidgets)
 			r.Get("/settings/spheres", rt.listSpheres)
 			r.Post("/settings/spheres", rt.createSphere)
 			r.Put("/settings/spheres/{id}", rt.updateSphere)

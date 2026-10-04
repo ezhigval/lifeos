@@ -13,7 +13,7 @@ import (
 
 const getUserSettingsByUserID = `-- name: GetUserSettingsByUserID :one
 SELECT user_id, morning_review_at, evening_review_at, weekly_review_at, monthly_review_at,
-       quiet_hours_start, quiet_hours_end, language, updated_at
+       quiet_hours_start, quiet_hours_end, language, home_widgets, updated_at
 FROM user_settings
 WHERE user_id = $1
 `
@@ -27,6 +27,7 @@ type GetUserSettingsByUserIDRow struct {
 	QuietHoursStart pgtype.Time
 	QuietHoursEnd   pgtype.Time
 	Language        string
+	HomeWidgets     []byte
 	UpdatedAt       pgtype.Timestamptz
 }
 
@@ -42,9 +43,26 @@ func (q *Queries) GetUserSettingsByUserID(ctx context.Context, userID pgtype.UUI
 		&i.QuietHoursStart,
 		&i.QuietHoursEnd,
 		&i.Language,
+		&i.HomeWidgets,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const updateHomeWidgets = `-- name: UpdateHomeWidgets :exec
+UPDATE user_settings
+SET home_widgets = $2::jsonb, updated_at = now()
+WHERE user_id = $1
+`
+
+type UpdateHomeWidgetsParams struct {
+	UserID      pgtype.UUID
+	HomeWidgets []byte
+}
+
+func (q *Queries) UpdateHomeWidgets(ctx context.Context, arg UpdateHomeWidgetsParams) error {
+	_, err := q.db.Exec(ctx, updateHomeWidgets, arg.UserID, arg.HomeWidgets)
+	return err
 }
 
 const updateEveningReviewAt = `-- name: UpdateEveningReviewAt :exec
