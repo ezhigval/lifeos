@@ -63,7 +63,7 @@ fi
 if [[ "${TELEGRAM_BOT_TOKEN:-}" != "" && "${LIFEOS_JWT_SECRET:-}" != "" && "$fail" -eq 0 && "$code" == "200" ]]; then
   info "6) Live POST /api/v1/auth/telegram-webapp against $BASE"
   LIVE_OUT=$(
-    TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" BASE_URL="$BASE" go run "$ROOT/scripts/verify_webapp_auth_live.go" 2>&1
+    TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" BASE_URL="$BASE" go run "$ROOT/scripts/verify_webapp_auth_live/main.go" 2>&1
   ) || {
     red "$LIVE_OUT"
     fail=1

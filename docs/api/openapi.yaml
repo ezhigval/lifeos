@@ -1750,6 +1750,39 @@ paths:
                     $ref: '#/components/schemas/TimeOfDay'
         '400':
           description: Invalid time
+  /api/v1/settings/home-widgets:
+    put:
+      summary: Update home screen widget visibility (TASK-011 item 6)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [widgets]
+              properties:
+                widgets:
+                  type: object
+                  additionalProperties:
+                    type: boolean
+                  description: Partial map widget_key -> visible (tasks, habits, finance, notes, calendar, reminders, debts)
+      responses:
+        '200':
+          description: Merged widget visibility map
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [home_widgets]
+                properties:
+                  home_widgets:
+                    type: object
+                    additionalProperties:
+                      type: boolean
+        '400':
+          description: Invalid widget key or payload
 components:
   schemas:
     FinanceOverview:

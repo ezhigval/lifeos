@@ -20,10 +20,10 @@ import (
 	memoryapp "github.com/valentinezhov/lifeos/internal/memory/app"
 	memorydomain "github.com/valentinezhov/lifeos/internal/memory/domain"
 	notifapp "github.com/valentinezhov/lifeos/internal/notifications/app"
+	planapp "github.com/valentinezhov/lifeos/internal/planning/app"
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
 	"github.com/valentinezhov/lifeos/internal/platform/timeutil"
-	planapp "github.com/valentinezhov/lifeos/internal/planning/app"
 	projectsapp "github.com/valentinezhov/lifeos/internal/projects/app"
 	"github.com/valentinezhov/lifeos/internal/query"
 	settingsapp "github.com/valentinezhov/lifeos/internal/settings/app"
@@ -35,61 +35,67 @@ import (
 
 // toolDeps is the subset of runtime use cases exposed to the conversational agent.
 type toolDeps struct {
-	createTask       *tasksapp.CreateTask
-	listToday        *tasksapp.ListTasksToday
-	completeTitle    *tasksapp.CompleteTaskByTitle
-	cancelTitle      *tasksapp.CancelTaskByTitle
-	rescheduleTitle  *tasksapp.RescheduleTaskByTitle
-	rescheduleAll    *planapp.RescheduleTasks
-	setAvail         *planapp.SetDayAvailability
-	triage           *planapp.TriageOverloadedDay
-	recordExpense    *financeapp.RecordExpense
-	recordIncome     *financeapp.RecordIncome
-	listDebts        *financeapp.ListDebts
-	createDebt       *financeapp.CreateDebt
-	payDebt          *financeapp.PayDebt
-	cashFlow         *financeapp.CashFlowSummary
-	listFinancePlan  *financeapp.ListFinancePlan
-	createPlanned    *financeapp.CreatePlannedCashflow
-	reminder         *notifapp.ScheduleReminder
-	listReminders    *notifapp.ListReminders
-	cancelReminder   *notifapp.CancelReminder
-	createHabit      *habitsapp.CreateHabit
-	trackHabit       *habitsapp.TrackHabit
-	listHabits       *habitsapp.ListHabitsToday
-	createNote       *knowledgeapp.CreateNote
-	listNotes        *knowledgeapp.ListNotes
-	searchNotes      *knowledgeapp.SearchNotes
-	deleteNote       *knowledgeapp.DeleteNote
-	createEvent      *calendarapp.CreateEvent
-	listCalendar     *calendarapp.ListEventsToday
-	createProject    *projectsapp.CreateProject
-	listProjects     *projectsapp.ListProjects
-	archiveProject   *projectsapp.ArchiveProject
-	listProjectTasks *tasksapp.ListTasksByProject
-	projectProg      *projectsapp.GetProjectProgress
-	findProject      *projectsapp.FindProjectByName
-	listSpheres      *spheresapp.ListSpheres
-	findSphere       *spheresapp.FindSphereByName
-	createSphere     *spheresapp.CreateSphere
-	recordWeight     *healthapp.RecordWeight
-	latestWeight     *healthapp.GetLatestWeight
-	recordSteps      *healthapp.RecordSteps
-	latestSteps      *healthapp.GetLatestSteps
-	recordSleep      *healthapp.RecordSleep
-	latestSleep      *healthapp.GetLatestSleep
-	createContact    *careerapp.CreateContact
-	listContacts     *careerapp.ListContacts
-	createSkill      *careerapp.CreateSkill
-	listSkills       *careerapp.ListSkills
-	priorities       *query.GetTopPriorities
-	analytics        *query.GetProductivitySummary
-	updateMorning    *settingsapp.UpdateMorningReview
-	updateEvening    *settingsapp.UpdateEveningReview
-	updateQuiet      *settingsapp.UpdateQuietHours
-	upsertMemory     *memoryapp.UpsertMemory
-	recallMemory     *memoryapp.Recall
-	tzReader         interface {
+	createTask        *tasksapp.CreateTask
+	listToday         *tasksapp.ListTasksToday
+	completeTitle     *tasksapp.CompleteTaskByTitle
+	cancelTitle       *tasksapp.CancelTaskByTitle
+	rescheduleTitle   *tasksapp.RescheduleTaskByTitle
+	rescheduleAll     *planapp.RescheduleTasks
+	setAvail          *planapp.SetDayAvailability
+	triage            *planapp.TriageOverloadedDay
+	recordExpense     *financeapp.RecordExpense
+	recordIncome      *financeapp.RecordIncome
+	listDebts         *financeapp.ListDebts
+	createDebt        *financeapp.CreateDebt
+	payDebt           *financeapp.PayDebt
+	cashFlow          *financeapp.CashFlowSummary
+	listFinancePlan   *financeapp.ListFinancePlan
+	createPlanned     *financeapp.CreatePlannedCashflow
+	reminder          *notifapp.ScheduleReminder
+	listReminders     *notifapp.ListReminders
+	cancelReminder    *notifapp.CancelReminder
+	createHabit       *habitsapp.CreateHabit
+	updateHabit       *habitsapp.UpdateHabit
+	deleteHabit       *habitsapp.DeleteHabit
+	trackHabit        *habitsapp.TrackHabit
+	listHabits        *habitsapp.ListHabitsToday
+	createNote        *knowledgeapp.CreateNote
+	listNotes         *knowledgeapp.ListNotes
+	listNotesByTarget *knowledgeapp.ListNotesByTarget
+	searchNotes       *knowledgeapp.SearchNotes
+	deleteNote        *knowledgeapp.DeleteNote
+	createEvent       *calendarapp.CreateEvent
+	listCalendar      *calendarapp.ListEventsToday
+	listEventsBetween *calendarapp.ListEventsBetween
+	listTasksBetween  *tasksapp.ListCalendarTasks
+	listNotesBetween  *knowledgeapp.ListNotesBetween
+	createProject     *projectsapp.CreateProject
+	listProjects      *projectsapp.ListProjects
+	archiveProject    *projectsapp.ArchiveProject
+	listProjectTasks  *tasksapp.ListTasksByProject
+	projectProg       *projectsapp.GetProjectProgress
+	findProject       *projectsapp.FindProjectByName
+	listSpheres       *spheresapp.ListSpheres
+	findSphere        *spheresapp.FindSphereByName
+	createSphere      *spheresapp.CreateSphere
+	recordWeight      *healthapp.RecordWeight
+	latestWeight      *healthapp.GetLatestWeight
+	recordSteps       *healthapp.RecordSteps
+	latestSteps       *healthapp.GetLatestSteps
+	recordSleep       *healthapp.RecordSleep
+	latestSleep       *healthapp.GetLatestSleep
+	createContact     *careerapp.CreateContact
+	listContacts      *careerapp.ListContacts
+	createSkill       *careerapp.CreateSkill
+	listSkills        *careerapp.ListSkills
+	priorities        *query.GetTopPriorities
+	analytics         *query.GetProductivitySummary
+	updateMorning     *settingsapp.UpdateMorningReview
+	updateEvening     *settingsapp.UpdateEveningReview
+	updateQuiet       *settingsapp.UpdateQuietHours
+	upsertMemory      *memoryapp.UpsertMemory
+	recallMemory      *memoryapp.Recall
+	tzReader          interface {
 		Timezone(ctx context.Context, userID ids.UserID) (string, error)
 	}
 }

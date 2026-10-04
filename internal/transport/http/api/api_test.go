@@ -115,6 +115,19 @@ func (s *fakeTaskStore) ListOpenDueBetween(context.Context, ids.UserID, time.Tim
 	return nil, nil
 }
 
+func (s *fakeTaskStore) ListAllDueBetween(_ context.Context, userID ids.UserID, from, to time.Time) ([]taskdomain.Task, error) {
+	var out []taskdomain.Task
+	for _, task := range s.tasks {
+		if task.UserID != userID || task.DueDate == nil {
+			continue
+		}
+		if !task.DueDate.Before(from) && task.DueDate.Before(to) {
+			out = append(out, task)
+		}
+	}
+	return out, nil
+}
+
 func (s *fakeTaskStore) ListOpenDueOnOrBefore(_ context.Context, userID ids.UserID, dueDate time.Time) ([]taskdomain.Task, error) {
 	var out []taskdomain.Task
 	for _, task := range s.tasks {
@@ -701,6 +714,23 @@ func (s *fakeHabitStore) FindByName(context.Context, ids.UserID, string) (habits
 	return habitsdomain.Habit{}, habitsdomain.ErrNotFound
 }
 
+func (s *fakeHabitStore) Update(_ context.Context, habit habitsdomain.Habit) (bool, error) {
+	if _, ok := s.habits[habit.ID]; !ok {
+		return false, nil
+	}
+	s.habits[habit.ID] = habit
+	return true, nil
+}
+
+func (s *fakeHabitStore) Delete(_ context.Context, userID ids.UserID, habitID ids.HabitID) (bool, error) {
+	habit, ok := s.habits[habitID]
+	if !ok || habit.UserID != userID {
+		return false, nil
+	}
+	delete(s.habits, habitID)
+	return true, nil
+}
+
 func (s *fakeHabitStore) ListWithToday(_ context.Context, userID ids.UserID, today time.Time) ([]habitsapp.HabitDayRow, error) {
 	day := today.Format("2006-01-02")
 	out := make([]habitsapp.HabitDayRow, 0, len(s.habits))
@@ -800,6 +830,13 @@ func (s *fakeSettingsStore) UpdateQuietHours(_ context.Context, userID ids.UserI
 	settings, _ := s.Get(context.Background(), userID)
 	settings.QuietHoursStart = &start
 	settings.QuietHoursEnd = &end
+	s.byUser[userID] = settings
+	return nil
+}
+
+func (s *fakeSettingsStore) UpdateHomeWidgets(_ context.Context, userID ids.UserID, widgets map[string]bool) error {
+	settings, _ := s.Get(context.Background(), userID)
+	settings.HomeWidgets = widgets
 	s.byUser[userID] = settings
 	return nil
 }
@@ -1207,11 +1244,11 @@ func TestTaskLifecycleEditClearArchiveDelete(t *testing.T) {
 		t.Fatalf("create status=%d body=%s", createRec.Code, createRec.Body.String())
 	}
 	var created struct {
-		ID          string  `json:"id"`
-		Title       string  `json:"title"`
-		Description *string `json:"description"`
+		ID          string   `json:"id"`
+		Title       string   `json:"title"`
+		Description *string  `json:"description"`
 		Tags        []string `json:"tags"`
-		DueDate     *string `json:"due_date"`
+		DueDate     *string  `json:"due_date"`
 	}
 	if err := json.Unmarshal(createRec.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
@@ -1731,11 +1768,11 @@ func TestFinanceOverviewHTTP(t *testing.T) {
 		t.Fatalf("status=%d body=%s", okRec.Code, okRec.Body.String())
 	}
 	var body struct {
-		PeriodLabel  string  `json:"period_label"`
-		IncomeCents  int64   `json:"income_cents"`
-		ExpenseCents int64   `json:"expense_cents"`
-		NetCents     int64   `json:"net_cents"`
-		Currency     string  `json:"currency"`
+		PeriodLabel  string `json:"period_label"`
+		IncomeCents  int64  `json:"income_cents"`
+		ExpenseCents int64  `json:"expense_cents"`
+		NetCents     int64  `json:"net_cents"`
+		Currency     string `json:"currency"`
 		Categories   []struct {
 			Name        string  `json:"name"`
 			AmountCents int64   `json:"amount_cents"`

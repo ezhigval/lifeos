@@ -96,6 +96,8 @@ type Habit struct {
 	UserID    pgtype.UUID
 	Name      string
 	Frequency string
+	StartDate pgtype.Date
+	EndDate   pgtype.Date
 	CreatedAt pgtype.Timestamptz
 }
 

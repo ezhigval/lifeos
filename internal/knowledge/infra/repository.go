@@ -243,7 +243,7 @@ func mapDeleteRow(row db.DeleteNoteByUserRow) domain.Note {
 	return mapFieldsWithTarget(row.ID, row.UserID, row.Body, row.Tags, tt, tid, row.CreatedAt, row.UpdatedAt)
 }
 
-func mapBetweenRow(row db.ListNotesCreatedBetweenRow) domain.Note {
+func mapBetweenRow(row db.ListRecentNotesByUserRow) domain.Note {
 	tt, tid := targetFromRow(row.TargetType, row.TargetID)
 	return mapFieldsWithTarget(row.ID, row.UserID, row.Body, row.Tags, tt, tid, row.CreatedAt, row.UpdatedAt)
 }
