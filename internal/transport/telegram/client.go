@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -18,10 +20,19 @@ type Client struct {
 }
 
 func NewClient(token string) *Client {
+	// Default transport honours HTTP(S)_PROXY env vars; hosts that block
+	// Telegram IPs (e.g. Yandex Cloud) can route via LIFEOS_HTTP_PROXY.
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	if p := os.Getenv("LIFEOS_HTTP_PROXY"); p != "" {
+		u, err := url.Parse(p)
+		if err == nil {
+			tr.Proxy = http.ProxyURL(u)
+		}
+	}
 	return &Client{
 		token: token,
-		base:  "https://api.telegram.org/bot" + token,
-		http:  &http.Client{Timeout: 15 * time.Second},
+		base:  "https://api.telegram.org/bot" + token, // https default; LIFEOS_HTTP_PROXY relay still applies via transport
+		http:  &http.Client{Timeout: 15 * time.Second, Transport: tr},
 	}
 }
 
@@ -32,17 +43,17 @@ type Update struct {
 }
 
 type Message struct {
-	MessageID  int64       `json:"message_id"`
-	Text       string      `json:"text"`
-	Caption    string      `json:"caption"`
-	Chat       Chat        `json:"chat"`
-	From       User        `json:"from"`
-	Voice      *Voice      `json:"voice"`
-	Audio      *Audio      `json:"audio"`
-	VideoNote  *VideoNote  `json:"video_note"`
-	Video      *Video      `json:"video"`
-	Photo      []PhotoSize `json:"photo"`
-	Document   *Document   `json:"document"`
+	MessageID int64       `json:"message_id"`
+	Text      string      `json:"text"`
+	Caption   string      `json:"caption"`
+	Chat      Chat        `json:"chat"`
+	From      User        `json:"from"`
+	Voice     *Voice      `json:"voice"`
+	Audio     *Audio      `json:"audio"`
+	VideoNote *VideoNote  `json:"video_note"`
+	Video     *Video      `json:"video"`
+	Photo     []PhotoSize `json:"photo"`
+	Document  *Document   `json:"document"`
 }
 
 type Voice struct {
@@ -140,7 +151,7 @@ func (c *Client) GetUpdates(ctx context.Context, offset int64, timeout int) ([]U
 		return nil, err
 	}
 	// Long polling: Telegram holds the connection up to `timeout` seconds.
-	pollClient := &http.Client{Timeout: time.Duration(timeout+10) * time.Second}
+	pollClient := &http.Client{Timeout: time.Duration(timeout+10) * time.Second, Transport: c.http.Transport}
 	resp, err := pollClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -314,6 +325,15 @@ func (c *Client) SetChatMenuButton(ctx context.Context, text, webAppURL string) 
 	})
 }
 
+// SetMyCommands publishes the bot "/" command list to Telegram clients.
+// Best-effort: on transient API errors the previous list stays in place.
+func (c *Client) SetMyCommands(ctx context.Context, cmds []BotCommandInfo) error {
+	if len(cmds) == 0 {
+		return nil
+	}
+	return c.postAPI(ctx, "setMyCommands", map[string]any{"commands": cmds})
+}
+
 // DeleteMessage removes a chat message. Best-effort: callers may ignore errors
 // (e.g. message already gone / too old).
 func (c *Client) DeleteMessage(ctx context.Context, chatID, messageID int64) error {
@@ -373,11 +393,6 @@ func (c *Client) ResolveUsername(ctx context.Context, username string) (int64, e
 
 func (c *Client) SendMessageWithKeyboard(ctx context.Context, chatID int64, text string, keyboard [][]InlineButton) error {
 	_, err := c.SendScreen(ctx, chatID, text, keyboard, nil)
-	return err
-}
-
-func (c *Client) send(ctx context.Context, payload sendMessageRequest) error {
-	_, err := c.postMessage(ctx, payload)
 	return err
 }
 
@@ -545,7 +560,7 @@ func (c *Client) DownloadFile(ctx context.Context, filePath string, maxBytes int
 	}
 	client := c.http
 	if client == nil || client.Timeout < 60*time.Second {
-		client = &http.Client{Timeout: 60 * time.Second}
+		client = &http.Client{Timeout: 60 * time.Second, Transport: c.http.Transport}
 	}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -591,4 +606,48 @@ func (c *Client) postAPI(ctx context.Context, method string, payload any) error 
 		return fmt.Errorf("telegram %s: %s", method, out.Description)
 	}
 	return nil
+}
+
+// getAPIResult performs a GET Bot API call and returns the raw "result" JSON.
+func (c *Client) getAPIResult(ctx context.Context, method string) (json.RawMessage, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/"+method, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var out struct {
+		OK          bool            `json:"ok"`
+		Description string          `json:"description"`
+		Result      json.RawMessage `json:"result"`
+	}
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, err
+	}
+	if !out.OK {
+		return nil, fmt.Errorf("telegram %s: %s", method, out.Description)
+	}
+	return out.Result, nil
+}
+
+// WebhookInfo reports the currently registered webhook for this bot.
+type WebhookInfo struct {
+	URL                string `json:"url"`
+	PendingUpdateCount int    `json:"pending_update_count"`
+	LastError          string `json:"last_error_message"`
+}
+
+// GetWebhookInfo queries Telegram about the active webhook configuration.
+func (c *Client) GetWebhookInfo(ctx context.Context) (WebhookInfo, error) {
+	result, err := c.getAPIResult(ctx, "getWebhookInfo")
+	if err != nil {
+		return WebhookInfo{}, err
+	}
+	var info WebhookInfo
+	err = json.Unmarshal(result, &info)
+	return info, err
 }

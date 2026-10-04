@@ -30,10 +30,10 @@ func NewReview(pool *pgxpool.Pool, users UserTimezone, assistant ai.Assistant) *
 		assistant = templateassistant.New()
 	}
 	return &Review{
-		tasks:    tasksinfra.NewRepository(pool),
-		projects: projectsinfra.NewRepository(pool),
+		tasks:     tasksinfra.NewRepository(pool),
+		projects:  projectsinfra.NewRepository(pool),
 		assistant: assistant,
-		users:    users,
+		users:     users,
 		period: &PeriodReview{
 			pool:     pool,
 			projects: newProjectsReader(pool),

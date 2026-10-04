@@ -1,1 +1,21 @@
-(empty)
+# Compiled/Binary files
+bin/
+*.exe
+*.dll
+*.so
+*.a
+*.o
+*.out
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.prod.example
+
+# Logs and Temp files
+*.log
+*.tmp
+*.swp
+*.swobin/

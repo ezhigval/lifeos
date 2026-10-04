@@ -1,0 +1,33 @@
+# Production Caddy — automatic HTTPS for your domain.
+# Used by docker-compose.prod.yml
+#
+# Set LIFEOS_DOMAIN in .env.prod (e.g. lifeos.example.com)
+
+{
+	email {$CADDY_ACME_EMAIL}
+}
+
+{$LIFEOS_DOMAIN} {
+	encode gzip
+
+	# Telegram webhook + REST + Mini App all from one origin
+	handle /webhook/* {
+		reverse_proxy app:8080
+	}
+
+	handle /api/* {
+		reverse_proxy app:8080
+	}
+
+	handle /health {
+		reverse_proxy app:8080
+	}
+
+	handle /app* {
+		reverse_proxy app:8080
+	}
+
+	handle {
+		reverse_proxy app:8080
+	}
+}

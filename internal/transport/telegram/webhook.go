@@ -28,7 +28,7 @@ func (w *Webhook) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	body, err := io.ReadAll(r.Body)
+	body, err := io.ReadAll(io.LimitReader(r.Body, 512<<10)) // Telegram caps updates at 512 KB
 	if err != nil {
 		http.Error(rw, "bad request", http.StatusBadRequest)
 		return

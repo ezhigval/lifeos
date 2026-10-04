@@ -79,9 +79,9 @@
 | ID | Story | Priority | Status |
 |----|-------|----------|--------|
 | FN / HB / CAL / knowledge / health / career | Telegram + REST | P2 | ✅ |
-| MA-FIN | Mini App finance overview/ring | P2 | 🚧 client scaffold; overview API gaps TBD |
-| MA-HAB / MA-CAL | Mini App habits/calendar screens | P2 | 🚧 WIP branches |
-| MA-SET | Mini App settings + spheres CRUD UI | P2 | ⏳ |
+| MA-FIN | Mini App finance overview/ring | P2 | ✅ (FinancePage: overview API + ring; debts — MA-C7) |
+| MA-HAB / MA-CAL | Mini App habits/calendar screens | P2 | ✅ (HomeHabits + HabitsPage; CalendarPage + CreateEventSheet) |
+| MA-SET | Mini App settings + spheres CRUD UI | P2 | ✅ (SettingsPage: reviews/quiet hours; SpheresPage CRUD) |
 
 ## Epic: Workspaces (shared spheres) — Stage 4, после фикса багов
 
@@ -127,14 +127,19 @@ UX-правки owner (не ждут Stage 4): **TASK-011-ux-p0-fixes** — plan
 
 | ID | Story | Priority | Phase |
 |----|-------|----------|-------|
-| MA-A1 | Auth `POST /auth/telegram-webapp` | P0 | A (backend) |
+| MA-A1 | Auth `POST /auth/telegram-webapp` | P0 | A ✅ (verify-webapp-auth.sh — 6/6) |
 | MA-A2 | Telegram BackButton on nested routes | P0 | A ✅ frontend |
-| MA-A4 | Finance overview API + Mini App wire | P0 | A (backend) |
+| MA-A4 | Finance overview API + Mini App wire | P0 | A ✅ |
 | MA-A3 | Tab «Ещё» + Settings stub | P1 | A ✅ frontend |
 | MA-A5 | Sheet motion | P1 | A ✅ frontend |
 | MA-A6 | Query error/retry | P1 | A ✅ frontend |
-| MA-B4 | Habits today + track | P1 | B |
-| MA-B1 | CreateTask sheet (priority/due) | P1 | B |
+| MA-B4 | Habits today + track | P1 | B ✅ (HomeHabits + HabitsPage, optimistic track) |
+| MA-B1 | CreateTask sheet (priority/due) | P1 | B ✅ (FAB на Home → CreateTaskSheet) |
+| MA-B2 | Task complete из tree preview | P1 | B ✅ (UpcomingTasks/TaskCard complete) |
+| MA-B3 | Priorities с реальным taskId + complete | P1 | B ✅ |
+| MA-B5 | Calendar today + create event sheet | P2 | B ✅ (CalendarPage events + CreateEventSheet; API day param) |
+| MA-B6 | Settings: review times, quiet hours | P2 | B ✅ (SettingsPage) |
+| MA-B7 | Spheres CRUD в Settings | P2 | B ✅ (create/rename/delete, confirm) |
 
 Остальные MA-* — в UX_UI_PLAN §8.
 

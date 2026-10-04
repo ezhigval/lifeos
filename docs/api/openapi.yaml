@@ -198,12 +198,6 @@ paths:
                   items:
                     type: string
                     format: uuid
-                sphere_ids:
-                  type: array
-                  items:
-                    type: string
-                    format: uuid
-                  description: N:M связи задачи со сферами жизни (TASK-011 п.7)
       responses:
         '201':
           description: Created
@@ -273,12 +267,6 @@ paths:
                   items:
                     type: string
                     format: uuid
-                sphere_ids:
-                  type: array
-                  items:
-                    type: string
-                    format: uuid
-                  description: Replace task↔sphere links (N:M, TASK-011 п.7)
       responses:
         '200':
           description: Updated
@@ -664,10 +652,6 @@ paths:
                 next_date:
                   type: string
                   format: date
-                currency:
-                  type: string
-                  enum: [RUB, USD, EUR]
-                  description: Accepted and validated for client compatibility; amounts are stored in RUB cents.
       responses:
         '201':
           description: Created planned item
@@ -688,6 +672,40 @@ paths:
       responses:
         '204':
           description: Deleted
+        '404':
+          description: Not found
+  /api/v1/finance/plan/{id}/complete:
+    post:
+      summary: Complete one plan occurrence (advance next_date or delete once)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Occurrence completed (plan advanced/deleted; income/expense posted when configured)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted:
+                    type: boolean
+                  posted:
+                    type: boolean
+                  posted_cents:
+                    type: integer
+                  posted_kind:
+                    type: string
+                    enum: [income, expense]
+                  item:
+                    type: object
         '404':
           description: Not found
   /api/v1/habits/today:
@@ -723,14 +741,6 @@ paths:
               properties:
                 name:
                   type: string
-                start_date:
-                  type: string
-                  format: date
-                  description: Optional start day YYYY-MM-DD
-                end_date:
-                  type: string
-                  format: date
-                  description: Optional deadline day YYYY-MM-DD
       responses:
         '201':
           description: Created
@@ -739,10 +749,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Habit'
         '400':
-          description: Invalid name or dates
+          description: Invalid name
   /api/v1/habits/{id}:
     patch:
-      summary: Update habit (name and/or deadline)
+      summary: Update habit (name, start/end dates)
       security:
         - bearerAuth: []
       parameters:
@@ -769,7 +779,6 @@ paths:
                   type: string
                   format: date
                   nullable: true
-                  description: null clears the deadline
       responses:
         '200':
           description: Updated habit
@@ -780,9 +789,9 @@ paths:
         '400':
           description: Invalid input
         '404':
-          description: Habit not found
+          description: Not found
     delete:
-      summary: Delete habit (tracking history cascades)
+      summary: Delete habit
       security:
         - bearerAuth: []
       parameters:
@@ -795,10 +804,8 @@ paths:
       responses:
         '204':
           description: Deleted
-        '400':
-          description: Invalid habit id
         '404':
-          description: Habit not found
+          description: Not found
   /api/v1/habits/{id}/track:
     post:
       summary: Track habit completion
@@ -913,20 +920,6 @@ paths:
           schema:
             type: string
           description: Filter notes by tag
-        - in: query
-          name: target_type
-          required: false
-          schema:
-            type: string
-            enum: [task, event, reminder]
-          description: Reverse-sync filter (TASK-011 item 5) — notes linked to a target entity. Requires target_id.
-        - in: query
-          name: target_id
-          required: false
-          schema:
-            type: string
-            format: uuid
-          description: Id of the task/event/reminder the notes are linked to.
       responses:
         '200':
           description: Note list
@@ -962,14 +955,6 @@ paths:
                   type: array
                   items:
                     type: string
-                target_type:
-                  type: string
-                  enum: [task, event, reminder]
-                  description: Optional link to a task/event/reminder (TASK-011 item 5 bidirectional sync).
-                target_id:
-                  type: string
-                  format: uuid
-                  description: Required together with target_type.
       responses:
         '201':
           description: Created
@@ -1380,6 +1365,13 @@ paths:
       summary: Events for today
       security:
         - bearerAuth: []
+      parameters:
+        - in: query
+          name: day
+          schema:
+            type: string
+            format: date
+          description: Optional user-local calendar day (YYYY-MM-DD); defaults to today
       responses:
         '200':
           description: Event list
@@ -1393,6 +1385,83 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/CalendarEvent'
+  /api/v1/calendar/agenda:
+    get:
+      summary: Merged agenda (tasks, events, reminders, notes) for a window
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: view
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: week
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: projects
+          description: Comma-separated project UUIDs filter
+          schema:
+            type: string
+        - in: query
+          name: types
+          description: Comma-separated item types (task,event,reminder,note)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Agenda items sorted by starts_at
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, from, to, view]
+                properties:
+                  from:
+                    type: string
+                    format: date
+                  to:
+                    type: string
+                    format: date
+                  view:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [type, id, title, starts_at]
+                      properties:
+                        type:
+                          type: string
+                          enum: [task, event, reminder, note]
+                        id:
+                          type: string
+                          format: uuid
+                        title:
+                          type: string
+                        starts_at:
+                          type: string
+                          format: date-time
+                        all_day:
+                          type: boolean
+                        project_ids:
+                          type: array
+                          items:
+                            type: string
+                            format: uuid
+                        done:
+                          type: boolean
+        '400':
+          description: Invalid from/to
   /api/v1/calendar/events:
     post:
       summary: Create calendar event
@@ -1421,64 +1490,60 @@ paths:
                 $ref: '#/components/schemas/CalendarEvent'
         '400':
           description: Invalid title or starts_at
-  /api/v1/calendar/agenda:
+  /api/v1/planning/triage:
     get:
-      summary: Merged calendar feed (tasks, events, reminders, notes) for month/week/day views
+      summary: Overloaded-day triage proposal
       security:
         - bearerAuth: []
-      parameters:
-        - name: view
-          in: query
-          schema:
-            type: string
-            enum: [day, week, month]
-            default: week
-        - name: from
-          in: query
-          schema:
-            type: string
-            format: date
-          description: Window start (YYYY-MM-DD); defaults to current view window
-        - name: to
-          in: query
-          schema:
-            type: string
-            format: date
-          description: Window end, inclusive (YYYY-MM-DD)
-        - name: types
-          in: query
-          schema:
-            type: string
-          description: Comma-separated item types filter (task,event,reminder,note)
-        - name: projects
-          in: query
-          schema:
-            type: string
-          description: Comma-separated project UUIDs filter (applies to tasks)
       responses:
         '200':
-          description: Time-sorted agenda items
+          description: Triage proposal for today
           content:
             application/json:
               schema:
                 type: object
-                required: [view, from, to, items]
+                required: [text, low_priority_ids]
                 properties:
-                  view:
+                  text:
                     type: string
-                    enum: [day, week, month]
-                  from:
-                    type: string
-                    format: date
-                  to:
-                    type: string
-                    format: date
-                  items:
+                    description: Formatted overload summary (emoji per priority)
+                  low_priority_ids:
                     type: array
                     items:
-                      $ref: '#/components/schemas/AgendaItem'
+                      type: string
+                      format: uuid
+                    description: Task ids that can be deferred to tomorrow
+  /api/v1/planning/triage/defer:
+    post:
+      summary: Defer selected low-priority tasks to tomorrow
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [task_ids]
+              properties:
+                task_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: Number of tasks moved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [moved]
+                properties:
+                  moved:
+                    type: integer
         '400':
-          description: Invalid from/to or range
+          description: Invalid task ids
   /api/v1/projects:
     get:
       summary: List active projects
@@ -1566,6 +1631,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserSettings'
+  /api/v1/settings/home-widgets:
+    put:
+      summary: Update home widget visibility (partial merge)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [widgets]
+              properties:
+                widgets:
+                  type: object
+                  additionalProperties:
+                    type: boolean
+                  description: Partial map widget_key -> visible; unknown keys rejected
+      responses:
+        '200':
+          description: Merged widget map
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [home_widgets]
+                properties:
+                  home_widgets:
+                    type: object
+                    additionalProperties:
+                      type: boolean
+        '400':
+          description: Invalid payload or unknown widget key
   /api/v1/settings/spheres:
     get:
       summary: List life spheres
@@ -1762,39 +1860,6 @@ paths:
                     $ref: '#/components/schemas/TimeOfDay'
         '400':
           description: Invalid time
-  /api/v1/settings/home-widgets:
-    put:
-      summary: Update home screen widget visibility (TASK-011 item 6)
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [widgets]
-              properties:
-                widgets:
-                  type: object
-                  additionalProperties:
-                    type: boolean
-                  description: Partial map widget_key -> visible (tasks, habits, finance, notes, calendar, reminders, debts)
-      responses:
-        '200':
-          description: Merged widget visibility map
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [home_widgets]
-                properties:
-                  home_widgets:
-                    type: object
-                    additionalProperties:
-                      type: boolean
-        '400':
-          description: Invalid widget key or payload
 components:
   schemas:
     FinanceOverview:
@@ -1879,16 +1944,6 @@ components:
         frequency:
           type: string
           example: daily
-        start_date:
-          type: string
-          format: date
-          nullable: true
-          description: Optional start day (YYYY-MM-DD); null = from creation day
-        end_date:
-          type: string
-          format: date
-          nullable: true
-          description: Optional deadline day (YYYY-MM-DD); null = open-ended
     HabitDay:
       type: object
       required: [id, name, today_completed, streak]
@@ -1902,17 +1957,6 @@ components:
           type: boolean
         streak:
           type: integer
-        start_date:
-          type: string
-          format: date
-          nullable: true
-        end_date:
-          type: string
-          format: date
-          nullable: true
-        active:
-          type: boolean
-          description: Today is inside the habit deadline window
     CalendarEvent:
       type: object
       required: [id, title, starts_at]
@@ -1926,32 +1970,6 @@ components:
           type: string
           format: date-time
           description: RFC3339 UTC
-    AgendaItem:
-      type: object
-      required: [type, id, title, starts_at]
-      properties:
-        type:
-          type: string
-          enum: [task, event, reminder, note]
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-        starts_at:
-          type: string
-          format: date-time
-          description: RFC3339 UTC (due date / start / fire time / creation)
-        all_day:
-          type: boolean
-        project_ids:
-          type: array
-          items:
-            type: string
-            format: uuid
-        done:
-          type: boolean
-          description: Task completed flag (tasks only)
     TimeOfDay:
       type: object
       required: [hour, minute]
@@ -1994,6 +2012,11 @@ components:
         language:
           type: string
           example: ru
+        home_widgets:
+          type: object
+          additionalProperties:
+            type: boolean
+          description: Widget visibility map (see PUT /api/v1/settings/home-widgets)
     AnalyticsSummary:
       type: object
       required:
@@ -2060,13 +2083,6 @@ components:
           type: array
           items:
             type: string
-        target_type:
-          type: string
-          enum: [task, event, reminder]
-          description: Optional link to a task/event/reminder (TASK-011 item 5).
-        target_id:
-          type: string
-          format: uuid
         created_at:
           type: string
           format: date-time

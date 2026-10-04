@@ -50,7 +50,7 @@ import (
 
 const (
 	testAPIKey    = "test-api-key"
-	testJWTSecret = "test-secret-key-32bytes-min!!"
+	testJWTSecret = "test-secret-key-32-bytes-minimum!!"
 	testTelegram  = int64(900001)
 )
 
@@ -343,6 +343,25 @@ func (s *fakeDebtStore) SavePlanned(_ context.Context, item financedomain.Planne
 		s.plans = make(map[ids.PlannedCashflowID]financedomain.PlannedCashflow)
 	}
 	s.plans[item.ID] = item
+	return nil
+}
+
+func (s *fakeDebtStore) GetPlanned(_ context.Context, userID ids.UserID, id ids.PlannedCashflowID) (financedomain.PlannedCashflow, error) {
+	p, ok := s.plans[id]
+	if !ok || p.UserID != userID {
+		return financedomain.PlannedCashflow{}, financedomain.ErrPlanNotFound
+	}
+	return p, nil
+}
+
+func (s *fakeDebtStore) UpdatePlannedNextDate(_ context.Context, item financedomain.PlannedCashflow) error {
+	p, ok := s.plans[item.ID]
+	if !ok || p.UserID != item.UserID {
+		return financedomain.ErrPlanNotFound
+	}
+	p.NextDate = item.NextDate
+	p.UpdatedAt = item.UpdatedAt
+	s.plans[item.ID] = p
 	return nil
 }
 
@@ -687,6 +706,10 @@ func (a cancelReminderAdapter) Execute(ctx context.Context, in notifapp.CancelRe
 	return a.ExecuteCancel(ctx, in)
 }
 
+func (a cancelReminderAdapter) CancelForTask(_ context.Context, _ ids.UserID, _ string) error {
+	return nil
+}
+
 type fakeAnalytics struct {
 	summary query.ProductivitySummary
 }
@@ -1010,6 +1033,7 @@ func newTestEnv(t *testing.T) testEnv {
 		ListFinancePlan:  financeapp.NewListFinancePlan(debtStore, debtStore),
 		CreatePlanned:    financeapp.NewCreatePlannedCashflow(debtStore, fakeEvents{}, fakeTx{}),
 		DeletePlanned:    financeapp.NewDeletePlannedCashflow(debtStore),
+		CompletePlanned:  financeapp.NewCompletePlanOccurrence(debtStore, fakeEvents{}, fakeTx{}, nil, nil),
 		CreateNote:       knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
 		ListNotes:        knowledgeapp.NewListNotes(noteStore),
 		SearchNotes:      knowledgeapp.NewSearchNotes(noteStore),
@@ -1347,6 +1371,96 @@ func TestEditTaskNotFoundReturns404(t *testing.T) {
 	})
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status=%d want 404 body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestEditTaskProjectIDsRoundTrip(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	token := issueToken(t, env)
+	auth := map[string]string{"Authorization": "Bearer " + token}
+
+	sphereRec := doJSON(t, env.router, http.MethodPost, "/api/v1/settings/spheres", auth, map[string]any{
+		"name": "TK-14 sphere",
+	})
+	if sphereRec.Code != http.StatusCreated {
+		t.Fatalf("sphere create status=%d body=%s", sphereRec.Code, sphereRec.Body.String())
+	}
+	var sphere struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(sphereRec.Body.Bytes(), &sphere); err != nil {
+		t.Fatal(err)
+	}
+
+	projRec := doJSON(t, env.router, http.MethodPost, "/api/v1/projects", auth, map[string]any{
+		"name":       "TK-14 project",
+		"sphere_ids": []string{sphere.ID},
+	})
+	if projRec.Code != http.StatusCreated {
+		t.Fatalf("project create status=%d body=%s", projRec.Code, projRec.Body.String())
+	}
+	var proj struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(projRec.Body.Bytes(), &proj); err != nil {
+		t.Fatal(err)
+	}
+
+	taskRec := doJSON(t, env.router, http.MethodPost, "/api/v1/tasks", auth, map[string]any{
+		"title": "TK-14 task",
+	})
+	if taskRec.Code != http.StatusCreated {
+		t.Fatalf("task create status=%d body=%s", taskRec.Code, taskRec.Body.String())
+	}
+	var task struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(taskRec.Body.Bytes(), &task); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assign via PATCH (Mini App save flow sends project_ids on every save).
+	patchRec := doJSON(t, env.router, http.MethodPatch, "/api/v1/tasks/"+task.ID, auth, map[string]any{
+		"title":       "TK-14 task",
+		"project_ids": []string{proj.ID},
+	})
+	if patchRec.Code != http.StatusOK {
+		t.Fatalf("patch status=%d body=%s", patchRec.Code, patchRec.Body.String())
+	}
+	var patched struct {
+		ProjectIDs []string `json:"project_ids"`
+	}
+	if err := json.Unmarshal(patchRec.Body.Bytes(), &patched); err != nil {
+		t.Fatal(err)
+	}
+	if len(patched.ProjectIDs) != 1 || patched.ProjectIDs[0] != proj.ID {
+		t.Fatalf("expected project_ids=[%s], got %v", proj.ID, patched.ProjectIDs)
+	}
+
+	// Unassign with empty array.
+	clearRec := doJSON(t, env.router, http.MethodPatch, "/api/v1/tasks/"+task.ID, auth, map[string]any{
+		"project_ids": []string{},
+	})
+	if clearRec.Code != http.StatusOK {
+		t.Fatalf("clear status=%d body=%s", clearRec.Code, clearRec.Body.String())
+	}
+	var cleared struct {
+		ProjectIDs []string `json:"project_ids"`
+	}
+	if err := json.Unmarshal(clearRec.Body.Bytes(), &cleared); err != nil {
+		t.Fatal(err)
+	}
+	if len(cleared.ProjectIDs) != 0 {
+		t.Fatalf("expected empty project_ids, got %v", cleared.ProjectIDs)
+	}
+
+	// Invalid id must be rejected.
+	badRec := doJSON(t, env.router, http.MethodPatch, "/api/v1/tasks/"+task.ID, auth, map[string]any{
+		"project_ids": []string{"not-a-uuid"},
+	})
+	if badRec.Code != http.StatusBadRequest {
+		t.Fatalf("bad id status=%d want 400 body=%s", badRec.Code, badRec.Body.String())
 	}
 }
 

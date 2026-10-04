@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,6 +36,8 @@ type ScheduleReminderInput struct {
 	UserID  ids.UserID
 	Message string
 	FireAt  time.Time
+	// TaskID optionally links the job to a task (kind=reminder) for cancel/resync.
+	TaskID string
 }
 
 func (uc *ScheduleReminder) Execute(ctx context.Context, in ScheduleReminderInput) (ReminderDTO, error) {
@@ -42,7 +45,11 @@ func (uc *ScheduleReminder) Execute(ctx context.Context, in ScheduleReminderInpu
 		return ReminderDTO{}, fmt.Errorf("invalid reminder input")
 	}
 	id := uuid.Must(uuid.NewV7())
-	payload, _ := json.Marshal(map[string]string{"message": in.Message})
+	payloadMap := map[string]string{"message": in.Message}
+	if tid := strings.TrimSpace(in.TaskID); tid != "" {
+		payloadMap["task_id"] = tid
+	}
+	payload, _ := json.Marshal(payloadMap)
 	_, err := db.New(uc.store.pool).InsertScheduledJob(ctx, db.InsertScheduledJobParams{
 		ID:      pgconv.UUID(id),
 		UserID:  pgconv.UserID(in.UserID),

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -46,6 +47,25 @@ func (uc *CancelReminder) Execute(ctx context.Context, in CancelReminderInput) (
 		return ReminderDTO{}, fmt.Errorf("cancel reminder: %w", err)
 	}
 	return reminderRowToDTO(row.ID, row.Payload, row.RunAt, row.Status), nil
+}
+
+// CancelForTask cancels pending reminder jobs linked to a task via payload.task_id.
+func (uc *CancelReminder) CancelForTask(ctx context.Context, userID ids.UserID, taskID string) error {
+	if userID.IsZero() || strings.TrimSpace(taskID) == "" {
+		return fmt.Errorf("invalid cancel-for-task input")
+	}
+	_, err := uc.pool.Exec(ctx, `
+		UPDATE scheduled_jobs
+		SET status = 'cancelled', updated_at = now()
+		WHERE user_id = $1
+		  AND job_type = 'reminder'
+		  AND status = 'pending'
+		  AND payload->>'task_id' = $2
+	`, pgconv.UserID(userID), strings.TrimSpace(taskID))
+	if err != nil {
+		return fmt.Errorf("cancel reminders for task: %w", err)
+	}
+	return nil
 }
 
 func reminderRowToDTO(id pgtype.UUID, payload []byte, runAt pgtype.Timestamptz, status string) ReminderDTO {

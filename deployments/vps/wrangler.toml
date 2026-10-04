@@ -1,0 +1,5 @@
+name = "tg-proxy"
+main = "tg-proxy-worker.js"
+compatibility_date = "2026-10-01"
+# After first deploy set a secret (optional hardening):
+#   npx wrangler secret put PROXY_SECRET

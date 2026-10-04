@@ -203,6 +203,29 @@ func (r *Repository) SavePlanned(ctx context.Context, item domain.PlannedCashflo
 	})
 }
 
+func (r *Repository) GetPlanned(ctx context.Context, userID ids.UserID, id ids.PlannedCashflowID) (domain.PlannedCashflow, error) {
+	row, err := r.queries(ctx).GetPlannedCashflowByUser(ctx, db.GetPlannedCashflowByUserParams{
+		ID:     pgconv.PlannedCashflowID(id),
+		UserID: pgconv.UserID(userID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.PlannedCashflow{}, domain.ErrPlanNotFound
+	}
+	if err != nil {
+		return domain.PlannedCashflow{}, fmt.Errorf("get planned cashflow: %w", err)
+	}
+	return mapPlanned(row), nil
+}
+
+func (r *Repository) UpdatePlannedNextDate(ctx context.Context, item domain.PlannedCashflow) error {
+	return r.queries(ctx).UpdatePlannedCashflowNextDate(ctx, db.UpdatePlannedCashflowNextDateParams{
+		ID:        pgconv.PlannedCashflowID(item.ID),
+		UserID:    pgconv.UserID(item.UserID),
+		NextDate:  pgconv.Date(item.NextDate),
+		UpdatedAt: pgconv.TimestamptzValue(item.UpdatedAt),
+	})
+}
+
 func (r *Repository) ListPlanned(ctx context.Context, userID ids.UserID) ([]domain.PlannedCashflow, error) {
 	rows, err := r.queries(ctx).ListPlannedCashflowsByUser(ctx, pgconv.UserID(userID))
 	if err != nil {

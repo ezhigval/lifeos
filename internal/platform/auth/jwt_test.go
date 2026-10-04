@@ -9,7 +9,7 @@ import (
 
 func TestTokenServiceIssueAndParse(t *testing.T) {
 	t.Parallel()
-	svc, err := NewTokenService("test-secret-key-32bytes-min!!", time.Hour)
+	svc, err := NewTokenService("test-secret-key-32-bytes-minimum!!", time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}

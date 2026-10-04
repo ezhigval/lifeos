@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ErrEmptySkill  = errors.New("skill name is required")
+	ErrEmptySkill    = errors.New("skill name is required")
 	ErrSkillNotFound = errors.New("skill not found")
 )
 

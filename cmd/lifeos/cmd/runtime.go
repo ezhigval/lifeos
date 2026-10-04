@@ -94,6 +94,8 @@ type runtime struct {
 	listFinancePlan   *financeapp.ListFinancePlan
 	createPlanned     *financeapp.CreatePlannedCashflow
 	deletePlanned     *financeapp.DeletePlannedCashflow
+	completePlanned   *financeapp.CompletePlanOccurrence
+	advanceOverdue    *financeapp.AdvanceOverduePlans
 	cashFlow          *financeapp.CashFlowSummary
 	financeOverview   *financeapp.FinanceOverview
 	listHabits        *habitsapp.ListHabitsToday
@@ -106,6 +108,7 @@ type runtime struct {
 	listTasksBetween  *tasksapp.ListCalendarTasks
 	listNotesBetween  *knowledgeapp.ListNotesBetween
 	createEvent       *calendarapp.CreateEvent
+	triageUC          *planapp.TriageOverloadedDay
 	listProjects      *projectsapp.ListProjects
 	createProject     *projectsapp.CreateProject
 	archiveProject    *projectsapp.ArchiveProject
@@ -114,6 +117,7 @@ type runtime struct {
 	updateMorning     *settingsapp.UpdateMorningReview
 	updateEvening     *settingsapp.UpdateEveningReview
 	updateQuiet       *settingsapp.UpdateQuietHours
+	updateHomeWidgets *settingsapp.UpdateHomeWidgets
 	createNote        *knowledgeapp.CreateNote
 	listNotes         *knowledgeapp.ListNotes
 	listNotesByTarget *knowledgeapp.ListNotesByTarget
@@ -185,6 +189,8 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	listFinancePlan := financeapp.NewListFinancePlan(financeRepo, financeRepo)
 	createPlanned := financeapp.NewCreatePlannedCashflow(financeRepo, eventPub, transactor)
 	deletePlanned := financeapp.NewDeletePlannedCashflow(financeRepo)
+	completePlanned := financeapp.NewCompletePlanOccurrence(financeRepo, eventPub, transactor, recordIncome, recordExpense)
+	advanceOverdue := financeapp.NewAdvanceOverduePlans(financeRepo, eventPub, transactor, recordIncome, recordExpense)
 	cashFlow := financeapp.NewCashFlowSummary(financeRepo, tzReader)
 	financeOverview := financeapp.NewFinanceOverview(financeRepo, tzReader)
 	habitRepo := habitsinfra.NewRepository(p)
@@ -250,6 +256,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	updateMorning := settingsapp.NewUpdateMorningReview(settingsRepo, reviewScheduler, tzReader.Timezone, settingsinfra.ReviewAt)
 	updateEvening := settingsapp.NewUpdateEveningReview(settingsRepo, reviewScheduler, tzReader.Timezone, settingsinfra.ReviewAt)
 	updateQuiet := settingsapp.NewUpdateQuietHours(settingsRepo)
+	updateHomeWidgets := settingsapp.NewUpdateHomeWidgets(settingsRepo)
 	getSettings := settingsapp.NewGetSettings(settingsRepo)
 	priorities := query.NewGetTopPriorities(p, tzReader)
 	analytics := query.NewGetProductivitySummary(p, tzReader)
@@ -294,6 +301,8 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		listFinancePlan:   listFinancePlan,
 		createPlanned:     createPlanned,
 		deletePlanned:     deletePlanned,
+		completePlanned:   completePlanned,
+		advanceOverdue:    advanceOverdue,
 		cashFlow:          cashFlow,
 		financeOverview:   financeOverview,
 		listHabits:        listHabits,
@@ -314,6 +323,8 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		updateMorning:     updateMorning,
 		updateEvening:     updateEvening,
 		updateQuiet:       updateQuiet,
+		updateHomeWidgets: updateHomeWidgets,
+		triageUC:          triage,
 		createNote:        createNote,
 		listNotes:         listNotes,
 		listNotesByTarget: listNotesByTarget,

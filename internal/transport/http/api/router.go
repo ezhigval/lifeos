@@ -64,6 +64,7 @@ type Deps struct {
 	ListFinancePlan   *financeapp.ListFinancePlan
 	CreatePlanned     *financeapp.CreatePlannedCashflow
 	DeletePlanned     *financeapp.DeletePlannedCashflow
+	CompletePlanned   *financeapp.CompletePlanOccurrence
 	CashFlow          *financeapp.CashFlowSummary
 	FinanceOverview   *financeapp.FinanceOverview
 	ListHabits        *habitsapp.ListHabitsToday
@@ -116,6 +117,7 @@ type Deps struct {
 	UpdateEvening     *settingsapp.UpdateEveningReview
 	UpdateQuiet       *settingsapp.UpdateQuietHours
 	UpdateHomeWidgets *settingsapp.UpdateHomeWidgets
+	Triage            TriageProposer
 	Dialogue          *dialogue.Service
 }
 
@@ -162,6 +164,7 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Get("/finance/plan", rt.listFinancePlan)
 			r.Post("/finance/plan", rt.createPlannedCashflow)
 			r.Delete("/finance/plan/{id}", rt.deletePlannedCashflow)
+			r.Post("/finance/plan/{id}/complete", rt.completePlannedCashflow)
 			r.Get("/habits/today", rt.listHabitsToday)
 			r.Post("/habits", rt.createHabit)
 			r.Patch("/habits/{id}", rt.updateHabit)
@@ -193,6 +196,8 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Get("/calendar/today", rt.listCalendarToday)
 			r.Get("/calendar/agenda", rt.listCalendarAgenda)
 			r.Post("/calendar/events", rt.createCalendarEvent)
+			r.Get("/planning/triage", rt.triageProposal)
+			r.Post("/planning/triage/defer", rt.triageDefer)
 			r.Get("/projects", rt.listProjects)
 			r.Post("/projects", rt.createProject)
 			r.Get("/projects/{id}/tasks", rt.listProjectTasks)
@@ -822,6 +827,7 @@ type ReminderLister interface {
 // ReminderCanceller is implemented by *notifapp.CancelReminder.
 type ReminderCanceller interface {
 	Execute(ctx context.Context, in notifapp.CancelReminderInput) (notifapp.ReminderDTO, error)
+	CancelForTask(ctx context.Context, userID ids.UserID, taskID string) error
 }
 
 func (rt *Router) analyticsSummary(w http.ResponseWriter, r *http.Request) {

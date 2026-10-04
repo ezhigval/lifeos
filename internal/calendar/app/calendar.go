@@ -97,7 +97,14 @@ func NewListEventsToday(store EventStore, users UserReader) *ListEventsToday {
 	}
 }
 
+// Execute returns events for the user's current day (in their timezone).
 func (uc *ListEventsToday) Execute(ctx context.Context, userID ids.UserID) ([]EventDTO, error) {
+	return uc.ExecuteForDay(ctx, userID, "")
+}
+
+// ExecuteForDay returns events for a specific local calendar day (YYYY-MM-DD)
+// in the user's timezone. An empty day means "today".
+func (uc *ListEventsToday) ExecuteForDay(ctx context.Context, userID ids.UserID, day string) ([]EventDTO, error) {
 	if userID.IsZero() {
 		return nil, fmt.Errorf("user id is required")
 	}
@@ -105,7 +112,12 @@ func (uc *ListEventsToday) Execute(ctx context.Context, userID ids.UserID) ([]Ev
 	if err != nil {
 		return nil, fmt.Errorf("load timezone: %w", err)
 	}
-	from, to, err := dayBounds(uc.now(), tz)
+	var from, to time.Time
+	if day == "" {
+		from, to, err = dayBounds(uc.now(), tz)
+	} else {
+		from, to, err = dayBoundsForDate(day, tz)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -155,5 +167,18 @@ func dayBounds(now time.Time, timezone string) (time.Time, time.Time, error) {
 	}
 	local := now.In(loc)
 	start := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc).UTC()
+	return start, start.Add(24 * time.Hour), nil
+}
+
+func dayBoundsForDate(day, timezone string) (time.Time, time.Time, error) {
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("load timezone %q: %w", timezone, err)
+	}
+	y, m, d := 0, 0, 0
+	if _, err := fmt.Sscanf(day, "%d-%d-%d", &y, &m, &d); err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid day %q, want YYYY-MM-DD", day)
+	}
+	start := time.Date(y, time.Month(m), d, 0, 0, 0, 0, loc).UTC()
 	return start, start.Add(24 * time.Hour), nil
 }

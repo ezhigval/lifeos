@@ -165,7 +165,6 @@ func TestValidateWebAppInitDataAcceptsURLEncodedUser(t *testing.T) {
 	}
 }
 
-
 func TestValidateWebAppInitDataIncludesSignatureInCheckString(t *testing.T) {
 	t.Parallel()
 	const token = "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
