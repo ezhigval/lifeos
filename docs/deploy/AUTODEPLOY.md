@@ -134,3 +134,31 @@ cd /opt/lifeos/repo
 git checkout <prev-tag-or-commit>
 docker compose -f deployments/docker-compose.yml up -d --build
 ```
+
+
+## Полный чистый установщик (рекомендуемый путь)
+
+Одна команда на ВМ ставит всё: Docker, deploy-ключ, клон репо, .env с секретами,
+systemd-юниты и первый деплой. Скрипт идемпотентен.
+
+```bash
+# 1. Скачать скрипт из main (публичный raw доступ к приватному репо не работает —
+#    скопируйте содержимое deployments/vm-bootstrap.sh руками или через свой ssh-клиент)
+sudo bash vm-bootstrap.sh
+```
+
+Если GitHub ещё не знает deploy-ключ машины, скрипт остановится (exit 2) и покажет
+строку pubkey — добавьте её в **Settings → Deploy keys** и запустите скрипт повторно.
+
+### Снос всего и чистая переустановка
+
+```bash
+# остановить таймер и приложение, удалить контейнеры и образы
+systemctl stop lifeos-deploy.timer lifeos-deploy.service || true
+docker compose -f /opt/lifeos/repo/deployments/docker-compose.yml --env-file /opt/lifeos/.env down -v --rmi all || true
+rm -rf /opt/lifeos/repo /etc/systemd/system/lifeos-deploy.{service,timer}
+systemctl daemon-reload
+# ДАННЫЕ: том postgres_data удалён вместе с -v выше. Если БД нужна — НЕ используйте down -v,
+# а только `down` (том останется и подключится к новому кластеру).
+# затем заново: sudo bash vm-bootstrap.sh
+```
