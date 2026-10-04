@@ -16,12 +16,13 @@ type EditTask struct {
 	events     EventLog
 	transactor Transactor
 	projects   ProjectChecker
+	spheres    SphereChecker
 	now        func() time.Time
 }
 
-func NewEditTask(store TaskStore, events EventLog, transactor Transactor, projects ProjectChecker) *EditTask {
+func NewEditTask(store TaskStore, events EventLog, transactor Transactor, projects ProjectChecker, spheres SphereChecker) *EditTask {
 	return &EditTask{
-		store: store, events: events, transactor: transactor, projects: projects,
+		store: store, events: events, transactor: transactor, projects: projects, spheres: spheres,
 		now: func() time.Time { return time.Now().UTC() },
 	}
 }
@@ -44,6 +45,7 @@ type EditTaskInput struct {
 	NoteID           *ids.NoteID
 	ClearNoteID      bool
 	ProjectIDs       *[]ids.ProjectID
+	SphereIDs        *[]ids.SphereID
 	Source           events.Source
 }
 
@@ -94,6 +96,23 @@ func (uc *EditTask) Execute(ctx context.Context, in EditTaskInput) (TaskDTO, err
 			}
 			task.ProjectIDs = idsCopy
 			if err := uc.store.SetProjects(txCtx, task.ID, task.ProjectIDs); err != nil {
+				return err
+			}
+		}
+
+		if in.SphereIDs != nil {
+			sphereIDsCopy := append([]ids.SphereID(nil), (*in.SphereIDs)...)
+			if len(sphereIDsCopy) > 0 && uc.spheres != nil {
+				ok, err := uc.spheres.AllExist(txCtx, in.UserID, sphereIDsCopy)
+				if err != nil {
+					return fmt.Errorf("validate spheres: %w", err)
+				}
+				if !ok {
+					return fmt.Errorf("sphere not found")
+				}
+			}
+			task.SphereIDs = sphereIDsCopy
+			if err := uc.store.SetSpheres(txCtx, task.ID, task.SphereIDs); err != nil {
 				return err
 			}
 		}

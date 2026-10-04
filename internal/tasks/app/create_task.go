@@ -16,12 +16,13 @@ type CreateTask struct {
 	events     EventLog
 	transactor Transactor
 	projects   ProjectChecker
+	spheres    SphereChecker
 	now        func() time.Time
 }
 
-func NewCreateTask(store TaskStore, events EventLog, transactor Transactor, projects ProjectChecker) *CreateTask {
+func NewCreateTask(store TaskStore, events EventLog, transactor Transactor, projects ProjectChecker, spheres SphereChecker) *CreateTask {
 	return &CreateTask{
-		store: store, events: events, transactor: transactor, projects: projects,
+		store: store, events: events, transactor: transactor, projects: projects, spheres: spheres,
 		now: func() time.Time { return time.Now().UTC() },
 	}
 }
@@ -38,6 +39,7 @@ type CreateTaskInput struct {
 	DurationMinutes *int
 	Tags            []string
 	ProjectIDs      []ids.ProjectID
+	SphereIDs       []ids.SphereID
 	Source          events.Source
 }
 
@@ -101,6 +103,16 @@ func (uc *CreateTask) Execute(ctx context.Context, in CreateTaskInput) (TaskDTO,
 		}
 		task.ProjectIDs = in.ProjectIDs
 	}
+	if len(in.SphereIDs) > 0 && uc.spheres != nil {
+		ok, err := uc.spheres.AllExist(ctx, in.UserID, in.SphereIDs)
+		if err != nil {
+			return TaskDTO{}, fmt.Errorf("validate spheres: %w", err)
+		}
+		if !ok {
+			return TaskDTO{}, fmt.Errorf("sphere not found")
+		}
+		task.SphereIDs = in.SphereIDs
+	}
 
 	err = uc.transactor.WithinTransaction(ctx, func(txCtx context.Context) error {
 		if err := uc.store.Save(txCtx, task); err != nil {
@@ -108,6 +120,11 @@ func (uc *CreateTask) Execute(ctx context.Context, in CreateTaskInput) (TaskDTO,
 		}
 		if len(task.ProjectIDs) > 0 {
 			if err := uc.store.SetProjects(txCtx, task.ID, task.ProjectIDs); err != nil {
+				return err
+			}
+		}
+		if len(task.SphereIDs) > 0 {
+			if err := uc.store.SetSpheres(txCtx, task.ID, task.SphereIDs); err != nil {
 				return err
 			}
 		}
@@ -119,7 +136,7 @@ func (uc *CreateTask) Execute(ctx context.Context, in CreateTaskInput) (TaskDTO,
 			Payload: map[string]any{
 				"title": task.Title, "description": task.Description,
 				"priority": task.Priority, "due_date": task.DueDate,
-				"duration_minutes": task.DurationMinutes, "tags": task.Tags, "project_ids": task.ProjectIDs,
+				"duration_minutes": task.DurationMinutes, "tags": task.Tags, "project_ids": task.ProjectIDs, "sphere_ids": task.SphereIDs,
 			},
 			Source:     in.Source,
 			OccurredAt: now,

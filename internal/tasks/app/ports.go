@@ -12,6 +12,7 @@ import (
 type TaskStore interface {
 	Save(ctx context.Context, task domain.Task) error
 	SetProjects(ctx context.Context, taskID ids.TaskID, projectIDs []ids.ProjectID) error
+	SetSpheres(ctx context.Context, taskID ids.TaskID, sphereIDs []ids.SphereID) error
 	GetByID(ctx context.Context, userID ids.UserID, taskID ids.TaskID) (domain.Task, error)
 	ListByDueDate(ctx context.Context, userID ids.UserID, dueDate time.Time) ([]domain.Task, error)
 	ListOpenDueOnOrBefore(ctx context.Context, userID ids.UserID, dueDate time.Time) ([]domain.Task, error)
@@ -44,18 +45,20 @@ type TaskDTO struct {
 	DurationMinutes *int
 	Tags            []string
 	ProjectIDs      []ids.ProjectID
+	SphereIDs       []ids.SphereID
 	CreatedAt       time.Time
 }
 
 func ToDTO(task domain.Task) TaskDTO {
 	idsCopy := append([]ids.ProjectID(nil), task.ProjectIDs...)
+	sphereIDsCopy := append([]ids.SphereID(nil), task.SphereIDs...)
 	tagsCopy := append([]string(nil), task.Tags...)
 	return TaskDTO{
 		ID: task.ID, Title: task.Title, Description: task.Description,
 		Status: task.Status, Priority: task.Priority,
 		Kind: task.KindOrDefault(), Address: task.Address, NoteID: task.NoteID,
 		DueDate: task.DueDate, DurationMinutes: task.DurationMinutes, Tags: tagsCopy,
-		ProjectIDs: idsCopy, CreatedAt: task.CreatedAt,
+		ProjectIDs: idsCopy, SphereIDs: sphereIDsCopy, CreatedAt: task.CreatedAt,
 	}
 }
 
@@ -69,4 +72,9 @@ func ToDTOs(tasks []domain.Task) []TaskDTO {
 
 type ProjectChecker interface {
 	AllExist(ctx context.Context, userID ids.UserID, projectIDs []ids.ProjectID) (bool, error)
+}
+
+// SphereChecker проверяет существование сфер пользователя (N:M задач↔сферы, TASK-011 п.7).
+type SphereChecker interface {
+	AllExist(ctx context.Context, userID ids.UserID, sphereIDs []ids.SphereID) (bool, error)
 }

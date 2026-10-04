@@ -43,7 +43,7 @@ func TestTaskRepositoryIntegration(t *testing.T) {
 	publisher := events.NewPublisher(pool)
 	transactor := platformpostgres.NewTransactor(pool)
 
-	create := tasksapp.NewCreateTask(repo, publisher, transactor, nil)
+	create := tasksapp.NewCreateTask(repo, publisher, transactor, nil, nil)
 	dto, err := create.Execute(ctx, tasksapp.CreateTaskInput{
 		UserID:   user.ID,
 		Title:    "integration task",

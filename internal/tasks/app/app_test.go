@@ -189,7 +189,7 @@ func TestCreateTaskWritesEvent(t *testing.T) {
 
 	store := newFakeStore()
 	ev := &fakeEvents{}
-	uc := app.NewCreateTask(store, ev, fakeTx{}, nil)
+	uc := app.NewCreateTask(store, ev, fakeTx{}, nil, nil)
 
 	userID := ids.NewUserID()
 	dto, err := uc.Execute(context.Background(), app.CreateTaskInput{
@@ -213,7 +213,7 @@ func TestCompleteTaskWritesEvent(t *testing.T) {
 
 	store := newFakeStore()
 	ev := &fakeEvents{}
-	create := app.NewCreateTask(store, ev, fakeTx{}, nil)
+	create := app.NewCreateTask(store, ev, fakeTx{}, nil, nil)
 	userID := ids.NewUserID()
 
 	created, err := create.Execute(context.Background(), app.CreateTaskInput{
@@ -277,7 +277,7 @@ func TestListTasksTodayUsesTimezone(t *testing.T) {
 func TestCreateTaskRequiresUserID(t *testing.T) {
 	t.Parallel()
 
-	uc := app.NewCreateTask(newFakeStore(), &fakeEvents{}, fakeTx{}, nil)
+	uc := app.NewCreateTask(newFakeStore(), &fakeEvents{}, fakeTx{}, nil, nil)
 	_, err := uc.Execute(context.Background(), app.CreateTaskInput{
 		Title:  "x",
 		Source: events.SourceCLI,
@@ -292,7 +292,7 @@ func TestCancelRescheduleAndHashtags(t *testing.T) {
 
 	store := newFakeStore()
 	ev := &fakeEvents{}
-	create := app.NewCreateTask(store, ev, fakeTx{}, nil)
+	create := app.NewCreateTask(store, ev, fakeTx{}, nil, nil)
 	userID := ids.NewUserID()
 	today := time.Date(2026, 7, 14, 0, 0, 0, 0, time.UTC)
 
@@ -352,7 +352,7 @@ func TestCreateAndEditTaskDescription(t *testing.T) {
 	ev := &fakeEvents{}
 	userID := ids.NewUserID()
 	desc := " details "
-	created, err := app.NewCreateTask(store, ev, fakeTx{}, nil).Execute(context.Background(), app.CreateTaskInput{
+	created, err := app.NewCreateTask(store, ev, fakeTx{}, nil, nil).Execute(context.Background(), app.CreateTaskInput{
 		UserID: userID, Title: "with desc", Description: &desc, Source: events.SourceCLI,
 	})
 	if err != nil {
@@ -362,7 +362,7 @@ func TestCreateAndEditTaskDescription(t *testing.T) {
 		t.Fatalf("created desc = %v", created.Description)
 	}
 
-	edited, err := app.NewEditTask(store, ev, fakeTx{}, nil).Execute(context.Background(), app.EditTaskInput{
+	edited, err := app.NewEditTask(store, ev, fakeTx{}, nil, nil).Execute(context.Background(), app.EditTaskInput{
 		UserID: userID, TaskID: created.ID, ClearDescription: true, Source: events.SourceCLI,
 	})
 	if err != nil {

@@ -934,7 +934,7 @@ func newTestEnv(t *testing.T) testEnv {
 	create := tasksapp.NewCreateTask(store, fakeEvents{}, fakeTx{}, nil)
 	complete := tasksapp.NewCompleteTask(store, fakeEvents{}, fakeTx{})
 	cancel := tasksapp.NewCancelTask(store, fakeEvents{}, fakeTx{})
-	edit := tasksapp.NewEditTask(store, fakeEvents{}, fakeTx{}, nil)
+	edit := tasksapp.NewEditTask(store, fakeEvents{}, fakeTx{}, nil, nil)
 	reschedule := tasksapp.NewRescheduleTask(store, fakeEvents{}, fakeTx{})
 	listToday := tasksapp.NewListTasksToday(store, fakeTZ{})
 	listByTag := tasksapp.NewListTasksByTag(store)

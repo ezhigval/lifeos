@@ -145,3 +145,23 @@ func (r *Repository) queries(ctx context.Context) *db.Queries {
 	}
 	return db.New(r.pool)
 }
+
+// AllExist реализует tasksapp.SphereChecker — валидация N:M связей задач↔сферы (TASK-011 п.7).
+func (r *Repository) AllExist(ctx context.Context, userID ids.UserID, sphereIDs []ids.SphereID) (bool, error) {
+if len(sphereIDs) == 0 {
+return true, nil
+}
+uuids := make([]pgtype.UUID, 0, len(sphereIDs))
+for _, id := range sphereIDs {
+uuids = append(uuids, pgconv.SphereID(id))
+}
+ok, err := r.queries(ctx).SpheresExist(ctx, db.SpheresExistParams{
+Expected:  int32(len(sphereIDs)),
+UserID:    pgconv.UserID(userID),
+SphereIds: uuids,
+})
+if err != nil {
+return false, fmt.Errorf("spheres exist: %w", err)
+}
+return ok, nil
+}

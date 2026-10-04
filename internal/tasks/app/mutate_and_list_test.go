@@ -18,7 +18,7 @@ func TestGetUpdateArchiveDeleteTask(t *testing.T) {
 	store := newFakeStore()
 	ev := &fakeEvents{}
 	userID := ids.NewUserID()
-	created, err := app.NewCreateTask(store, ev, fakeTx{}, nil).Execute(context.Background(), app.CreateTaskInput{
+	created, err := app.NewCreateTask(store, ev, fakeTx{}, nil, nil).Execute(context.Background(), app.CreateTaskInput{
 		UserID: userID, Title: "mutate me", Source: events.SourceCLI,
 	})
 	if err != nil {
@@ -60,7 +60,7 @@ func TestGetUpdateArchiveDeleteTask(t *testing.T) {
 	}
 
 	// recreate open task for delete
-	again, err := app.NewCreateTask(store, ev, fakeTx{}, nil).Execute(context.Background(), app.CreateTaskInput{
+	again, err := app.NewCreateTask(store, ev, fakeTx{}, nil, nil).Execute(context.Background(), app.CreateTaskInput{
 		UserID: userID, Title: "delete me", Source: events.SourceCLI,
 	})
 	if err != nil {
@@ -85,7 +85,7 @@ func TestListTasksByProjectAndTitleMutations(t *testing.T) {
 	projectID := ids.NewProjectID()
 	today := time.Date(2026, 7, 14, 0, 0, 0, 0, time.UTC)
 
-	created, err := app.NewCreateTask(store, ev, fakeTx{}, fakeProjects{ok: true}).Execute(context.Background(), app.CreateTaskInput{
+	created, err := app.NewCreateTask(store, ev, fakeTx{}, fakeProjects{ok: true}, nil).Execute(context.Background(), app.CreateTaskInput{
 		UserID: userID, Title: "proj task", DueDate: &today, ProjectIDs: []ids.ProjectID{projectID}, Source: events.SourceCLI,
 	})
 	if err != nil {
@@ -177,7 +177,7 @@ func TestEditTaskFieldsAndProjects(t *testing.T) {
 	store := newFakeStore()
 	ev := &fakeEvents{}
 	userID := ids.NewUserID()
-	created, err := app.NewCreateTask(store, ev, fakeTx{}, nil).Execute(context.Background(), app.CreateTaskInput{
+	created, err := app.NewCreateTask(store, ev, fakeTx{}, nil, nil).Execute(context.Background(), app.CreateTaskInput{
 		UserID: userID, Title: "edit target", Source: events.SourceCLI,
 	})
 	if err != nil {
@@ -192,7 +192,7 @@ func TestEditTaskFieldsAndProjects(t *testing.T) {
 	projectID := ids.NewProjectID()
 	pids := []ids.ProjectID{projectID}
 
-	edited, err := app.NewEditTask(store, ev, fakeTx{}, fakeProjects{ok: true}).Execute(context.Background(), app.EditTaskInput{
+	edited, err := app.NewEditTask(store, ev, fakeTx{}, fakeProjects{ok: true}, nil).Execute(context.Background(), app.EditTaskInput{
 		UserID: userID, TaskID: created.ID,
 		Title: &title, Priority: &prio, DueDate: &due, DurationMinutes: &mins,
 		Tags: &tags, ProjectIDs: &pids, Source: events.SourceCLI,
@@ -210,7 +210,7 @@ func TestEditTaskFieldsAndProjects(t *testing.T) {
 		t.Fatalf("projects = %+v", edited.ProjectIDs)
 	}
 
-	cleared, err := app.NewEditTask(store, ev, fakeTx{}, nil).Execute(context.Background(), app.EditTaskInput{
+	cleared, err := app.NewEditTask(store, ev, fakeTx{}, nil, nil).Execute(context.Background(), app.EditTaskInput{
 		UserID: userID, TaskID: created.ID, ClearDueDate: true, ClearDuration: true, Source: events.SourceCLI,
 	})
 	if err != nil {
@@ -220,12 +220,12 @@ func TestEditTaskFieldsAndProjects(t *testing.T) {
 		t.Fatalf("cleared = %+v", cleared)
 	}
 
-	if _, err := app.NewEditTask(store, ev, fakeTx{}, nil).Execute(context.Background(), app.EditTaskInput{
+	if _, err := app.NewEditTask(store, ev, fakeTx{}, nil, nil).Execute(context.Background(), app.EditTaskInput{
 		Source: events.SourceCLI,
 	}); err == nil {
 		t.Fatal("expected ids required")
 	}
-	if _, err := app.NewEditTask(store, ev, fakeTx{}, fakeProjects{ok: false}).Execute(context.Background(), app.EditTaskInput{
+	if _, err := app.NewEditTask(store, ev, fakeTx{}, fakeProjects{ok: false}, nil).Execute(context.Background(), app.EditTaskInput{
 		UserID: userID, TaskID: created.ID, ProjectIDs: &pids, Source: events.SourceCLI,
 	}); err == nil {
 		t.Fatal("expected project not found")

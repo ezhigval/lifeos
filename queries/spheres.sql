@@ -30,3 +30,8 @@ WHERE id = $1 AND user_id = $2;
 DELETE FROM life_spheres
 WHERE id = $1 AND user_id = $2
 RETURNING id, user_id, name, sort_order, created_at, updated_at;
+
+-- name: SpheresExist :one
+SELECT (count(*)::int = sqlc.arg(expected)::int) AS ok
+FROM life_spheres
+WHERE user_id = sqlc.arg(user_id) AND id = ANY(sqlc.arg(sphere_ids)::uuid[]);

@@ -66,6 +66,7 @@ type Task struct {
 	DurationMinutes *int       // оценка длительности в минутах
 	Tags            []string   // хештеги без '#'
 	ProjectIDs      []ids.ProjectID
+	SphereIDs       []ids.SphereID // N:M связи со сферами (TASK-011 п.7)
 	CompletedAt     *time.Time
 	DeletedAt       *time.Time
 	CreatedAt       time.Time

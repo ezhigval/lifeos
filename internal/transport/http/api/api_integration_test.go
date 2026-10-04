@@ -150,7 +150,7 @@ func TestAPIIntegrationTaskFlow(t *testing.T) {
 	transactor := platformpostgres.NewTransactor(pool)
 	eventPub := events.NewPublisher(pool)
 	tzReader := identityinfra.NewTimezoneReader(pool)
-	createTask := tasksapp.NewCreateTask(taskRepo, eventPub, transactor, projectsinfra.NewProjectReader(pool))
+	createTask := tasksapp.NewCreateTask(taskRepo, eventPub, transactor, projectsinfra.NewProjectReader(pool), spheresinfra.NewRepository(pool))
 	completeTask := tasksapp.NewCompleteTask(taskRepo, eventPub, transactor)
 	listToday := tasksapp.NewListTasksToday(taskRepo, tzReader)
 

@@ -87,7 +87,40 @@ func (r *Repository) attachProjects(ctx context.Context, task domain.Task) (doma
 		return domain.Task{}, err
 	}
 	task.ProjectIDs = ids
+	sphereIDs, err := r.loadSphereIDs(ctx, task.ID)
+	if err != nil {
+		return domain.Task{}, err
+	}
+	task.SphereIDs = sphereIDs
 	return task, nil
+}
+
+func (r *Repository) SetSpheres(ctx context.Context, taskID ids.TaskID, sphereIDs []ids.SphereID) error {
+	q := r.queries(ctx)
+	if err := q.DeleteTaskSpheres(ctx, pgconv.TaskID(taskID)); err != nil {
+		return err
+	}
+	for _, sid := range sphereIDs {
+		if err := q.InsertTaskSphere(ctx, db.InsertTaskSphereParams{
+			TaskID:   pgconv.TaskID(taskID),
+			SphereID: pgconv.SphereID(sid),
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Repository) loadSphereIDs(ctx context.Context, taskID ids.TaskID) ([]ids.SphereID, error) {
+	rows, err := r.queries(ctx).ListSphereIDsByTask(ctx, pgconv.TaskID(taskID))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ids.SphereID, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, pgconv.FromSphereID(row))
+	}
+	return out, nil
 }
 
 func (r *Repository) GetByID(ctx context.Context, userID ids.UserID, taskID ids.TaskID) (domain.Task, error) {
