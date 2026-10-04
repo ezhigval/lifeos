@@ -8,22 +8,25 @@ BASE=/opt/lifeos
 REPO="$BASE/repo"
 STAMP=$(date +%Y%m%d-%H%M%S)
 
-echo "==> [1/4] Остановка автодеплоя и контейнеров"
+echo "==> [1/4] Остановка автодеплоя и контейнеров (том postgres_data НЕ удаляем)"
 systemctl stop lifeos-deploy.timer lifeos-deploy.service 2>/dev/null || true
 systemctl disable lifeos-deploy.timer 2>/dev/null || true
-if command -v docker >/dev/null 2>&1 && [ -f "$REPO/deployments/docker-compose.yml" ]; then
-  COMPOSE="docker compose -f $REPO/deployments/docker-compose.yml --env-file $BASE/.env -p lifeos"
+if command -v docker >/dev/null 2>&1; then
   # бэкап БД перед удалением тома (если кластер жив)
-  if $COMPOSE ps --format '{{.Name}}' 2>/dev/null | grep -q postgres; then
+  PG=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -iE 'postgres' | head -1 || true)
+  if [ -n "$PG" ]; then
     echo "==> Бэкап БД -> $BASE/backups/pg-$STAMP.dump"
     mkdir -p "$BASE/backups"
-    docker exec lifeos-postgres-1 pg_dump -U lifeos -d lifeos -F c \
-      -f "/tmp/pg-$STAMP.dump" 2>/dev/null && \
-    docker cp lifeos-postgres-1:"/tmp/pg-$STAMP.dump" "$BASE/backups/" 2>/dev/null || \
+    docker exec "$PG" pg_dump -U lifeos -d lifeos -F c -f "/tmp/pg-$STAMP.dump" 2>/dev/null && \
+      docker cp "$PG":"/tmp/pg-$STAMP.dump" "$BASE/backups/" 2>/dev/null || \
       echo "!! бэкап не удался (контейнер недоступен) — продолжение с сохранением тома"
   fi
-  # ВАЖНО: без -v — том postgres_data СОХРАНЯЕТСЯ. Полностью «с нуля с данными» ниже опционально.
-  $COMPOSE down --rmi all 2>/dev/null || true
+  CF="$REPO/deployments/docker-compose.yml"
+  if [ -f "$CF" ]; then
+    docker compose -f "$CF" --env-file "$BASE/.env" -p lifeos down 2>/dev/null || true
+  else
+    docker ps -aq --filter "label=com.docker.compose.project=lifeos" 2>/dev/null | xargs -r docker stop 2>/dev/null || true
+  fi
 fi
 
 echo "==> [2/4] Удаление юнитов, репозитория (НЕ трогаем .env и бэкапы)"

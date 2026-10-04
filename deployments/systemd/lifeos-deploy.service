@@ -18,7 +18,8 @@ ExecStart=/bin/bash -ec '\
   echo "deploying $$LOCAL -> $$REMOTE"; \
   git checkout "$$BRANCH"; \
   git reset --hard "origin/$$BRANCH"; \
-  COMPOSE="docker compose --env-file /opt/lifeos/.env -f deployments/docker-compose.yml"; \
+  [ -f /opt/lifeos/docker-compose.override.yml ] && OVERRIDE="-f /opt/lifeos/docker-compose.override.yml"; \
+  COMPOSE="docker compose --env-file /opt/lifeos/.env -p lifeos -f deployments/docker-compose.yml $${OVERRIDE:-}"; \
   $$COMPOSE build app; \
   $$COMPOSE up -d postgres; \
   $$COMPOSE run --rm --no-deps app migrate up; \
