@@ -401,6 +401,19 @@ type createPlannedRequest struct {
 	AmountCents int64  `json:"amount_cents"`
 	Interval    string `json:"interval"`
 	NextDate    string `json:"next_date"`
+	// Currency is accepted for client compatibility (the mini app sends it);
+	// amounts are stored in RUB cents, so the value is validated but not persisted.
+	Currency string `json:"currency"`
+}
+
+// isKnownCurrency accepts ISO-4217 codes sent by clients; empty means "use default".
+func isKnownCurrency(s string) bool {
+	switch strings.ToUpper(strings.TrimSpace(s)) {
+	case "", "RUB", "USD", "EUR":
+		return true
+	default:
+		return false
+	}
 }
 
 func (rt *Router) createPlannedCashflow(w http.ResponseWriter, r *http.Request) {
@@ -414,8 +427,39 @@ func (rt *Router) createPlannedCashflow(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var req createPlannedRequest
-	if err := decodeJSON(r, &req); err != nil || strings.TrimSpace(req.Title) == "" || req.AmountCents <= 0 {
-		writeError(w, http.StatusBadRequest, "kind, title and amount_cents are required")
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	// Field-by-field validation with clear messages (TASK-011 p.1): every required
+	// field is reported individually instead of one generic error.
+	switch kind := strings.TrimSpace(req.Kind); {
+	case kind == "":
+		writeError(w, http.StatusBadRequest, "field \"kind\" is required: income or expense")
+		return
+	case kind != "income" && kind != "expense":
+		writeError(w, http.StatusBadRequest, "field \"kind\" must be income or expense")
+		return
+	}
+	if strings.TrimSpace(req.Title) == "" {
+		writeError(w, http.StatusBadRequest, "field \"title\" is required")
+		return
+	}
+	if req.AmountCents <= 0 {
+		writeError(w, http.StatusBadRequest, "field \"amount_cents\" must be a positive number")
+		return
+	}
+	interval := strings.TrimSpace(req.Interval)
+	switch interval {
+	case "":
+		// optional: domain defaults to monthly
+	case "once", "weekly", "monthly":
+	default:
+		writeError(w, http.StatusBadRequest, "field \"interval\" must be once, weekly or monthly")
+		return
+	}
+	if !isKnownCurrency(req.Currency) {
+		writeError(w, http.StatusBadRequest, "field \"currency\" must be a 3-letter ISO code (RUB, USD, EUR)")
 		return
 	}
 	next := time.Now().UTC()
@@ -432,7 +476,7 @@ func (rt *Router) createPlannedCashflow(w http.ResponseWriter, r *http.Request) 
 		Kind:        strings.TrimSpace(req.Kind),
 		Title:       strings.TrimSpace(req.Title),
 		AmountCents: req.AmountCents,
-		Interval:    strings.TrimSpace(req.Interval),
+		Interval:    interval,
 		NextDate:    next,
 		Source:      events.SourceHTTP,
 	})

@@ -652,6 +652,10 @@ paths:
                 next_date:
                   type: string
                   format: date
+                currency:
+                  type: string
+                  enum: [RUB, USD, EUR]
+                  description: Accepted and validated for client compatibility; amounts are stored in RUB cents.
       responses:
         '201':
           description: Created planned item

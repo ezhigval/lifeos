@@ -83,8 +83,13 @@ export function FinanceCard({ overview, isLoading, period, onPeriodChange }: Pro
 
   const createPlan = useMutation({
     mutationFn: () => {
+      // Client-side guard mirroring the server contract (TASK-011 p.1):
+      // every visible field is validated with a human-readable message before the request.
+      if (!planSheet) throw new Error('Не выбран тип: доход или расход')
+      if (!planTitle.trim()) throw new Error('Укажите название (например «Зарплата»)')
       const cents = parseMoneyInput(planAmount)
-      if (!cents || !planSheet) throw new Error('amount required')
+      if (!cents) throw new Error('Укажите сумму больше нуля')
+      if (!planNextDate) throw new Error('Укажите следующую дату')
       return api.createFinancePlan({
         kind: planSheet,
         title: planTitle.trim(),

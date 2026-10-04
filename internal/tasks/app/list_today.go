@@ -42,7 +42,7 @@ func (uc *ListTasksToday) Execute(ctx context.Context, userID ids.UserID) ([]Tas
 		return nil, err
 	}
 
-	tasks, err := uc.store.ListByDueDate(ctx, userID, today)
+	tasks, err := uc.store.ListOpenDueOnOrBefore(ctx, userID, today)
 	if err != nil {
 		return nil, fmt.Errorf("list tasks today: %w", err)
 	}
