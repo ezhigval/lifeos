@@ -1,33 +1,39 @@
-# GitHub SSH-подключение — настроено (2026-10-04)
+# GitHub & VM SSH connectivity (agent environment)
 
-## Ключ среды (публичная часть, добавлена в GitHub аккаунт `ezhigval`)
+## ⚠️ 2026-10-05: key rotation required
+The sandbox was reset between sessions — the previous private key
+(`...EK/T`, already added to GitHub account **ezhigval** and to the VM's
+`~/.ssh/authorized_keys`) no longer exists in this environment.
+A NEW ed25519 keypair was generated here; its public half must be re-added:
+
 ```
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFffsKi9w8shIdmadoThOLbrEmdtz9gbFHjVRCoiEK/T lifeos-agent@workspace
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL1fWxrufQ/oWBLSYA7P4igqLLaZx+cGtOac4Tn+Efwn lifeos-agent@workspace
 ```
-Приватный ключ: `~/.ssh/id_ed25519` (вне репозитория, не коммитится).
 
-## Что работает
-- `ssh -T git@github.com` → `Hi ezhigval! You've successfully authenticated`
-- origin переключён на SSH: `git@github.com:ezhigval/lifeos.git`
-  (в ~/.ssh/config прописан IdentityFile для github.com)
-- Push ветки выполнен: `qwen-code-b16d2caa-abce-44ec-9723-23f3a3af0838`
-  → https://github.com/ezhigval/lifeos/pull/new/qwen-code-b16d2caa-abce-44ec-9723-23f3a3af0838
-- Все дальнейшие push/pull — через SSH-ключ, токены больше не нужны.
+- GitHub → Settings → SSH and GPG keys → add as "Authentication" key.
+- VM → `echo '<line above>' >> ~/.ssh/authorized_keys`
 
-## Нюансы сети среды
-- Прямое подключение к `github.com:22` блокируется — использовать обход:
-  `ssh -T git@ssh.github.com -p 443` (работает; git push на port 22 прошёл сам).
-- HTTPS к приватному репо без credentials не работает — только SSH.
+Old key can be removed from GitHub once the new one works.
 
-## ВМ smailikin70@93.77.160.149 — НЕдоступна из среды
-Проверено (2026-10-04): ports 22, 2222, 8022, 1022, 2022, 80, 443, 8080, 8443, 30269 — все closed/filtered.
-Нужно на стороне ВМ/хостинга:
-1. Открыть входящий TCP 22 в firewall/security group **для IPv4** (IP среды может меняться —
-   временно разрешить 0.0.0.0/0 или добавить точный IP после определения).
-2. Проверить, что sshd слушает (`ss -tlnp | grep :22`) и не фаерволится iptables/nftables.
-3. Публичный ключ выше уже добавлен в authorized_keys (если добавлялся).
+## Transport notes
+- No system `ssh` binary in sandbox. We provide `/root/.ssh/git-ssh`
+  (paramiko-based ssh replacement, also symlinked as `/usr/local/bin/ssh`)
+  and `git config --global core.sshCommand "/root/.ssh/git-ssh -o BatchMode=yes"`.
+- Outbound TCP to github.com:22 and ssh.github.com:443 works fine.
+- Push currently fails with `Authentication failed` only because GitHub does
+  not yet know the NEW public key.
 
-После открытия порта команда проверки из среды:
+## VM 93.77.160.149 (smailikin70) — still blocked at network level
+Re-probed 2026-10-05 after user opened port 22 on the VM side:
+sshd listening, ufw inactive, authorized_key installed — but TCP connect from
+this sandbox to 93.77.160.149:22 STILL times out (no SYN-ACK). Sandbox egress
+IP is dynamic Alibaba Cloud range, so a single-IP whitelist will not work;
+the drop happens before the VM (Yandex Cloud security group or hoster firewall).
+
+### Verification commands (run on VM)
 ```bash
-ssh -i ~/.ssh/id_ed25519 smailikin70@93.77.160.149 'echo VM_OK'
+sudo journalctl -u ssh --since "10 min ago" --no-pager   # any Connection from 8.x?
+sudo iptables -L -n --line-numbers | head -30
+nc -zv -w3 <sandbox-ip> 22 2>&1 || true                  # reverse reachability test
 ```
+Preferable fix: Tailscale on the VM + tailnet auth token for the agent.
