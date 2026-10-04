@@ -20,6 +20,7 @@ type NoteStore interface {
 	ListRecent(ctx context.Context, userID ids.UserID, limit int32) ([]domain.Note, error)
 	ListByTag(ctx context.Context, userID ids.UserID, tag string, limit int32) ([]domain.Note, error)
 	Search(ctx context.Context, userID ids.UserID, query string, limit int32) ([]domain.Note, error)
+	ListCreatedBetween(ctx context.Context, userID ids.UserID, from, to time.Time) ([]domain.Note, error)
 	Delete(ctx context.Context, userID ids.UserID, noteID ids.NoteID) (domain.Note, error)
 }
 
@@ -137,6 +138,34 @@ func (uc *ListNotes) Execute(ctx context.Context, in ListNotesInput) ([]NoteDTO,
 
 type SearchNotes struct {
 	notes NoteStore
+}
+
+// ListNotesBetween returns notes created in [from, to) — used by the calendar
+// agenda view so notes surface on their creation day.
+type ListNotesBetween struct {
+	notes NoteStore
+}
+
+func NewListNotesBetween(notes NoteStore) *ListNotesBetween {
+	return &ListNotesBetween{notes: notes}
+}
+
+func (uc *ListNotesBetween) Execute(ctx context.Context, userID ids.UserID, from, to time.Time) ([]NoteDTO, error) {
+	if userID.IsZero() {
+		return nil, fmt.Errorf("user id is required")
+	}
+	if to.Before(from) {
+		return nil, fmt.Errorf("invalid date range")
+	}
+	items, err := uc.notes.ListCreatedBetween(ctx, userID, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("list notes between: %w", err)
+	}
+	out := make([]NoteDTO, 0, len(items))
+	for _, item := range items {
+		out = append(out, ToNoteDTO(item))
+	}
+	return out, nil
 }
 
 func NewSearchNotes(notes NoteStore) *SearchNotes {

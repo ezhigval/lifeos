@@ -38,3 +38,12 @@ LIMIT sqlc.arg(result_limit);
 DELETE FROM notes
 WHERE id = sqlc.arg(note_id) AND user_id = sqlc.arg(user_id)
 RETURNING id, user_id, body, tags, created_at, updated_at;
+
+-- name: ListNotesCreatedBetween :many
+SELECT id, user_id, body, tags, created_at, updated_at
+FROM notes
+WHERE user_id = $1
+  AND created_at >= $2
+  AND created_at < $3
+ORDER BY created_at DESC
+LIMIT 200;

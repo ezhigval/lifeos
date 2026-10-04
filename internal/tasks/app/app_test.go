@@ -63,6 +63,23 @@ func (s *fakeStore) ListOpenDueBetween(_ context.Context, userID ids.UserID, fro
 	return out, nil
 }
 
+func (s *fakeStore) ListAllDueBetween(_ context.Context, userID ids.UserID, from, to time.Time) ([]domain.Task, error) {
+	var out []domain.Task
+	for _, task := range s.tasks {
+		if task.UserID != userID || task.DeletedAt != nil || task.DueDate == nil {
+			continue
+		}
+		if task.Status == domain.StatusCancelled {
+			continue
+		}
+		d := *task.DueDate
+		if (d.Equal(from) || d.After(from)) && (d.Equal(to) || d.Before(to)) {
+			out = append(out, task)
+		}
+	}
+	return out, nil
+}
+
 func (s *fakeStore) ListOpenDueOnOrBefore(_ context.Context, userID ids.UserID, dueDate time.Time) ([]domain.Task, error) {
 	var out []domain.Task
 	for _, task := range s.tasks {

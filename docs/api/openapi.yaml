@@ -1387,6 +1387,64 @@ paths:
                 $ref: '#/components/schemas/CalendarEvent'
         '400':
           description: Invalid title or starts_at
+  /api/v1/calendar/agenda:
+    get:
+      summary: Merged calendar feed (tasks, events, reminders, notes) for month/week/day views
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: view
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: week
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Window start (YYYY-MM-DD); defaults to current view window
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Window end, inclusive (YYYY-MM-DD)
+        - name: types
+          in: query
+          schema:
+            type: string
+          description: Comma-separated item types filter (task,event,reminder,note)
+        - name: projects
+          in: query
+          schema:
+            type: string
+          description: Comma-separated project UUIDs filter (applies to tasks)
+      responses:
+        '200':
+          description: Time-sorted agenda items
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [view, from, to, items]
+                properties:
+                  view:
+                    type: string
+                    enum: [day, week, month]
+                  from:
+                    type: string
+                    format: date
+                  to:
+                    type: string
+                    format: date
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AgendaItem'
+        '400':
+          description: Invalid from/to or range
   /api/v1/projects:
     get:
       summary: List active projects
@@ -1801,6 +1859,32 @@ components:
           type: string
           format: date-time
           description: RFC3339 UTC
+    AgendaItem:
+      type: object
+      required: [type, id, title, starts_at]
+      properties:
+        type:
+          type: string
+          enum: [task, event, reminder, note]
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+          description: RFC3339 UTC (due date / start / fire time / creation)
+        all_day:
+          type: boolean
+        project_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        done:
+          type: boolean
+          description: Task completed flag (tasks only)
     TimeOfDay:
       type: object
       required: [hour, minute]

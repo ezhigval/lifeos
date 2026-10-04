@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/valentinezhov/lifeos/internal/ai/dialogue"
 	calendarapp "github.com/valentinezhov/lifeos/internal/calendar/app"
 	careerapp "github.com/valentinezhov/lifeos/internal/career/app"
 	financeapp "github.com/valentinezhov/lifeos/internal/finance/app"
@@ -18,7 +19,6 @@ import (
 	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
 	knowledgeapp "github.com/valentinezhov/lifeos/internal/knowledge/app"
 	notifapp "github.com/valentinezhov/lifeos/internal/notifications/app"
-	"github.com/valentinezhov/lifeos/internal/ai/dialogue"
 	"github.com/valentinezhov/lifeos/internal/platform/auth"
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
@@ -31,87 +31,90 @@ import (
 )
 
 type Deps struct {
-	Log              *slog.Logger
-	APIKey           string
-	BotToken         string
-	WebAppAuthTTL    time.Duration
-	Tokens           *auth.TokenService
-	GetUser          *identityapp.GetUserByTelegram
-	GetUserByID      *identityapp.GetUserByID
-	EnsureUser       *identityapp.EnsureUserByTelegram
-	ListToday        *tasksapp.ListTasksToday
-	CreateTask       *tasksapp.CreateTask
-	Complete         *tasksapp.CompleteTask
-	ReopenTask       *tasksapp.ReopenTask
-	CancelTask       *tasksapp.CancelTask
-	EditTask         *tasksapp.EditTask
-	RescheduleTask   *tasksapp.RescheduleTask
-	ListByTag        *tasksapp.ListTasksByTag
-	ListDueBetween   *tasksapp.ListTasksDueBetween
-	GetTask          *tasksapp.GetTask
-	UpdateTask       *tasksapp.UpdateTask
-	ArchiveTask      *tasksapp.ArchiveTask
-	DeleteTask       *tasksapp.DeleteTask
-	ProjectProg      *projectsapp.GetProjectProgress
-	Review           *query.Review
-	Priorities       *query.GetTopPriorities
-	Analytics        ProductivitySummarizer
-	RecordIncome     *financeapp.RecordIncome
-	RecordExpense    *financeapp.RecordExpense
-	ListDebts        *financeapp.ListDebts
-	CreateDebt       *financeapp.CreateDebt
-	PayDebt          *financeapp.PayDebt
-	ListFinancePlan  *financeapp.ListFinancePlan
-	CreatePlanned    *financeapp.CreatePlannedCashflow
-	DeletePlanned    *financeapp.DeletePlannedCashflow
-	CashFlow         *financeapp.CashFlowSummary
-	FinanceOverview  *financeapp.FinanceOverview
-	ListHabits       *habitsapp.ListHabitsToday
-	CreateHabit      *habitsapp.CreateHabit
-	UpdateHabit      *habitsapp.UpdateHabit
-	DeleteHabit      *habitsapp.DeleteHabit
-	TrackHabit       *habitsapp.TrackHabit
-	ScheduleReminder ReminderScheduler
-	ListReminders    ReminderLister
-	CancelReminder   ReminderCanceller
-	CreateNote       *knowledgeapp.CreateNote
-	ListNotes        *knowledgeapp.ListNotes
-	SearchNotes      *knowledgeapp.SearchNotes
-	GetNote          *knowledgeapp.GetNote
-	UpdateNote       *knowledgeapp.UpdateNote
-	DeleteNote       *knowledgeapp.DeleteNote
-	CreateContact    *careerapp.CreateContact
-	ListContacts     *careerapp.ListContacts
-	SearchContacts   *careerapp.SearchContacts
-	DeleteContact    *careerapp.DeleteContact
-	CreateSkill      *careerapp.CreateSkill
-	ListSkills       *careerapp.ListSkills
-	SearchSkills     *careerapp.SearchSkills
-	DeleteSkill      *careerapp.DeleteSkill
-	CreateSphere     *spheresapp.CreateSphere
-	ListSpheres      *spheresapp.ListSpheres
-	UpdateSphere     *spheresapp.UpdateSphere
-	DeleteSphere     *spheresapp.DeleteSphere
-	RecordWeight     *healthapp.RecordWeight
-	GetLatestWeight  *healthapp.GetLatestWeight
-	ListWeights      *healthapp.ListWeights
-	RecordSteps      *healthapp.RecordSteps
-	GetLatestSteps   *healthapp.GetLatestSteps
-	ListSteps        *healthapp.ListSteps
-	RecordSleep      *healthapp.RecordSleep
-	GetLatestSleep   *healthapp.GetLatestSleep
-	ListSleep        *healthapp.ListSleep
-	ListCalendar     *calendarapp.ListEventsToday
-	CreateEvent      *calendarapp.CreateEvent
-	ListProjects     *projectsapp.ListProjects
-	CreateProject    *projectsapp.CreateProject
-	ListProjectTasks *tasksapp.ListTasksByProject
-	ArchiveProject   *projectsapp.ArchiveProject
-	GetSettings      *settingsapp.GetSettings
-	UpdateMorning    *settingsapp.UpdateMorningReview
-	UpdateEvening    *settingsapp.UpdateEveningReview
-	UpdateQuiet      *settingsapp.UpdateQuietHours
-	Dialogue         *dialogue.Service
+	Log               *slog.Logger
+	APIKey            string
+	BotToken          string
+	WebAppAuthTTL     time.Duration
+	Tokens            *auth.TokenService
+	GetUser           *identityapp.GetUserByTelegram
+	GetUserByID       *identityapp.GetUserByID
+	EnsureUser        *identityapp.EnsureUserByTelegram
+	ListToday         *tasksapp.ListTasksToday
+	CreateTask        *tasksapp.CreateTask
+	Complete          *tasksapp.CompleteTask
+	ReopenTask        *tasksapp.ReopenTask
+	CancelTask        *tasksapp.CancelTask
+	EditTask          *tasksapp.EditTask
+	RescheduleTask    *tasksapp.RescheduleTask
+	ListByTag         *tasksapp.ListTasksByTag
+	ListDueBetween    *tasksapp.ListTasksDueBetween
+	GetTask           *tasksapp.GetTask
+	UpdateTask        *tasksapp.UpdateTask
+	ArchiveTask       *tasksapp.ArchiveTask
+	DeleteTask        *tasksapp.DeleteTask
+	ProjectProg       *projectsapp.GetProjectProgress
+	Review            *query.Review
+	Priorities        *query.GetTopPriorities
+	Analytics         ProductivitySummarizer
+	RecordIncome      *financeapp.RecordIncome
+	RecordExpense     *financeapp.RecordExpense
+	ListDebts         *financeapp.ListDebts
+	CreateDebt        *financeapp.CreateDebt
+	PayDebt           *financeapp.PayDebt
+	ListFinancePlan   *financeapp.ListFinancePlan
+	CreatePlanned     *financeapp.CreatePlannedCashflow
+	DeletePlanned     *financeapp.DeletePlannedCashflow
+	CashFlow          *financeapp.CashFlowSummary
+	FinanceOverview   *financeapp.FinanceOverview
+	ListHabits        *habitsapp.ListHabitsToday
+	CreateHabit       *habitsapp.CreateHabit
+	UpdateHabit       *habitsapp.UpdateHabit
+	DeleteHabit       *habitsapp.DeleteHabit
+	TrackHabit        *habitsapp.TrackHabit
+	ScheduleReminder  ReminderScheduler
+	ListReminders     ReminderLister
+	CancelReminder    ReminderCanceller
+	CreateNote        *knowledgeapp.CreateNote
+	ListNotes         *knowledgeapp.ListNotes
+	SearchNotes       *knowledgeapp.SearchNotes
+	GetNote           *knowledgeapp.GetNote
+	UpdateNote        *knowledgeapp.UpdateNote
+	DeleteNote        *knowledgeapp.DeleteNote
+	CreateContact     *careerapp.CreateContact
+	ListContacts      *careerapp.ListContacts
+	SearchContacts    *careerapp.SearchContacts
+	DeleteContact     *careerapp.DeleteContact
+	CreateSkill       *careerapp.CreateSkill
+	ListSkills        *careerapp.ListSkills
+	SearchSkills      *careerapp.SearchSkills
+	DeleteSkill       *careerapp.DeleteSkill
+	CreateSphere      *spheresapp.CreateSphere
+	ListSpheres       *spheresapp.ListSpheres
+	UpdateSphere      *spheresapp.UpdateSphere
+	DeleteSphere      *spheresapp.DeleteSphere
+	RecordWeight      *healthapp.RecordWeight
+	GetLatestWeight   *healthapp.GetLatestWeight
+	ListWeights       *healthapp.ListWeights
+	RecordSteps       *healthapp.RecordSteps
+	GetLatestSteps    *healthapp.GetLatestSteps
+	ListSteps         *healthapp.ListSteps
+	RecordSleep       *healthapp.RecordSleep
+	GetLatestSleep    *healthapp.GetLatestSleep
+	ListSleep         *healthapp.ListSleep
+	ListCalendar      *calendarapp.ListEventsToday
+	ListEventsBetween *calendarapp.ListEventsBetween
+	ListTasksBetween  *tasksapp.ListCalendarTasks
+	ListNotesBetween  *knowledgeapp.ListNotesBetween
+	CreateEvent       *calendarapp.CreateEvent
+	ListProjects      *projectsapp.ListProjects
+	CreateProject     *projectsapp.CreateProject
+	ListProjectTasks  *tasksapp.ListTasksByProject
+	ArchiveProject    *projectsapp.ArchiveProject
+	GetSettings       *settingsapp.GetSettings
+	UpdateMorning     *settingsapp.UpdateMorningReview
+	UpdateEvening     *settingsapp.UpdateEveningReview
+	UpdateQuiet       *settingsapp.UpdateQuietHours
+	Dialogue          *dialogue.Service
 }
 
 type Router struct {
@@ -186,6 +189,7 @@ func (rt *Router) Mount(r chi.Router) {
 			r.Get("/health/sleep/latest", rt.latestSleep)
 			r.Post("/health/sleep", rt.recordSleep)
 			r.Get("/calendar/today", rt.listCalendarToday)
+			r.Get("/calendar/agenda", rt.listCalendarAgenda)
 			r.Post("/calendar/events", rt.createCalendarEvent)
 			r.Get("/projects", rt.listProjects)
 			r.Post("/projects", rt.createProject)
@@ -289,19 +293,19 @@ func timeUntil(exp time.Time) int {
 }
 
 type taskJSON struct {
-	ID              string  `json:"id"`
-	Title           string  `json:"title"`
-	Description     *string `json:"description,omitempty"`
-	Status          string  `json:"status"`
-	Priority        string  `json:"priority"`
-	Kind            string  `json:"kind"`
-	Address         *string `json:"address,omitempty"`
-	NoteID          *string `json:"note_id,omitempty"`
-	DueDate         *string `json:"due_date,omitempty"`
-	DurationMinutes *int    `json:"duration_minutes,omitempty"`
+	ID              string   `json:"id"`
+	Title           string   `json:"title"`
+	Description     *string  `json:"description,omitempty"`
+	Status          string   `json:"status"`
+	Priority        string   `json:"priority"`
+	Kind            string   `json:"kind"`
+	Address         *string  `json:"address,omitempty"`
+	NoteID          *string  `json:"note_id,omitempty"`
+	DueDate         *string  `json:"due_date,omitempty"`
+	DurationMinutes *int     `json:"duration_minutes,omitempty"`
 	Tags            []string `json:"tags,omitempty"`
 	ProjectIDs      []string `json:"project_ids,omitempty"`
-	CreatedAt       string  `json:"created_at"`
+	CreatedAt       string   `json:"created_at"`
 }
 
 func taskToJSON(dto tasksapp.TaskDTO) taskJSON {
@@ -508,21 +512,21 @@ func (rt *Router) listTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 type editTaskRequest struct {
-	Title            *string         `json:"title"`
-	Description      nullableString  `json:"description"`
-	ClearDescription bool            `json:"clear_description"`
-	Priority         *string         `json:"priority"`
-	DueDate          nullableString  `json:"due_date"`
-	ClearDueDate     bool            `json:"clear_due_date"`
-	DurationMinutes  *int            `json:"duration_minutes"`
-	ClearDuration    bool            `json:"clear_duration"`
-	Tags             *[]string       `json:"tags"`
-	Kind             *string         `json:"kind"`
-	Address          nullableString  `json:"address"`
-	ClearAddress     bool            `json:"clear_address"`
-	NoteID           nullableString  `json:"note_id"`
-	ClearNoteID      bool            `json:"clear_note_id"`
-	ProjectIDs       *[]string       `json:"project_ids"`
+	Title            *string        `json:"title"`
+	Description      nullableString `json:"description"`
+	ClearDescription bool           `json:"clear_description"`
+	Priority         *string        `json:"priority"`
+	DueDate          nullableString `json:"due_date"`
+	ClearDueDate     bool           `json:"clear_due_date"`
+	DurationMinutes  *int           `json:"duration_minutes"`
+	ClearDuration    bool           `json:"clear_duration"`
+	Tags             *[]string      `json:"tags"`
+	Kind             *string        `json:"kind"`
+	Address          nullableString `json:"address"`
+	ClearAddress     bool           `json:"clear_address"`
+	NoteID           nullableString `json:"note_id"`
+	ClearNoteID      bool           `json:"clear_note_id"`
+	ProjectIDs       *[]string      `json:"project_ids"`
 }
 
 func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
@@ -820,7 +824,7 @@ func (rt *Router) analyticsSummary(w http.ResponseWriter, r *http.Request) {
 		"period_label":      summary.PeriodLabel,
 		"tasks_created":     summary.TasksCreated,
 		"tasks_completed":   summary.TasksCompleted,
-		"completion_rate":   summary.CompletionRate,   // int 0–100
+		"completion_rate":   summary.CompletionRate, // int 0–100
 		"open_tasks":        summary.OpenTasks,
 		"habit_consistency": summary.HabitConsistency, // int 0–100
 		"habit_completions": summary.HabitCompletions,

@@ -412,6 +412,16 @@ func (s *fakeNoteStore) Search(_ context.Context, userID ids.UserID, query strin
 	return out, nil
 }
 
+func (s *fakeNoteStore) ListCreatedBetween(_ context.Context, userID ids.UserID, from, to time.Time) ([]knowledgedomain.Note, error) {
+	var out []knowledgedomain.Note
+	for _, n := range s.notes {
+		if n.UserID == userID && !n.CreatedAt.Before(from) && n.CreatedAt.Before(to) {
+			out = append(out, n)
+		}
+	}
+	return out, nil
+}
+
 func (s *fakeNoteStore) Delete(_ context.Context, userID ids.UserID, noteID ids.NoteID) (knowledgedomain.Note, error) {
 	for i, n := range s.notes {
 		if n.ID == noteID && n.UserID == userID {

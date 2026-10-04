@@ -177,6 +177,49 @@ type ListRecentNotesByUserRow struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
+const listNotesCreatedBetween = `-- name: ListNotesCreatedBetween :many
+SELECT id, user_id, body, tags, created_at, updated_at
+FROM notes
+WHERE user_id = $1
+  AND created_at >= $2
+  AND created_at < $3
+ORDER BY created_at DESC
+LIMIT 200
+`
+
+type ListNotesCreatedBetweenParams struct {
+	UserID     pgtype.UUID
+	CreatedAt  pgtype.Timestamptz
+	CreatedAt_ pgtype.Timestamptz
+}
+
+func (q *Queries) ListNotesCreatedBetween(ctx context.Context, arg ListNotesCreatedBetweenParams) ([]ListRecentNotesByUserRow, error) {
+	rows, err := q.db.Query(ctx, listNotesCreatedBetween, arg.UserID, arg.CreatedAt, arg.CreatedAt_)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRecentNotesByUserRow{}
+	for rows.Next() {
+		var i ListRecentNotesByUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Body,
+			&i.Tags,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 func (q *Queries) ListRecentNotesByUser(ctx context.Context, arg ListRecentNotesByUserParams) ([]ListRecentNotesByUserRow, error) {
 	rows, err := q.db.Query(ctx, listRecentNotesByUser, arg.UserID, arg.Limit)
 	if err != nil {

@@ -80,6 +80,25 @@ export type CalendarEvent = {
   starts_at: string
 }
 
+export type AgendaItemType = 'task' | 'event' | 'reminder' | 'note'
+
+export type AgendaItem = {
+  type: AgendaItemType
+  id: string
+  title: string
+  starts_at: string
+  all_day?: boolean
+  project_ids?: string[]
+  done?: boolean
+}
+
+export type AgendaResponse = {
+  view: 'day' | 'week' | 'month'
+  from: string
+  to: string
+  items: AgendaItem[]
+}
+
 export type TimeOfDay = { hour: number; minute: number }
 
 export type UserSettings = {

@@ -16,6 +16,7 @@ type TaskStore interface {
 	ListByDueDate(ctx context.Context, userID ids.UserID, dueDate time.Time) ([]domain.Task, error)
 	ListOpenDueOnOrBefore(ctx context.Context, userID ids.UserID, dueDate time.Time) ([]domain.Task, error)
 	ListOpenDueBetween(ctx context.Context, userID ids.UserID, from, to time.Time) ([]domain.Task, error)
+	ListAllDueBetween(ctx context.Context, userID ids.UserID, from, to time.Time) ([]domain.Task, error)
 	ListByTag(ctx context.Context, userID ids.UserID, tag string) ([]domain.Task, error)
 	ListByProject(ctx context.Context, userID ids.UserID, projectID ids.ProjectID) ([]domain.Task, error)
 	FindOpenByTitle(ctx context.Context, userID ids.UserID, title string) (domain.Task, error)

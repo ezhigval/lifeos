@@ -131,6 +131,22 @@ func (r *Repository) Search(ctx context.Context, userID ids.UserID, query string
 	return out, nil
 }
 
+func (r *Repository) ListCreatedBetween(ctx context.Context, userID ids.UserID, from, to time.Time) ([]domain.Note, error) {
+	rows, err := r.queries(ctx).ListNotesCreatedBetween(ctx, db.ListNotesCreatedBetweenParams{
+		UserID:     pgconv.UserID(userID),
+		CreatedAt:  pgconv.TimestamptzValue(from),
+		CreatedAt_: pgconv.TimestamptzValue(to),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list notes created between: %w", err)
+	}
+	out := make([]domain.Note, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, mapRecentRow(row))
+	}
+	return out, nil
+}
+
 func (r *Repository) Delete(ctx context.Context, userID ids.UserID, noteID ids.NoteID) (domain.Note, error) {
 	row, err := r.queries(ctx).DeleteNoteByUser(ctx, db.DeleteNoteByUserParams{
 		NoteID: pgconv.NoteID(noteID),

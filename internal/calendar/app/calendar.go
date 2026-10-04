@@ -120,6 +120,34 @@ func (uc *ListEventsToday) Execute(ctx context.Context, userID ids.UserID) ([]Ev
 	return out, nil
 }
 
+// ListEventsBetween returns events with starts_at in [from, to) — used by the
+// calendar month/week/day agenda view.
+type ListEventsBetween struct {
+	store EventStore
+}
+
+func NewListEventsBetween(store EventStore) *ListEventsBetween {
+	return &ListEventsBetween{store: store}
+}
+
+func (uc *ListEventsBetween) Execute(ctx context.Context, userID ids.UserID, from, to time.Time) ([]EventDTO, error) {
+	if userID.IsZero() {
+		return nil, fmt.Errorf("user id is required")
+	}
+	if to.Before(from) {
+		return nil, fmt.Errorf("invalid date range")
+	}
+	items, err := uc.store.ListBetween(ctx, userID, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("list events between: %w", err)
+	}
+	out := make([]EventDTO, 0, len(items))
+	for _, item := range items {
+		out = append(out, EventDTO{ID: item.ID, Title: item.Title, StartsAt: item.StartsAt})
+	}
+	return out, nil
+}
+
 func dayBounds(now time.Time, timezone string) (time.Time, time.Time, error) {
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {

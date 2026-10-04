@@ -219,6 +219,18 @@ func (r *Repository) ListOpenDueBetween(ctx context.Context, userID ids.UserID, 
 	return r.mapTasks(ctx, rows)
 }
 
+func (r *Repository) ListAllDueBetween(ctx context.Context, userID ids.UserID, from, to time.Time) ([]domain.Task, error) {
+	rows, err := r.queries(ctx).ListAllTasksDueBetween(ctx, db.ListAllTasksDueBetweenParams{
+		UserID:   pgconv.UserID(userID),
+		FromDate: pgconv.Date(from),
+		ToDate:   pgconv.Date(to),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list all tasks due between: %w", err)
+	}
+	return r.mapTasks(ctx, rows)
+}
+
 func mapTask(row db.Task) domain.Task {
 	tags := row.Tags
 	if tags == nil {

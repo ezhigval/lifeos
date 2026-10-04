@@ -269,6 +269,19 @@ export const api = {
   calendarToday: () =>
     request<{ events: import('@/api/types').CalendarEvent[] }>('/api/v1/calendar/today'),
 
+  calendarAgenda: (params: {
+    view: 'day' | 'week' | 'month'
+    from: string
+    to: string
+    types?: string
+    projects?: string
+  }) => {
+    const q = new URLSearchParams({ view: params.view, from: params.from, to: params.to })
+    if (params.types) q.set('types', params.types)
+    if (params.projects) q.set('projects', params.projects)
+    return request<import('@/api/types').AgendaResponse>(`/api/v1/calendar/agenda?${q.toString()}`)
+  },
+
   createCalendarEvent: (title: string, starts_at: string) =>
     request<import('@/api/types').CalendarEvent>('/api/v1/calendar/events', {
       method: 'POST',

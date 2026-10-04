@@ -86,3 +86,14 @@ SET title = $3,
     updated_at = now()
 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
 RETURNING id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags, kind, address, note_id;
+
+-- name: ListAllTasksDueBetween :many
+SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags, kind, address, note_id
+FROM tasks
+WHERE user_id = $1
+  AND deleted_at IS NULL
+  AND status != 'cancelled'
+  AND due_date IS NOT NULL
+  AND due_date >= sqlc.arg(from_date)
+  AND due_date <= sqlc.arg(to_date)
+ORDER BY due_date ASC, created_at ASC;

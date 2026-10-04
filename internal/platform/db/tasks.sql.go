@@ -207,6 +207,61 @@ func (q *Queries) ListOpenTasksDueBetween(ctx context.Context, arg ListOpenTasks
 	return items, nil
 }
 
+const listAllTasksDueBetween = `-- name: ListAllTasksDueBetween :many
+SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags, kind, address, note_id
+FROM tasks
+WHERE user_id = $1
+  AND deleted_at IS NULL
+  AND status != 'cancelled'
+  AND due_date IS NOT NULL
+  AND due_date >= $2
+  AND due_date <= $3
+ORDER BY due_date ASC, created_at ASC
+`
+
+type ListAllTasksDueBetweenParams struct {
+	UserID   pgtype.UUID
+	FromDate pgtype.Date
+	ToDate   pgtype.Date
+}
+
+func (q *Queries) ListAllTasksDueBetween(ctx context.Context, arg ListAllTasksDueBetweenParams) ([]Task, error) {
+	rows, err := q.db.Query(ctx, listAllTasksDueBetween, arg.UserID, arg.FromDate, arg.ToDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Task{}
+	for rows.Next() {
+		var i Task
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Title,
+			&i.Description,
+			&i.Status,
+			&i.Priority,
+			&i.DueDate,
+			&i.CompletedAt,
+			&i.DeletedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DurationMinutes,
+			&i.Tags,
+			&i.Kind,
+			&i.Address,
+			&i.NoteID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpenTasksDueOnOrBefore = `-- name: ListOpenTasksDueOnOrBefore :many
 SELECT id, user_id, title, description, status, priority, due_date, completed_at, deleted_at, created_at, updated_at, duration_minutes, tags, kind, address, note_id
 FROM tasks
