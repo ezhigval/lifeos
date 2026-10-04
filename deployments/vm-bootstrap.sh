@@ -61,20 +61,39 @@ else
 fi
 git config --global --add safe.directory "$REPO" || true
 
-echo "==> [5] .env из примера (секреты существующие не трогаем)"
+echo "==> [5] .env (существующий не трогаем; при отсутствии — генерируем с секретами)"
 if [ ! -f "$BASE/.env" ]; then
-  cp "$REPO/.env.example" "$BASE/.env"
+  API_KEY=$(openssl rand -hex 32)
+  JWT_SECRET=$(openssl rand -hex 32)
+  cat > "$BASE/.env" <<ENVEOF
+# --- LifeOS runtime env (сгенерировано vm-bootstrap.sh $(date -u +%FT%TZ)) ---
+COMPOSE_PROJECT_NAME=lifeos
+LIFEOS_HTTP_ADDR=:8080
+LIFEOS_LOG_LEVEL=info
+LIFEOS_LOG_FORMAT=text
+LIFEOS_TELEGRAM_MODE=polling
+TELEGRAM_BOT_TOKEN=
+LIFEOS_SEED_TIMEZONE=Europe/Moscow
+LIFEOS_SEED_TELEGRAM_ID=0
+LIFEOS_SEED_DISPLAY_NAME=Ezhigval
+LIFEOS_JWT_SECRET=$JWT_SECRET
+LIFEOS_API_KEY=$API_KEY
+LIFEOS_JWT_TTL_HOURS=168
+LIFEOS_WEBAPP_AUTH_TTL_HOURS=24
+LIFEOS_MINIAPP_URL=
+LIFEOS_STATIC_DIR=/app/web
+LIFEOS_LLM_ENABLED=false
+LIFEOS_LLM_AGENT_ENABLED=false
+LIFEOS_OTEL_ENABLED=false
+ENVEOF
   chmod 600 "$BASE/.env"
-  # автоподстановка криптостойких секретов, если остались CHANGE_ME
-  grep -q '^LIFEOS_API_KEY=CHANGE' "$BASE/.env" && \
-    sed -i "s|^LIFEOS_API_KEY=.*|LIFEOS_API_KEY=$(openssl rand -hex 32)|" "$BASE/.env"
-  grep -q '^LIFEOS_JWT_SECRET=CHANGE' "$BASE/.env" && \
-    sed -i "s|^LIFEOS_JWT_SECRET=.*|LIFEOS_JWT_SECRET=$(openssl rand -hex 32)|" "$BASE/.env"
-  grep -q '^LIFEOS_LEARNING_SALT=CHANGE' "$BASE/.env" && \
-    sed -i "s|^LIFEOS_LEARNING_SALT=.*|LIFEOS_LEARNING_SALT=$(openssl rand -hex 16)|" "$BASE/.env"
-  echo "!! ВАЖНО: заполните TELEGRAM_BOT_TOKEN и LIFEOS_SEED_TELEGRAM_ID в $BASE/.env"
+  echo "!! Заполните обязательные значения (без них бот/miniapp не работают):"
+  echo "     TELEGRAM_BOT_TOKEN   — от @BotFather"
+  echo "     LIFEOS_SEED_TELEGRAM_ID — ваш telegram id (число)"
+  echo "     LIFEOS_MINIAPP_URL   — https://ваш-домен/app/ (опционально)"
   echo "   nano $BASE/.env"
 fi
+grep -q '^COMPOSE_PROJECT_NAME=' "$BASE/.env" || echo 'COMPOSE_PROJECT_NAME=lifeos' >> "$BASE/.env"
 grep -q '^COMPOSE_PROJECT_NAME=' "$BASE/.env" || echo 'COMPOSE_PROJECT_NAME=lifeos' >> "$BASE/.env"
 
 echo "==> [6] systemd юниты автодеплоя (из репозитория)"
