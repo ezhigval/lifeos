@@ -129,6 +129,9 @@ export type Note = {
   id: string
   body: string
   tags: string[]
+  /** TASK-011 item 5: optional bidirectional link to a task/event/reminder */
+  target_type?: 'task' | 'event' | 'reminder'
+  target_id?: string
   created_at: string
 }
 

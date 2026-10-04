@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/valentinezhov/lifeos/internal/knowledge/domain"
 	"github.com/valentinezhov/lifeos/internal/platform/events"
 	"github.com/valentinezhov/lifeos/internal/platform/ids"
@@ -21,6 +23,7 @@ type NoteStore interface {
 	ListByTag(ctx context.Context, userID ids.UserID, tag string, limit int32) ([]domain.Note, error)
 	Search(ctx context.Context, userID ids.UserID, query string, limit int32) ([]domain.Note, error)
 	ListCreatedBetween(ctx context.Context, userID ids.UserID, from, to time.Time) ([]domain.Note, error)
+	ListByTarget(ctx context.Context, userID ids.UserID, targetType domain.TargetType, targetID uuid.UUID) ([]domain.Note, error)
 	Delete(ctx context.Context, userID ids.UserID, noteID ids.NoteID) (domain.Note, error)
 }
 
@@ -33,10 +36,12 @@ type Transactor interface {
 }
 
 type NoteDTO struct {
-	ID        ids.NoteID
-	Body      string
-	Tags      []string
-	CreatedAt time.Time
+	ID         ids.NoteID
+	Body       string
+	Tags       []string
+	TargetType string
+	TargetID   string
+	CreatedAt  time.Time
 }
 
 func ToNoteDTO(n domain.Note) NoteDTO {
@@ -44,7 +49,14 @@ func ToNoteDTO(n domain.Note) NoteDTO {
 	if tags == nil {
 		tags = []string{}
 	}
-	return NoteDTO{ID: n.ID, Body: n.Body, Tags: tags, CreatedAt: n.CreatedAt}
+	dto := NoteDTO{ID: n.ID, Body: n.Body, Tags: tags, CreatedAt: n.CreatedAt}
+	if n.TargetType != nil {
+		dto.TargetType = string(*n.TargetType)
+	}
+	if n.TargetID != nil {
+		dto.TargetID = n.TargetID.String()
+	}
+	return dto
 }
 
 type CreateNote struct {
@@ -62,10 +74,12 @@ func NewCreateNote(notes NoteStore, events EventLog, transactor Transactor) *Cre
 }
 
 type CreateNoteInput struct {
-	UserID ids.UserID
-	Body   string
-	Tags   []string
-	Source events.Source
+	UserID     ids.UserID
+	Body       string
+	Tags       []string
+	Source     events.Source
+	TargetType string // "" | task | event | reminder (TASK-011 item 5)
+	TargetID   string // uuid of the linked entity
 }
 
 func (uc *CreateNote) Execute(ctx context.Context, in CreateNoteInput) (NoteDTO, error) {
@@ -78,7 +92,22 @@ func (uc *CreateNote) Execute(ctx context.Context, in CreateNoteInput) (NoteDTO,
 	if len(tags) == 0 {
 		body, tags = domain.ExtractHashtags(body)
 	}
-	note, err := domain.NewNote(in.UserID, body, tags, now)
+	var targetType *domain.TargetType
+	var targetID *uuid.UUID
+	if tt := strings.TrimSpace(in.TargetType); tt != "" {
+		parsed := domain.TargetType(tt)
+		if !parsed.Valid() {
+			return NoteDTO{}, fmt.Errorf("invalid target type %q", tt)
+		}
+		id, err := uuid.Parse(strings.TrimSpace(in.TargetID))
+		if err != nil {
+			return NoteDTO{}, fmt.Errorf("target_id must be a valid uuid when target_type is set")
+		}
+		targetType, targetID = &parsed, &id
+	} else if strings.TrimSpace(in.TargetID) != "" {
+		return NoteDTO{}, fmt.Errorf("target_type is required when target_id is set")
+	}
+	note, err := domain.NewNoteWithTarget(in.UserID, body, tags, targetType, targetID, now)
 	if err != nil {
 		return NoteDTO{}, err
 	}
@@ -160,6 +189,40 @@ func (uc *ListNotesBetween) Execute(ctx context.Context, userID ids.UserID, from
 	items, err := uc.notes.ListCreatedBetween(ctx, userID, from, to)
 	if err != nil {
 		return nil, fmt.Errorf("list notes between: %w", err)
+	}
+	out := make([]NoteDTO, 0, len(items))
+	for _, item := range items {
+		out = append(out, ToNoteDTO(item))
+	}
+	return out, nil
+}
+
+// ListNotesByTarget returns notes linked to a specific entity (task/event/
+// reminder) — the reverse side of the TASK-011 item 5 two-way sync: opening a
+// task shows its notes, and a note card shows a badge with its target.
+type ListNotesByTarget struct {
+	notes NoteStore
+}
+
+func NewListNotesByTarget(notes NoteStore) *ListNotesByTarget {
+	return &ListNotesByTarget{notes: notes}
+}
+
+func (uc *ListNotesByTarget) Execute(ctx context.Context, userID ids.UserID, targetType, targetID string) ([]NoteDTO, error) {
+	if userID.IsZero() {
+		return nil, fmt.Errorf("user id is required")
+	}
+	parsed := domain.TargetType(strings.TrimSpace(targetType))
+	if !parsed.Valid() {
+		return nil, fmt.Errorf("invalid target type %q", targetType)
+	}
+	id, err := uuid.Parse(strings.TrimSpace(targetID))
+	if err != nil {
+		return nil, fmt.Errorf("target_id must be a valid uuid")
+	}
+	items, err := uc.notes.ListByTarget(ctx, userID, parsed, id)
+	if err != nil {
+		return nil, fmt.Errorf("list notes by target: %w", err)
 	}
 	out := make([]NoteDTO, 0, len(items))
 	for _, item := range items {

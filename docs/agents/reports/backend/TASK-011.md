@@ -76,3 +76,16 @@ todo/in_progress, due_date IS NOT NULL AND due_date <= today, сортировк
 
 ## Secret-safety
 Секретов/IP/токенов не добавлено; diff проверен grep'ом (`token|secret|key|BEGIN`).
+
+---
+
+## Обновление 2026-10-04 (п.5 notes↔task sync) — ЗАКРЫТО
+- Миграция `00033_note_target_link.sql`: колонки `target_type` ('task'|'event'|'reminder') и
+  `target_id` в `notes`; обратная связь задача→заметки через тот же механизм (`ListNotesByTarget`).
+- SQL: все запросы notes переведены на target-колонки; новый `ListNotesByTarget`.
+- Domain/app: `NewNoteWithTarget` + валидация цели; `NoteDTO.target_type/target_id`;
+  use-case `ListNotesByTarget`; фильтрация `GET /notes?target_type=&target_id=`.
+- HTTP: POST /notes принимает `target_type/target_id`; OpenAPI обновлена; wire готов.
+- Frontend: NotesPage — выбор цели (сфера→проект→задача) при создании, бейдж цели;
+  TaskDetailPage — блок «Заметки по задаче» (создание/список через target-фильтр).
+- Проверка: `tsc -b` — OK; `vite build` — OK (1872 модуля); Go-слой проверит CI green gate.

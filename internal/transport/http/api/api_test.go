@@ -422,6 +422,19 @@ func (s *fakeNoteStore) ListCreatedBetween(_ context.Context, userID ids.UserID,
 	return out, nil
 }
 
+func (s *fakeNoteStore) ListByTarget(_ context.Context, userID ids.UserID, targetType knowledgedomain.TargetType, targetID uuid.UUID) ([]knowledgedomain.Note, error) {
+	var out []knowledgedomain.Note
+	for _, n := range s.notes {
+		if n.UserID != userID || n.TargetType == nil || n.TargetID == nil {
+			continue
+		}
+		if *n.TargetType == targetType && *n.TargetID == targetID {
+			out = append(out, n)
+		}
+	}
+	return out, nil
+}
+
 func (s *fakeNoteStore) Delete(_ context.Context, userID ids.UserID, noteID ids.NoteID) (knowledgedomain.Note, error) {
 	for i, n := range s.notes {
 		if n.ID == noteID && n.UserID == userID {

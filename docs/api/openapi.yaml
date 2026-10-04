@@ -901,6 +901,20 @@ paths:
           schema:
             type: string
           description: Filter notes by tag
+        - in: query
+          name: target_type
+          required: false
+          schema:
+            type: string
+            enum: [task, event, reminder]
+          description: Reverse-sync filter (TASK-011 item 5) — notes linked to a target entity. Requires target_id.
+        - in: query
+          name: target_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Id of the task/event/reminder the notes are linked to.
       responses:
         '200':
           description: Note list
@@ -936,6 +950,14 @@ paths:
                   type: array
                   items:
                     type: string
+                target_type:
+                  type: string
+                  enum: [task, event, reminder]
+                  description: Optional link to a task/event/reminder (TASK-011 item 5 bidirectional sync).
+                target_id:
+                  type: string
+                  format: uuid
+                  description: Required together with target_type.
       responses:
         '201':
           description: Created
@@ -1993,6 +2015,13 @@ components:
           type: array
           items:
             type: string
+        target_type:
+          type: string
+          enum: [task, event, reminder]
+          description: Optional link to a task/event/reminder (TASK-011 item 5).
+        target_id:
+          type: string
+          format: uuid
         created_at:
           type: string
           format: date-time

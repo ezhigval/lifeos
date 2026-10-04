@@ -47,6 +47,13 @@ export function TaskDetailPage() {
     enabled: Boolean(data?.note_id),
   })
 
+  // TASK-011 item 5: reverse sync — notes created from Notes menu and attached to this task.
+  const { data: attachedNotes } = useQuery({
+    queryKey: ['notesByTarget', 'task', taskId],
+    queryFn: () => api.notesByTarget('task', taskId!),
+    enabled: Boolean(taskId),
+  })
+
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState('medium')
   const [kind, setKind] = useState<'task' | 'reminder' | 'meeting'>('task')
@@ -368,6 +375,27 @@ export function TaskDetailPage() {
             className="w-full resize-none rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none disabled:opacity-60"
           />
         </label>
+
+        {/* TASK-011 item 5: notes attached from the Notes menu (reverse sync) */}
+        {(attachedNotes?.notes?.length ?? 0) > 0 && (
+          <div>
+            <p className="mb-1.5 text-sm text-[var(--tg-theme-hint-color,#94a3b8)]">
+              Заметки из раздела «Заметки»
+            </p>
+            <div className="space-y-2">
+              {attachedNotes!.notes
+                .filter((n) => n.id !== data?.note_id)
+                .map((n) => (
+                  <div
+                    key={n.id}
+                    className="rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] p-3 text-sm whitespace-pre-wrap"
+                  >
+                    {n.body}
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
 
         {!readOnly && (
           <div className="space-y-2">

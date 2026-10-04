@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { api } from '@/api/client'
-import type { Note } from '@/api/types'
+import type { Note, Task } from '@/api/types'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -13,6 +13,12 @@ import { ruApiError } from '@/lib/apiError'
 import { formatShortDateTime } from '@/lib/datetime'
 import { confirmAction, hapticError, hapticSuccess, hapticWarning } from '@/lib/telegram'
 
+const TARGET_LABELS: Record<string, string> = {
+  task: 'Задача',
+  event: 'Событие',
+  reminder: 'Напоминание',
+}
+
 export function NotesPage() {
   const queryClient = useQueryClient()
   const [q, setQ] = useState('')
@@ -21,6 +27,8 @@ export function NotesPage() {
   const [body, setBody] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  // TASK-011 item 5: optional target link (task) when creating a note from Notes menu.
+  const [targetTaskId, setTargetTaskId] = useState('')
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['notes', search],
@@ -32,8 +40,20 @@ export function NotesPage() {
 
   const notes = data ?? []
 
+  const { data: tasksData } = useQuery({
+    queryKey: ['tasks', 'picker'],
+    queryFn: () => api.tasksDueBetween(new Date().toISOString(), '2999-12-31T00:00:00Z'),
+    enabled: createOpen && !targetTaskId,
+  })
+  const pickerTasks: Task[] = (tasksData?.tasks ?? []).slice(0, 50)
+
   const create = useMutation({
-    mutationFn: () => api.createNote(body.trim()),
+    mutationFn: () =>
+      api.createNote(
+        body.trim(),
+        [],
+        targetTaskId ? { type: 'task', id: targetTaskId } : undefined,
+      ),
     onSuccess: (note) => {
       hapticSuccess()
       queryClient.setQueryData<Note[]>(['notes', search], (old) => {
@@ -45,6 +65,7 @@ export function NotesPage() {
       void queryClient.invalidateQueries({ queryKey: ['notes'] })
       setCreateOpen(false)
       setBody('')
+      setTargetTaskId('')
       setFormError(null)
     },
     onError: (err) => {
@@ -78,6 +99,7 @@ export function NotesPage() {
   const openCreate = () => {
     setFormError(null)
     setBody('')
+    setTargetTaskId('')
     setCreateOpen(true)
   }
 
@@ -156,6 +178,11 @@ export function NotesPage() {
                     <Trash2 size={16} />
                   </button>
                 </div>
+                {n.target_type && (
+                  <p className="mt-2 inline-block rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-400">
+                    {TARGET_LABELS[n.target_type] ?? n.target_type}
+                  </p>
+                )}
                 <p className="mt-2 text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">
                   {formatShortDateTime(n.created_at)}
                 </p>
@@ -184,6 +211,34 @@ export function NotesPage() {
           className="mb-3 w-full resize-none rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-3 outline-none"
           autoFocus
         />
+        {/* TASK-011 item 5: attach note to a task (bidirectional sync) */}
+        <div className="mb-3">
+          <label className="mb-1 block text-xs text-[var(--tg-theme-hint-color,#94a3b8)]">
+            Привязать к задаче (необязательно)
+          </label>
+          {targetTaskId ? (
+            <button
+              type="button"
+              className="w-full rounded-2xl bg-sky-500/15 px-4 py-2 text-left text-sm text-sky-400"
+              onClick={() => setTargetTaskId('')}
+            >
+              {pickerTasks.find((t) => t.id === targetTaskId)?.title ?? 'Задача'} — убрать привязку
+            </button>
+          ) : (
+            <select
+              value=""
+              onChange={(e) => setTargetTaskId(e.target.value)}
+              className="w-full rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#1e293b)] px-4 py-2 text-sm outline-none"
+            >
+              <option value="">Без привязки</option>
+              {pickerTasks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
         {formError && (
           <p className="mb-3 text-sm text-rose-400" role="alert">
             {formError}

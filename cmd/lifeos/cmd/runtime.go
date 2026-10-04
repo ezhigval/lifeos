@@ -116,6 +116,7 @@ type runtime struct {
 	updateQuiet       *settingsapp.UpdateQuietHours
 	createNote        *knowledgeapp.CreateNote
 	listNotes         *knowledgeapp.ListNotes
+	listNotesByTarget *knowledgeapp.ListNotesByTarget
 	searchNotes       *knowledgeapp.SearchNotes
 	getNote           *knowledgeapp.GetNote
 	updateNote        *knowledgeapp.UpdateNote
@@ -194,6 +195,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 	noteRepo := knowledgeinfra.NewRepository(p)
 	createNote := knowledgeapp.NewCreateNote(noteRepo, eventPub, transactor)
 	listNotes := knowledgeapp.NewListNotes(noteRepo)
+	listNotesByTarget := knowledgeapp.NewListNotesByTarget(noteRepo)
 	searchNotes := knowledgeapp.NewSearchNotes(noteRepo)
 	getNote := knowledgeapp.NewGetNote(noteRepo)
 	updateNote := knowledgeapp.NewUpdateNote(noteRepo)
@@ -309,6 +311,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		updateQuiet:       updateQuiet,
 		createNote:        createNote,
 		listNotes:         listNotes,
+		listNotesByTarget: listNotesByTarget,
 		searchNotes:       searchNotes,
 		getNote:           getNote,
 		updateNote:        updateNote,
@@ -375,6 +378,7 @@ func newRuntime(_ context.Context, cfg config.Config, log *slog.Logger, pool *po
 		listHabits:        listHabits,
 		createNote:        createNote,
 		listNotes:         listNotes,
+		listNotesByTarget: listNotesByTarget,
 		searchNotes:       searchNotes,
 		deleteNote:        deleteNote,
 		createEvent:       createEvent,

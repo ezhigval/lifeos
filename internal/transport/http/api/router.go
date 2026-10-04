@@ -76,6 +76,7 @@ type Deps struct {
 	CancelReminder    ReminderCanceller
 	CreateNote        *knowledgeapp.CreateNote
 	ListNotes         *knowledgeapp.ListNotes
+	ListNotesByTarget *knowledgeapp.ListNotesByTarget
 	SearchNotes       *knowledgeapp.SearchNotes
 	GetNote           *knowledgeapp.GetNote
 	UpdateNote        *knowledgeapp.UpdateNote

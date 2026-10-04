@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { api } from '@/api/client'
-import type { AgendaItem } from '@/api/types'
+import type { AgendaItem, AgendaItemType } from '@/api/types'
 import { Header } from '@/components/layout/Header'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { Button } from '@/components/ui/Button'
@@ -36,8 +36,8 @@ export function CalendarPage() {
   const [view, setView] = useState<CalendarView>('week')
   const [anchor, setAnchor] = useState(() => toDateKey(new Date()))
   const [selectedDay, setSelectedDay] = useState(() => toDateKey(new Date()))
-  const [typesOn, setTypesOn] = useState<Set<AgendaItem['type']]>(
-    () => new Set(['task', 'event', 'reminder', 'note']),
+  const [typesOn, setTypesOn] = useState<Set<AgendaItemType>>(
+    () => new Set<AgendaItemType>(['task', 'event', 'reminder', 'note']),
   )
   const [createOpen, setCreateOpen] = useState(false)
   const [title, setTitle] = useState('')

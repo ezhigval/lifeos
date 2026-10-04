@@ -14,10 +14,12 @@ import (
 )
 
 type noteJSON struct {
-	ID        string   `json:"id"`
-	Body      string   `json:"body"`
-	Tags      []string `json:"tags"`
-	CreatedAt string   `json:"created_at"`
+	ID         string   `json:"id"`
+	Body       string   `json:"body"`
+	Tags       []string `json:"tags"`
+	TargetType string   `json:"target_type,omitempty"`
+	TargetID   string   `json:"target_id,omitempty"`
+	CreatedAt  string   `json:"created_at"`
 }
 
 func noteToJSON(dto knowledgeapp.NoteDTO) noteJSON {
@@ -26,10 +28,12 @@ func noteToJSON(dto knowledgeapp.NoteDTO) noteJSON {
 		tags = []string{}
 	}
 	return noteJSON{
-		ID:        dto.ID.String(),
-		Body:      dto.Body,
-		Tags:      tags,
-		CreatedAt: dto.CreatedAt.UTC().Format(time.RFC3339),
+		ID:         dto.ID.String(),
+		Body:       dto.Body,
+		Tags:       tags,
+		TargetType: dto.TargetType,
+		TargetID:   dto.TargetID,
+		CreatedAt:  dto.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
 
@@ -41,9 +45,19 @@ func (rt *Router) listNotes(w http.ResponseWriter, r *http.Request) {
 	}
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	tag := strings.TrimSpace(r.URL.Query().Get("tag"))
+	tt := strings.TrimSpace(r.URL.Query().Get("target_type"))
+	ti := strings.TrimSpace(r.URL.Query().Get("target_id"))
 	var items []knowledgeapp.NoteDTO
 	var err error
-	if query != "" {
+	switch {
+	case tt != "" && ti != "":
+		// TASK-011 item 5: reverse sync — notes linked to a task/event/reminder.
+		if rt.deps.ListNotesByTarget == nil {
+			writeError(w, http.StatusNotImplemented, "list notes by target is not configured")
+			return
+		}
+		items, err = rt.deps.ListNotesByTarget.Execute(r.Context(), userID, tt, ti)
+	case query != "":
 		if rt.deps.SearchNotes == nil {
 			writeError(w, http.StatusNotImplemented, "search notes is not configured")
 			return
@@ -51,7 +65,7 @@ func (rt *Router) listNotes(w http.ResponseWriter, r *http.Request) {
 		items, err = rt.deps.SearchNotes.Execute(r.Context(), knowledgeapp.SearchNotesInput{
 			UserID: userID, Query: query,
 		})
-	} else {
+	default:
 		if rt.deps.ListNotes == nil {
 			writeError(w, http.StatusNotImplemented, "list notes is not configured")
 			return
@@ -61,7 +75,11 @@ func (rt *Router) listNotes(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		status := http.StatusInternalServerError
+		if tt != "" || strings.Contains(err.Error(), "invalid") || strings.Contains(err.Error(), "required") {
+			status = http.StatusBadRequest
+		}
+		writeError(w, status, err.Error())
 		return
 	}
 	out := make([]noteJSON, 0, len(items))
@@ -72,8 +90,10 @@ func (rt *Router) listNotes(w http.ResponseWriter, r *http.Request) {
 }
 
 type createNoteRequest struct {
-	Body string   `json:"body"`
-	Tags []string `json:"tags"`
+	Body       string   `json:"body"`
+	Tags       []string `json:"tags"`
+	TargetType string   `json:"target_type"`
+	TargetID   string   `json:"target_id"`
 }
 
 func (rt *Router) createNote(w http.ResponseWriter, r *http.Request) {
@@ -92,10 +112,12 @@ func (rt *Router) createNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dto, err := rt.deps.CreateNote.Execute(r.Context(), knowledgeapp.CreateNoteInput{
-		UserID: userID,
-		Body:   strings.TrimSpace(req.Body),
-		Tags:   req.Tags,
-		Source: events.SourceHTTP,
+		UserID:     userID,
+		Body:       strings.TrimSpace(req.Body),
+		Tags:       req.Tags,
+		Source:     events.SourceHTTP,
+		TargetType: req.TargetType,
+		TargetID:   req.TargetID,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())

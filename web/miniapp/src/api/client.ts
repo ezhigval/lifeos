@@ -333,10 +333,21 @@ export const api = {
     return request<{ notes: import('@/api/types').Note[] }>(`/api/v1/notes${qs}`)
   },
 
-  createNote: (body: string, tags?: string[]) =>
+  /** TASK-011 item 5: reverse sync — notes linked to a task/event/reminder */
+  notesByTarget: (targetType: 'task' | 'event' | 'reminder', targetId: string) =>
+    request<{ notes: import('@/api/types').Note[] }>(
+      `/api/v1/notes?target_type=${targetType}&target_id=${encodeURIComponent(targetId)}`,
+    ),
+
+  createNote: (body: string, tags?: string[], target?: { type: 'task' | 'event' | 'reminder'; id: string }) =>
     request<import('@/api/types').Note>('/api/v1/notes', {
       method: 'POST',
-      body: JSON.stringify({ body, tags: tags ?? [] }),
+      body: JSON.stringify({
+        body,
+        tags: tags ?? [],
+        target_type: target?.type ?? '',
+        target_id: target?.id ?? '',
+      }),
     }),
 
   getNote: (id: string) =>

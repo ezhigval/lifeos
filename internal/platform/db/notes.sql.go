@@ -14,7 +14,7 @@ import (
 const deleteNoteByUser = `-- name: DeleteNoteByUser :one
 DELETE FROM notes
 WHERE id = $1 AND user_id = $2
-RETURNING id, user_id, body, tags, created_at, updated_at
+RETURNING id, user_id, body, tags, target_type, target_id, created_at, updated_at
 `
 
 type DeleteNoteByUserParams struct {
@@ -27,6 +27,8 @@ type DeleteNoteByUserRow struct {
 	UserID    pgtype.UUID
 	Body      string
 	Tags      []string
+	TargetType pgtype.Text
+	TargetID   pgtype.UUID
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
 }
@@ -39,6 +41,8 @@ func (q *Queries) DeleteNoteByUser(ctx context.Context, arg DeleteNoteByUserPara
 		&i.UserID,
 		&i.Body,
 		&i.Tags,
+		&i.TargetType,
+		&i.TargetID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -46,7 +50,7 @@ func (q *Queries) DeleteNoteByUser(ctx context.Context, arg DeleteNoteByUserPara
 }
 
 const getNoteByID = `-- name: GetNoteByID :one
-SELECT id, user_id, body, tags, created_at, updated_at
+SELECT id, user_id, body, tags, target_type, target_id, created_at, updated_at
 FROM notes
 WHERE id = $1 AND user_id = $2
 `
@@ -61,6 +65,8 @@ type GetNoteByIDRow struct {
 	UserID    pgtype.UUID
 	Body      string
 	Tags      []string
+	TargetType pgtype.Text
+	TargetID   pgtype.UUID
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
 }
@@ -73,6 +79,8 @@ func (q *Queries) GetNoteByID(ctx context.Context, arg GetNoteByIDParams) (GetNo
 		&i.UserID,
 		&i.Body,
 		&i.Tags,
+		&i.TargetType,
+		&i.TargetID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -80,8 +88,8 @@ func (q *Queries) GetNoteByID(ctx context.Context, arg GetNoteByIDParams) (GetNo
 }
 
 const insertNote = `-- name: InsertNote :exec
-INSERT INTO notes (id, user_id, body, tags, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO notes (id, user_id, body, tags, target_type, target_id, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type InsertNoteParams struct {
@@ -89,6 +97,8 @@ type InsertNoteParams struct {
 	UserID    pgtype.UUID
 	Body      string
 	Tags      []string
+	TargetType pgtype.Text
+	TargetID   pgtype.UUID
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
 }
@@ -99,14 +109,72 @@ func (q *Queries) InsertNote(ctx context.Context, arg InsertNoteParams) error {
 		arg.UserID,
 		arg.Body,
 		arg.Tags,
+		arg.TargetType,
+		arg.TargetID,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
 	return err
 }
 
+const listNotesByTarget = `-- name: ListNotesByTarget :many
+SELECT id, user_id, body, tags, target_type, target_id, created_at, updated_at
+FROM notes
+WHERE user_id = $1
+  AND target_type = $2::text
+  AND target_id = $3
+ORDER BY created_at DESC
+LIMIT 100
+`
+
+type ListNotesByTargetParams struct {
+	UserID     pgtype.UUID
+	TargetType string
+	TargetID   pgtype.UUID
+}
+
+type ListNotesByTargetRow struct {
+	ID         pgtype.UUID
+	UserID     pgtype.UUID
+	Body       string
+	Tags       []string
+	TargetType pgtype.Text
+	TargetID   pgtype.UUID
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
+func (q *Queries) ListNotesByTarget(ctx context.Context, arg ListNotesByTargetParams) ([]ListNotesByTargetRow, error) {
+	rows, err := q.db.Query(ctx, listNotesByTarget, arg.UserID, arg.TargetType, arg.TargetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListNotesByTargetRow{}
+	for rows.Next() {
+		var i ListNotesByTargetRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Body,
+			&i.Tags,
+			&i.TargetType,
+			&i.TargetID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listNotesByTag = `-- name: ListNotesByTag :many
-SELECT id, user_id, body, tags, created_at, updated_at
+SELECT id, user_id, body, tags, target_type, target_id, created_at, updated_at
 FROM notes
 WHERE user_id = $1 AND $2::text = ANY(tags)
 ORDER BY created_at DESC
@@ -124,6 +192,8 @@ type ListNotesByTagRow struct {
 	UserID    pgtype.UUID
 	Body      string
 	Tags      []string
+	TargetType pgtype.Text
+	TargetID   pgtype.UUID
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
 }
@@ -142,6 +212,8 @@ func (q *Queries) ListNotesByTag(ctx context.Context, arg ListNotesByTagParams) 
 			&i.UserID,
 			&i.Body,
 			&i.Tags,
+			&i.TargetType,
+			&i.TargetID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -156,7 +228,7 @@ func (q *Queries) ListNotesByTag(ctx context.Context, arg ListNotesByTagParams) 
 }
 
 const listRecentNotesByUser = `-- name: ListRecentNotesByUser :many
-SELECT id, user_id, body, tags, created_at, updated_at
+SELECT id, user_id, body, tags, target_type, target_id, created_at, updated_at
 FROM notes
 WHERE user_id = $1
 ORDER BY created_at DESC
@@ -173,12 +245,14 @@ type ListRecentNotesByUserRow struct {
 	UserID    pgtype.UUID
 	Body      string
 	Tags      []string
+	TargetType pgtype.Text
+	TargetID   pgtype.UUID
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
 }
 
 const listNotesCreatedBetween = `-- name: ListNotesCreatedBetween :many
-SELECT id, user_id, body, tags, created_at, updated_at
+SELECT id, user_id, body, tags, target_type, target_id, created_at, updated_at
 FROM notes
 WHERE user_id = $1
   AND created_at >= $2
@@ -207,6 +281,8 @@ func (q *Queries) ListNotesCreatedBetween(ctx context.Context, arg ListNotesCrea
 			&i.UserID,
 			&i.Body,
 			&i.Tags,
+			&i.TargetType,
+			&i.TargetID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -234,6 +310,8 @@ func (q *Queries) ListRecentNotesByUser(ctx context.Context, arg ListRecentNotes
 			&i.UserID,
 			&i.Body,
 			&i.Tags,
+			&i.TargetType,
+			&i.TargetID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -248,7 +326,7 @@ func (q *Queries) ListRecentNotesByUser(ctx context.Context, arg ListRecentNotes
 }
 
 const searchNotesByUser = `-- name: SearchNotesByUser :many
-SELECT id, user_id, body, tags, created_at, updated_at
+SELECT id, user_id, body, tags, target_type, target_id, created_at, updated_at
 FROM notes
 WHERE user_id = $1 AND body ILIKE '%' || $2 || '%'
 ORDER BY created_at DESC
@@ -266,6 +344,8 @@ type SearchNotesByUserRow struct {
 	UserID    pgtype.UUID
 	Body      string
 	Tags      []string
+	TargetType pgtype.Text
+	TargetID   pgtype.UUID
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
 }
@@ -284,6 +364,8 @@ func (q *Queries) SearchNotesByUser(ctx context.Context, arg SearchNotesByUserPa
 			&i.UserID,
 			&i.Body,
 			&i.Tags,
+			&i.TargetType,
+			&i.TargetID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -301,7 +383,7 @@ const updateNoteBody = `-- name: UpdateNoteBody :one
 UPDATE notes
 SET body = $3, updated_at = $4
 WHERE id = $1 AND user_id = $2
-RETURNING id, user_id, body, tags, created_at, updated_at
+RETURNING id, user_id, body, tags, target_type, target_id, created_at, updated_at
 `
 
 type UpdateNoteBodyParams struct {
@@ -316,6 +398,8 @@ type UpdateNoteBodyRow struct {
 	UserID    pgtype.UUID
 	Body      string
 	Tags      []string
+	TargetType pgtype.Text
+	TargetID   pgtype.UUID
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
 }
@@ -333,6 +417,8 @@ func (q *Queries) UpdateNoteBody(ctx context.Context, arg UpdateNoteBodyParams) 
 		&i.UserID,
 		&i.Body,
 		&i.Tags,
+		&i.TargetType,
+		&i.TargetID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
