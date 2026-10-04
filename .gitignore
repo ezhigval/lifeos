@@ -1,1 +1,42 @@
-(empty)
+# Secrets & credentials — NEVER commit (secret-safety rules, docs/deploy/YANDEX_CLOUD_SECRETS.md)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+known_hosts
+credentials.json
+secrets/
+.vm_ssh_key
+*_service_account*.json
+firebase-adminsdk*.json
+
+# Local build artifacts
+bin/
+dist/
+build/
+*.exe
+*.out
+coverage.out
+
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Node / frontend
+node_modules/
+web/miniapp/dist/
+web/miniapp/.env
+web/miniapp/.env.*
+
+# Go
+vendor/
+
+# Logs & tmp
+*.log
+tmp/
+.cache/
