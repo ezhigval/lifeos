@@ -963,6 +963,41 @@ type testEnv struct {
 	router chi.Router
 	sphere *fakeSphereStore
 	tasks  *fakeTaskStore
+	links  *fakeDomainLinks
+}
+
+// fakeDomainLinks — тестовый reader моста Карьера→воркспейс (sphere_domain_links).
+type fakeDomainLinks struct {
+	bySphere map[ids.SphereID]fakeLink
+	contacts []string
+}
+
+type fakeLink struct {
+	refID ids.ContactID
+	name  string
+}
+
+func newFakeDomainLinks() *fakeDomainLinks {
+	return &fakeDomainLinks{bySphere: make(map[ids.SphereID]fakeLink)}
+}
+
+func (f *fakeDomainLinks) BindWorkspace(sphereID ids.SphereID, refID ids.ContactID, name string) {
+	f.bySphere[sphereID] = fakeLink{refID: refID, name: name}
+}
+
+func (f *fakeDomainLinks) DomainLink(_ context.Context, _ ids.UserID, sphereID ids.SphereID, linkType string) (ids.ContactID, string, bool, error) {
+	if linkType != "workspace" {
+		return ids.ContactID{}, "", false, nil
+	}
+	l, ok := f.bySphere[sphereID]
+	if !ok {
+		return ids.ContactID{}, "", false, nil
+	}
+	return l.refID, l.name, true, nil
+}
+
+func (f *fakeDomainLinks) ListContactNames(_ context.Context, _ ids.UserID) ([]string, error) {
+	return f.contacts, nil
 }
 
 // seedAgendaTask inserts a task with due date and spheres directly into the
@@ -1022,6 +1057,7 @@ func newTestEnv(t *testing.T) testEnv {
 	skillStore := &fakeSkillStore{}
 	healthStore := &fakeHealthStore{}
 	reminderSvc := &fakeReminderSvc{}
+	links := newFakeDomainLinks()
 	users := &stubUserRepo{user: user}
 	tzFn := func(context.Context, ids.UserID) (string, error) { return "UTC", nil }
 
@@ -1062,44 +1098,46 @@ func newTestEnv(t *testing.T) testEnv {
 		UpdateEvening: settingsapp.NewUpdateEveningReview(
 			settingsStore, noopReviewRescheduler{}, tzFn, settingsinfra.ReviewAt,
 		),
-		UpdateQuiet:      settingsapp.NewUpdateQuietHours(settingsStore),
-		CreateSphere:     spheresapp.NewCreateSphere(sphereStore, fakeEvents{}, fakeTx{}),
-		ListSpheres:      spheresapp.NewListSpheres(sphereStore),
-		UpdateSphere:     spheresapp.NewUpdateSphere(sphereStore, fakeEvents{}, fakeTx{}),
-		DeleteSphere:     spheresapp.NewDeleteSphere(sphereStore, fakeEvents{}, fakeTx{}),
-		CreateDebt:       financeapp.NewCreateDebt(debtStore, fakeEvents{}, fakeTx{}),
-		ListDebts:        financeapp.NewListDebts(debtStore),
-		PayDebt:          financeapp.NewPayDebt(debtStore, fakeEvents{}, fakeTx{}),
-		ListFinancePlan:  financeapp.NewListFinancePlan(debtStore, debtStore),
-		CreatePlanned:    financeapp.NewCreatePlannedCashflow(debtStore, fakeEvents{}, fakeTx{}),
-		DeletePlanned:    financeapp.NewDeletePlannedCashflow(debtStore),
-		CompletePlanned:  financeapp.NewCompletePlanOccurrence(debtStore, fakeEvents{}, fakeTx{}, nil, nil),
-		CreateNote:       knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
-		ListNotes:        knowledgeapp.NewListNotes(noteStore),
-		SearchNotes:      knowledgeapp.NewSearchNotes(noteStore),
-		GetNote:          knowledgeapp.NewGetNote(noteStore),
-		UpdateNote:       knowledgeapp.NewUpdateNote(noteStore),
-		DeleteNote:       knowledgeapp.NewDeleteNote(noteStore, fakeEvents{}, fakeTx{}),
-		CreateContact:    careerapp.NewCreateContact(contactStore, fakeEvents{}, fakeTx{}),
-		ListContacts:     careerapp.NewListContacts(contactStore),
-		SearchContacts:   careerapp.NewSearchContacts(contactStore),
-		DeleteContact:    careerapp.NewDeleteContact(contactStore, fakeEvents{}, fakeTx{}),
-		CreateSkill:      careerapp.NewCreateSkill(skillStore, fakeEvents{}, fakeTx{}),
-		ListSkills:       careerapp.NewListSkills(skillStore),
-		SearchSkills:     careerapp.NewSearchSkills(skillStore),
-		DeleteSkill:      careerapp.NewDeleteSkill(skillStore, fakeEvents{}, fakeTx{}),
-		RecordWeight:     healthapp.NewRecordWeight(healthStore, fakeEvents{}, fakeTx{}),
-		GetLatestWeight:  healthapp.NewGetLatestWeight(healthStore),
-		ListWeights:      healthapp.NewListWeights(healthStore),
-		RecordSteps:      healthapp.NewRecordSteps(healthStore, fakeEvents{}, fakeTx{}),
-		GetLatestSteps:   healthapp.NewGetLatestSteps(healthStore),
-		ListSteps:        healthapp.NewListSteps(healthStore),
-		RecordSleep:      healthapp.NewRecordSleep(healthStore, fakeEvents{}, fakeTx{}),
-		GetLatestSleep:   healthapp.NewGetLatestSleep(healthStore),
-		ListSleep:        healthapp.NewListSleep(healthStore),
-		ScheduleReminder: scheduleReminderAdapter{reminderSvc},
-		ListReminders:    listReminderAdapter{reminderSvc},
-		CancelReminder:   cancelReminderAdapter{reminderSvc},
+		UpdateQuiet:         settingsapp.NewUpdateQuietHours(settingsStore),
+		CreateSphere:        spheresapp.NewCreateSphere(sphereStore, fakeEvents{}, fakeTx{}),
+		ListSpheres:         spheresapp.NewListSpheres(sphereStore),
+		UpdateSphere:        spheresapp.NewUpdateSphere(sphereStore, fakeEvents{}, fakeTx{}),
+		DeleteSphere:        spheresapp.NewDeleteSphere(sphereStore, fakeEvents{}, fakeTx{}),
+		CreateDebt:          financeapp.NewCreateDebt(debtStore, fakeEvents{}, fakeTx{}),
+		ListDebts:           financeapp.NewListDebts(debtStore),
+		PayDebt:             financeapp.NewPayDebt(debtStore, fakeEvents{}, fakeTx{}),
+		ListFinancePlan:     financeapp.NewListFinancePlan(debtStore, debtStore),
+		CreatePlanned:       financeapp.NewCreatePlannedCashflow(debtStore, fakeEvents{}, fakeTx{}),
+		DeletePlanned:       financeapp.NewDeletePlannedCashflow(debtStore),
+		CompletePlanned:     financeapp.NewCompletePlanOccurrence(debtStore, fakeEvents{}, fakeTx{}, nil, nil),
+		CreateNote:          knowledgeapp.NewCreateNote(noteStore, fakeEvents{}, fakeTx{}),
+		ListNotes:           knowledgeapp.NewListNotes(noteStore),
+		SearchNotes:         knowledgeapp.NewSearchNotes(noteStore),
+		GetNote:             knowledgeapp.NewGetNote(noteStore),
+		UpdateNote:          knowledgeapp.NewUpdateNote(noteStore),
+		DeleteNote:          knowledgeapp.NewDeleteNote(noteStore, fakeEvents{}, fakeTx{}),
+		CreateContact:       careerapp.NewCreateContact(contactStore, fakeEvents{}, fakeTx{}),
+		ListContacts:        careerapp.NewListContacts(contactStore),
+		SearchContacts:      careerapp.NewSearchContacts(contactStore),
+		DeleteContact:       careerapp.NewDeleteContact(contactStore, fakeEvents{}, fakeTx{}),
+		CreateSkill:         careerapp.NewCreateSkill(skillStore, fakeEvents{}, fakeTx{}),
+		ListSkills:          careerapp.NewListSkills(skillStore),
+		SearchSkills:        careerapp.NewSearchSkills(skillStore),
+		DeleteSkill:         careerapp.NewDeleteSkill(skillStore, fakeEvents{}, fakeTx{}),
+		RecordWeight:        healthapp.NewRecordWeight(healthStore, fakeEvents{}, fakeTx{}),
+		GetLatestWeight:     healthapp.NewGetLatestWeight(healthStore),
+		ListWeights:         healthapp.NewListWeights(healthStore),
+		RecordSteps:         healthapp.NewRecordSteps(healthStore, fakeEvents{}, fakeTx{}),
+		GetLatestSteps:      healthapp.NewGetLatestSteps(healthStore),
+		ListSteps:           healthapp.NewListSteps(healthStore),
+		RecordSleep:         healthapp.NewRecordSleep(healthStore, fakeEvents{}, fakeTx{}),
+		GetLatestSleep:      healthapp.NewGetLatestSleep(healthStore),
+		ListSleep:           healthapp.NewListSleep(healthStore),
+		GetSphereDomainLink: spheresapp.NewGetSphereDomainLink(links, sphereStore, links),
+		ListCareerContacts:  spheresapp.NewListCareerContacts(links),
+		ScheduleReminder:    scheduleReminderAdapter{reminderSvc},
+		ListReminders:       listReminderAdapter{reminderSvc},
+		CancelReminder:      cancelReminderAdapter{reminderSvc},
 		Analytics: fakeAnalytics{summary: query.ProductivitySummary{
 			PeriodLabel:      "июль 2026",
 			TasksCreated:     10,
@@ -1116,7 +1154,8 @@ func newTestEnv(t *testing.T) testEnv {
 	})
 	r := chi.NewRouter()
 	rt.Mount(r)
-	return testEnv{user: user, router: r, sphere: sphereStore, tasks: store}
+	env := testEnv{user: user, router: r, sphere: sphereStore, tasks: store, links: links}
+	return env
 }
 
 func doJSON(t *testing.T, handler http.Handler, method, path string, headers map[string]string, body any) *httptest.ResponseRecorder {
@@ -1922,6 +1961,114 @@ func TestSettingsAndSpheresHTTPContract(t *testing.T) {
 	if missing.Code != http.StatusNotFound {
 		t.Fatalf("missing delete status=%d", missing.Code)
 	}
+}
+
+// TestCareerSphereBridge — мост Карьера→воркспейс через sphere_domain_links
+// (TASK-010 WS-15 правило 3 / TASK-011 п.8): GET /settings/spheres обогащает
+// карьерную сферу полями career/domain_link/ref_id/ref_name/contacts.
+func TestCareerSphereBridge(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	token := issueToken(t, env)
+	auth := map[string]string{"Authorization": "Bearer " + token}
+
+	rec := doJSON(t, env.router, http.MethodPost, "/api/v1/settings/spheres", auth, map[string]any{"name": "Карьера"})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create career sphere status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	sphereID := created.ID
+
+	listUnbound := func() (string, bool, string, []string) {
+		t.Helper()
+		lr := doJSON(t, env.router, http.MethodGet, "/api/v1/settings/spheres", auth, nil)
+		if lr.Code != http.StatusOK {
+			t.Fatalf("list status=%d", lr.Code)
+		}
+		var listed struct {
+			Spheres []struct {
+				ID        string   `json:"id"`
+				Career    bool     `json:"career"`
+				DomainRef string   `json:"ref_id"`
+				RefName   string   `json:"ref_name"`
+				Contacts  []string `json:"contacts"`
+			} `json:"spheres"`
+		}
+		if err := json.Unmarshal(lr.Body.Bytes(), &listed); err != nil {
+			t.Fatal(err)
+		}
+		for _, s := range listed.Spheres {
+			if s.ID == sphereID {
+				return s.DomainRef, s.Career, s.RefName, s.Contacts
+			}
+		}
+		t.Fatalf("career sphere %s not in list", sphereID)
+		return "", false, "", nil
+	}
+
+	// Карьерная сфера помечается career:true даже без линка; контактов пока нет.
+	ref, career, refName, contacts := listUnbound()
+	if !career || ref != "" || refName != "" || len(contacts) != 0 {
+		t.Fatalf("unbound career sphere: ref=%q career=%v name=%q contacts=%v", ref, career, refName, contacts)
+	}
+
+	// Привязываем workspace-линк на контакт и добавляем контакты.
+	contactID := ids.NewContactID()
+	env.links.BindWorkspace(mustParseSphereID(t, sphereID), contactID, "Ada Lovelace")
+	env.links.contacts = []string{"Ada Lovelace", "Grace Hopper"}
+
+	ref2, career2, refName2, contacts2 := listUnbound()
+	if !career2 {
+		t.Fatal("career flag lost after binding")
+	}
+	if ref2 != contactID.String() {
+		t.Fatalf("ref_id=%q want %q", ref2, contactID)
+	}
+	if refName2 != "Ada Lovelace" {
+		t.Fatalf("ref_name=%q", refName2)
+	}
+	if len(contacts2) != 2 || contacts2[0] != "Ada Lovelace" {
+		t.Fatalf("contacts=%v", contacts2)
+	}
+
+	// Некарьерная сфера не обогащается.
+	rec2 := doJSON(t, env.router, http.MethodPost, "/api/v1/settings/spheres", auth, map[string]any{"name": "Дом"})
+	var created2 struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec2.Body.Bytes(), &created2); err != nil {
+		t.Fatal(err)
+	}
+	lr := doJSON(t, env.router, http.MethodGet, "/api/v1/settings/spheres", auth, nil)
+	var listed2 struct {
+		Spheres []struct {
+			ID     string `json:"id"`
+			Career bool   `json:"career"`
+		} `json:"spheres"`
+	}
+	if err := json.Unmarshal(lr.Body.Bytes(), &listed2); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range listed2.Spheres {
+		if s.ID == created2.ID && s.Career {
+			t.Fatal("non-career sphere marked as career")
+		}
+	}
+}
+
+func mustParseSphereID(t *testing.T, s string) ids.SphereID {
+	t.Helper()
+	id, err := ids.ParseSphereID(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
 }
 
 func TestCreateDebtHTTP(t *testing.T) {

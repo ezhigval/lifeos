@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -15,10 +16,15 @@ import (
 )
 
 type sphereJSON struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	SortOrder int32  `json:"sort_order"`
-	CreatedAt string `json:"created_at"`
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	SortOrder  int32    `json:"sort_order"`
+	CreatedAt  string   `json:"created_at"`
+	DomainLink string   `json:"domain_link,omitempty"`
+	RefID      string   `json:"ref_id,omitempty"`
+	RefName    string   `json:"ref_name,omitempty"`
+	Career     bool     `json:"career,omitempty"`
+	Contacts   []string `json:"contacts,omitempty"`
 }
 
 func sphereToJSON(dto spheresapp.SphereDTO) sphereJSON {
@@ -27,6 +33,35 @@ func sphereToJSON(dto spheresapp.SphereDTO) sphereJSON {
 		Name:      dto.Name,
 		SortOrder: dto.SortOrder,
 		CreatedAt: dto.CreatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+// careerBridge enriches a Career sphere with its workspace domain link
+// (sphere_domain_links, TASK-010 WS-15 rule 3 / TASK-011 п.8 мост Карьера→воркспейс).
+// Best-effort: any store error just leaves the sphere un-enriched.
+func (rt *Router) careerBridge(ctx context.Context, userID ids.UserID, item *sphereJSON) {
+	if rt.deps.GetSphereDomainLink == nil || !rt.deps.GetSphereDomainLink.SphereIsCareer(ctx, userID, item.Name) {
+		return
+	}
+	item.Career = true
+	sphereID, perr := ids.ParseSphereID(item.ID)
+	if perr != nil {
+		return
+	}
+	link, found, err := rt.deps.GetSphereDomainLink.Execute(ctx, userID, sphereID)
+	if err != nil {
+		return
+	}
+	if found {
+		item.DomainLink = link.LinkType
+		item.RefID = link.RefID.String()
+		item.RefName = link.RefName
+	}
+	if rt.deps.ListCareerContacts != nil {
+		names, err := rt.deps.ListCareerContacts.Execute(ctx, userID)
+		if err == nil && len(names) > 0 {
+			item.Contacts = names
+		}
 	}
 }
 
@@ -43,7 +78,9 @@ func (rt *Router) listSpheres(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]sphereJSON, 0, len(items))
 	for _, item := range items {
-		out = append(out, sphereToJSON(item))
+		j := sphereToJSON(item)
+		rt.careerBridge(r.Context(), userID, &j)
+		out = append(out, j)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"spheres": out})
 }

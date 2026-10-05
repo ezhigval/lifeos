@@ -149,20 +149,68 @@ func (r *Repository) queries(ctx context.Context) *db.Queries {
 
 // AllExist реализует tasksapp.SphereChecker — валидация N:M связей задач↔сферы (TASK-011 п.7).
 func (r *Repository) AllExist(ctx context.Context, userID ids.UserID, sphereIDs []ids.SphereID) (bool, error) {
-if len(sphereIDs) == 0 {
-return true, nil
+	if len(sphereIDs) == 0 {
+		return true, nil
+	}
+	uuids := make([]pgtype.UUID, 0, len(sphereIDs))
+	for _, id := range sphereIDs {
+		uuids = append(uuids, pgconv.SphereID(id))
+	}
+	ok, err := r.queries(ctx).SpheresExist(ctx, db.SpheresExistParams{
+		Expected:  int32(len(sphereIDs)),
+		UserID:    pgconv.UserID(userID),
+		SphereIds: uuids,
+	})
+	if err != nil {
+		return false, fmt.Errorf("spheres exist: %w", err)
+	}
+	return ok, nil
 }
-uuids := make([]pgtype.UUID, 0, len(sphereIDs))
-for _, id := range sphereIDs {
-uuids = append(uuids, pgconv.SphereID(id))
+
+// DomainLink реализует spheresapp.DomainLinkReader — мост «Карьера → воркспейс»
+// через sphere_domain_links (TASK-010 WS-15 правило 3, TASK-011 п.8).
+// ref_name берётся из career_contacts.name (цель моста — контакт Карьеры).
+func (r *Repository) DomainLink(ctx context.Context, userID ids.UserID, sphereID ids.SphereID, linkType string) (ids.ContactID, string, bool, error) {
+	var refID pgtype.UUID
+	var name string
+	err := r.pool.QueryRow(ctx, `
+SELECT sdl.ref_id, COALESCE(cc.name, '')
+FROM sphere_domain_links sdl
+LEFT JOIN career_contacts cc ON cc.id = sdl.ref_id
+WHERE sdl.user_id = $1 AND sdl.sphere_id = $2 AND sdl.link_type = $3
+ORDER BY sdl.created_at DESC
+LIMIT 1`,
+		pgconv.UserID(userID), pgconv.SphereID(sphereID), linkType,
+	).Scan(&refID, &name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ids.ContactID{}, "", false, nil
+	}
+	if err != nil {
+		return ids.ContactID{}, "", false, fmt.Errorf("sphere domain link: %w", err)
+	}
+	return pgconv.FromContactID(refID), name, true, nil
 }
-ok, err := r.queries(ctx).SpheresExist(ctx, db.SpheresExistParams{
-Expected:  int32(len(sphereIDs)),
-UserID:    pgconv.UserID(userID),
-SphereIds: uuids,
-})
-if err != nil {
-return false, fmt.Errorf("spheres exist: %w", err)
-}
-return ok, nil
+
+// ListContactNames реализует spheresapp.CareerContactLister — последние контакты Карьеры.
+func (r *Repository) ListContactNames(ctx context.Context, userID ids.UserID) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+SELECT name FROM career_contacts
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT 20`,
+		pgconv.UserID(userID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("career contact names: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("career contact names scan: %w", err)
+		}
+		out = append(out, name)
+	}
+	return out, rows.Err()
 }

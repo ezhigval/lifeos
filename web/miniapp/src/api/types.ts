@@ -27,6 +27,12 @@ export type Sphere = {
   name: string
   sort_order: number
   created_at: string
+  // Мост Карьера→воркспейс (sphere_domain_links, WS-15 правило 3)
+  domain_link?: string
+  ref_id?: string
+  ref_name?: string
+  career?: boolean
+  contacts?: string[]
 }
 
 export type Project = {

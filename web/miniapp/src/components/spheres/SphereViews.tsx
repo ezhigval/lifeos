@@ -213,6 +213,11 @@ function SphereNode({
         </button>
         <button type="button" onClick={onOpenSphere} className="flex-1 py-3 text-left font-medium">
           {sphere.name}
+          {sphere.career && (
+            <span className="ml-2 rounded-full bg-blue-500/20 px-2 py-0.5 text-xs text-blue-300">
+              💼{sphere.ref_name ? ` ${sphere.ref_name}` : ''}
+            </span>
+          )}
         </button>
       </div>
 
