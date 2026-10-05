@@ -70,6 +70,7 @@ make docker-up       # пересоздать app с новым LIFEOS_MINIAPP_U
 | ADR (001–009) | [docs/adr/](docs/adr/) |
 | Roadmap | [docs/roadmap/ROADMAP.md](docs/roadmap/ROADMAP.md) |
 | Деплой на Yandex Cloud VM (секреты) | [docs/deploy/YANDEX_CLOUD_SECRETS.md](docs/deploy/YANDEX_CLOUD_SECRETS.md) |
+| Стабильный HTTPS (домен + Cloudflare Tunnel) | [docs/deploy/STABLE_EDGE.md](docs/deploy/STABLE_EDGE.md) |
 | Mini App UX/UI | [docs/miniapp/UX_UI_PLAN.md](docs/miniapp/UX_UI_PLAN.md) |
 | Mini App local | [docs/miniapp/LOCAL_DEV.md](docs/miniapp/LOCAL_DEV.md) |
 | Mini App Frontend lead | [docs/miniapp/FRONTEND_LEAD_PROMPT.md](docs/miniapp/FRONTEND_LEAD_PROMPT.md) |
@@ -88,7 +89,7 @@ docker compose -f deployments/docker-compose.yml --profile observability up   # 
 # or: make observability-up
 ```
 
-Для стабильного HTTPS (Mini App + webhook, без trycloudflare): **[docs/ops/PRODUCTION.md](docs/ops/PRODUCTION.md)** — Fly.io или VPS+Caddy.
+Для стабильного HTTPS на текущей Yandex VM: **[docs/deploy/STABLE_EDGE.md](docs/deploy/STABLE_EDGE.md)** — свой домен, named Cloudflare Tunnel, webhook. Fly.io и VPS+Caddy: **[docs/ops/PRODUCTION.md](docs/ops/PRODUCTION.md)**.
 
 `GET /metrics` exposes Prometheus metrics on the app (scraped by `deployments/prometheus/prometheus.yml` → `app:8080`). OTel tracing is off by default (`LIFEOS_OTEL_ENABLED=false`).
 

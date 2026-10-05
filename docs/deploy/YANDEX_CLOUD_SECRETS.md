@@ -43,9 +43,14 @@ Host lifeos-yc
 ```
 /opt/lifeos/
 ├── repo/                 # git clone (код, без секретов)
-├── .env                  # ← ВСЕ секреты здесь. chmod 600, владелец — деплоятильщик
+├── .env                  # ← секреты приложения. chmod 600
+├── secrets/              # ← токен туннеля и секрет прокси. chmod 700, файлы 600
+│   ├── tunnel.env        # TUNNEL_TOKEN=...
+│   └── tg-proxy.env      # URL воркера и LIFEOS_TG_PROXY_SECRET
 └── backups/              # дампы БД (chmod 600)
 ```
+
+`secrets/` и `tunnel.env` в `.gitignore`. Инструкция, как завести домен и туннель, не кладя токен в git: **[STABLE_EDGE.md](STABLE_EDGE.md)**.
 
 `.env` на ВМ — копия структуры `.env.example` из репозитория, но с боевыми значениями.
 
@@ -142,4 +147,5 @@ systemctl restart lifeos   # или docker compose up -d
 - ❌ Хранить приватный SSH-ключ внутри репозитория или на ВМ.
 - ❌ Передавать секреты по HTTP/в чатах/в описаниях задач агентам.
 - ❌ Делать `docker cp` секретов в образ.
-- ❌ Публиковать вывод `cat /opt/lifeos/.env` в отчётах/скриншотах.
+- ❌ Публиковать вывод `cat /opt/lifeos/.env` или `cat /opt/lifeos/secrets/*` в отчётах, скриншотах, PR и issues.
+- ❌ Писать `TUNNEL_TOKEN` в репозиторий, даже в «пример с почти настоящим значением».

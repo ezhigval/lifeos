@@ -33,6 +33,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Secret scan
+        run: bash scripts/check-no-secrets.sh
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25.5'

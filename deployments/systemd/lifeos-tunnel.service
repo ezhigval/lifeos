@@ -1,0 +1,15 @@
+[Unit]
+Description=LifeOS named Cloudflare Tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/lifeos/secrets/tunnel.env
+ExecStart=/opt/lifeos/bin/run-tunnel.sh
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

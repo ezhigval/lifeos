@@ -13,9 +13,25 @@ bin/
 .env.*.local
 !.env.example
 !.env.prod.example
+lifeos.env
+secrets/
+tunnel.env
+tg-proxy.env
+credentials.json
+*.pem
+*.key
+*.token
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+deployments/docker-compose.override.yml
+docker-compose.override.yml
 
 # Logs and Temp files
 *.log
 *.tmp
 *.swp
 *.swobin/
+__pycache__/
+*.pyc

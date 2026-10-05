@@ -24,30 +24,24 @@ ssh root@<IP> 'cd /opt/lifeos/src && /usr/local/go/bin/go build -o /opt/lifeos/b
 (локально перед rsync: `cd web/miniapp && npm run build`)
 
 ## Примечания
-- Quick-туннель trycloudflare меняет хост при рестарте сервиса → обновить `LIFEOS_MINIAPP_URL` и отправить боту `/start`. Для постоянного домена — named tunnel (`cloudflared tunnel login`).
-- `PASTE-BOT-TOKEN`/`PASTE-TUNNEL-HOST` в создаваемом `.env` — единственные поля, которые нужно вписать руками; секреты JWT/API генерируются автоматически.
-- Проверено локально: bash -n ОК. Реальный прогон — на машине (ждём IP/ключ).
+- Quick-туннель из этого скрипта меняет хост при рестарте и с текущей Yandex VM не создаётся (`api.trycloudflare.com:443` закрыт). Постоянная схема: [docs/deploy/STABLE_EDGE.md](../../docs/deploy/STABLE_EDGE.md).
+- `PASTE-BOT-TOKEN`/`PASTE-TUNNEL-HOST` в создаваемом `.env` — поля, которые вписываются руками на сервере. В git их нет.
 
-## Telegram-эгресс через Cloudflare Worker (tg-proxy) — бесплатно, внутри ВМ
+## Telegram-эгресс через Cloudflare Worker (tg-proxy)
 
-Yandex Cloud блокирует исходящие к api.telegram.org, но **не** блокирует Cloudflare.
-Схема: приложение → локальный forward-proxy `127.0.0.1:8081` (tg-proxy.py) → ваш Cloudflare
-Worker (`*.workers.dev`) → api.telegram.org. Всё бесплатно (тариф Workers 100k запросов/день).
+Yandex Cloud блокирует исходящие к `api.telegram.org`. Входящий webhook идёт через named tunnel. Исходящие вызовы Bot API идут так: приложение → локальный прокси → Cloudflare Worker → Telegram.
 
-1. Задеплойте воркер (один раз, с любой машины): dash.cloudflare.com → Workers → Create →
-   вставьте код `deployments/vps/tg-proxy-worker.js` → Deploy. Или:
-   `cd deployments/vps && npx --yes wrangler deploy` (потребуется `npx wrangler login`).
-   Запомните URL: `https://tg-proxy.<ваш-сабдомен>.workers.dev`.
-2. На ВМ:
-   ```bash
-   scp deployments/vps/tg-proxy.py deployments/vps/tg-proxy.sh <user>@<VM>:/tmp/
-   ssh <user>@<VM>
-   sudo LIFEOS_TG_PROXY_WORKER_URL=https://tg-proxy.<sub>.workers.dev bash /tmp/tg-proxy.sh install
-   sudo bash /tmp/tg-proxy.sh test   # getMe через прокси
-   ```
-3. Приложение само подхватит `LIFEOS_HTTP_PROXY` из `/opt/lifeos/lifeos.env` (сервис перезапускается).
-   После этого работают polling и webhook (webhook тоже проходит: TG→Cloudflare→туннель — входящее).
-4. Отключить: `sudo bash /tmp/tg-proxy.sh remove`.
+Полный порядок (домен, туннель, секрет, что можно присылать в чат): [docs/deploy/STABLE_EDGE.md](../../docs/deploy/STABLE_EDGE.md).
 
-Примечание: base URL клиента Telegram намеренно `http://` — plain-forward proxy ретранслирует
-absolute-form URI без CONNECT/TLS-туннелирования; сам хоп до Worker идёт по HTTPS внутри tg-proxy.py.
+Кратко, уже на ВМ, после деплоя воркера:
+
+```bash
+cd /opt/lifeos/repo
+sudo LIFEOS_TG_PROXY_WORKER_URL=https://tg-proxy.<account>.workers.dev \
+  bash deployments/vps/tg-proxy.sh install
+sudo bash deployments/vps/tg-proxy.sh test
+```
+
+`test` печатает `ok`, id и username. Токен бота не печатает. Секрет прокси, если он есть, пишется только в `/opt/lifeos/secrets/tg-proxy.env` (`chmod 600`). В `/opt/lifeos/.env` попадает `LIFEOS_HTTP_PROXY`: для Docker это `http://host.docker.internal:8081`, для бинаря на хосте — `http://127.0.0.1:8081`.
+
+Go-клиент при непустом `LIFEOS_HTTP_PROXY` ходит на `http://api.telegram.org`, иначе прокси получил бы CONNECT и не увидел запрос. Отключить: `sudo bash deployments/vps/tg-proxy.sh remove`.

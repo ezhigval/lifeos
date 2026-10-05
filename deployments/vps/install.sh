@@ -2,6 +2,10 @@
 # LifeOS single-shot VPS installer (Ubuntu 22.04/24.04, e.g. Yandex Cloud Compute).
 # Run as root on a fresh VM:  sudo bash install.sh
 # Idempotent: safe to re-run for updates.
+#
+# The quick tunnel this script starts is only a bootstrap. On the current
+# Yandex VM api.trycloudflare.com:443 is blocked, and the URL changes on
+# restart. Production path: docs/deploy/STABLE_EDGE.md.
 set -euo pipefail
 
 APP_DIR=/opt/lifeos

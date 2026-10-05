@@ -8,7 +8,10 @@ Quick-tunnel (`*.trycloudflare.com`) удобен на час, но URL умир
 | Вариант | Когда | URL |
 |--------|--------|-----|
 | **A. Fly.io** | Нет VPS/домена, хочешь быстро | `https://<app>.fly.dev/app/` |
-| **B. VPS + Caddy** | Есть сервер + домен | `https://lifeos.example.com/app/` |
+| **B. VPS + Caddy** | Есть сервер + домен, порты 80/443 открыты с интернета | `https://lifeos.example.com/app/` |
+| **C. Yandex VM + named tunnel** | Текущая ВМ: входящий 80 нестабилен, исходящий к Telegram закрыт | `https://lifeos.example.com/app/` |
+
+Вариант C — рабочая схема для ВМ LifeOS: **[docs/deploy/STABLE_EDGE.md](docs/deploy/STABLE_EDGE.md)**. Quick-tunnel `*.trycloudflare.com` с этой ВМ не поднимается.
 
 Оба отдают **один origin**: `/app` + `/api` + `/webhook` — Telegram WebView это любит.
 
