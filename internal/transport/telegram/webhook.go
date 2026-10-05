@@ -40,6 +40,8 @@ func (w *Webhook) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 	if err := w.handler.HandleUpdate(r.Context(), update); err != nil {
 		w.log.Error("handle webhook update failed", "error", err, "update_id", update.UpdateID)
+		http.Error(rw, "handler failed", http.StatusInternalServerError)
+		return
 	}
 	rw.WriteHeader(http.StatusOK)
 	_, _ = rw.Write([]byte("ok"))

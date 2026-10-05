@@ -204,7 +204,7 @@ func (c *Client) GetUpdates(ctx context.Context, offset int64, timeout int) ([]U
 	if !out.OK {
 		desc := strings.TrimSpace(out.Description)
 		if desc == "" {
-			desc = truncate(string(body), 200)
+			desc = truncate(c.redact(string(body)), 200)
 		}
 		return nil, c.redactErr(fmt.Errorf("telegram getUpdates failed: %s", desc))
 	}
@@ -302,7 +302,7 @@ func (c *Client) EditScreen(ctx context.Context, chatID, messageID int64, text s
 		defer resp.Body.Close()
 		body, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode >= 300 {
-			return fmt.Errorf("telegram editMessageText: %s", string(body))
+			return c.redactErr(fmt.Errorf("telegram editMessageText: %s", c.redact(string(body))))
 		}
 		var out messageResponse
 		if err := json.Unmarshal(body, &out); err != nil {
@@ -454,7 +454,7 @@ func (c *Client) postMessage(ctx context.Context, payload sendMessageRequest) (i
 		defer resp.Body.Close()
 		body, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode >= 300 {
-			return fmt.Errorf("telegram sendMessage: %s", string(body))
+			return c.redactErr(fmt.Errorf("telegram sendMessage: %s", c.redact(string(body))))
 		}
 		var out messageResponse
 		if err := json.Unmarshal(body, &out); err != nil {

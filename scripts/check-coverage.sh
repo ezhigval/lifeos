@@ -18,7 +18,7 @@ if [[ ! -f "$PROFILE" ]]; then
 fi
 
 # package path (repo-relative) -> minimum percent (inclusive)
-# Keep aligned with docs/agents/reports/backend/TASK-009.md
+# Critical packages and their coverage floors.
 MIN_TASKS_DOMAIN=75
 MIN_IDENTITY_DOMAIN=80
 MIN_AI_RULEBASED=65

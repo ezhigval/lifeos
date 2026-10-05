@@ -21,9 +21,11 @@ WORKDIR /app
 COPY --from=builder /lifeos /app/lifeos
 COPY migrations /app/migrations
 COPY --from=web /web/dist /app/web
+COPY deployments/docker-entrypoint.sh /entrypoint.sh
+RUN chmod 755 /entrypoint.sh
 
 ENV LIFEOS_MIGRATIONS_DIR=/app/migrations
 ENV LIFEOS_STATIC_DIR=/app/web
 EXPOSE 8080
-ENTRYPOINT ["/app/lifeos"]
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["serve"]
