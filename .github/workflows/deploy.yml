@@ -59,7 +59,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Require secrets
+      - name: Check Fly secrets
+        id: secrets
         run: |
           missing=
           for k in FLY_API_TOKEN TELEGRAM_BOT_TOKEN LIFEOS_JWT_SECRET LIFEOS_API_KEY LIFEOS_TELEGRAM_WEBHOOK_SECRET; do
@@ -68,14 +69,23 @@ jobs:
             fi
           done
           if [ -n "$missing" ]; then
-            echo "Missing GitHub Actions secrets:$missing" >&2
-            echo "Add them under Settings → Secrets and variables → Actions." >&2
-            exit 1
+            echo "secrets_present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Fly deploy skipped::GitHub Actions secrets are unset ($missing). Production release is the Yandex VM pull-deploy; Fly was not run."
+            exit 0
           fi
+          echo "secrets_present=true" >> "$GITHUB_OUTPUT"
+
+      - name: Skip Fly deploy (secrets unset)
+        if: steps.secrets.outputs.secrets_present != 'true'
+        run: |
+          echo "Fly deploy skipped: FLY_API_TOKEN and related GitHub Actions secrets are unset."
+          echo "This is not a build failure. Production release is the Yandex VM pull-deploy."
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: steps.secrets.outputs.secrets_present == 'true'
 
       - name: Deploy to Fly.io + wire Telegram
+        if: steps.secrets.outputs.secrets_present == 'true'
         run: ./scripts/ci-deploy-fly.sh
         env:
           WIRE_TELEGRAM: ${{ github.event_name == 'workflow_dispatch' && inputs.wire_telegram || true }}

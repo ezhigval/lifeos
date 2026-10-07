@@ -9,16 +9,16 @@ import (
 var ErrInvalidReviewTime = errors.New("review time is required")
 
 type UserSettings struct {
-	UserID           ids.UserID
-	MorningReviewAt  TimeOfDay
-	EveningReviewAt  TimeOfDay
-	WeeklyReviewAt   TimeOfDay
-	MonthlyReviewAt  TimeOfDay
-	QuietHoursStart  *TimeOfDay
-	QuietHoursEnd    *TimeOfDay
-	Language         string
-	MemoryEnabled    bool
-	LearningOptIn    bool
+	UserID          ids.UserID
+	MorningReviewAt TimeOfDay
+	EveningReviewAt TimeOfDay
+	WeeklyReviewAt  TimeOfDay
+	MonthlyReviewAt TimeOfDay
+	QuietHoursStart *TimeOfDay
+	QuietHoursEnd   *TimeOfDay
+	Language        string
+	MemoryEnabled   bool
+	LearningOptIn   bool
 	// HomeWidgets — настройки видимости блоков на главной (TASK-011 п.6).
 	// Ключ виджета -> виден ли; отсутствие ключа означает «виден» (default-on).
 	HomeWidgets map[string]bool
