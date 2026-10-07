@@ -32,6 +32,8 @@ func New(log *slog.Logger, addr string, db *postgres.Pool, traceHTTP bool, apiRo
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
+	// Mini App JS is ~400KB. Compress it before it crosses the tunnel.
+	r.Use(middleware.Compress(5))
 	// RealIP is deprecated (spoofable X-Forwarded-For) but LifeOS sits behind a
 	// trusted reverse proxy (Caddy/Fly) that sets the leftmost hop correctly.
 	r.Use(middleware.RealIP) //nolint:staticcheck // SA1019: trusted proxy edge
@@ -102,6 +104,7 @@ func mountMiniApp(r chi.Router, dir string) {
 	r.Handle("/app/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		path := strings.TrimPrefix(req.URL.Path, "/app")
 		if path == "" || path == "/" {
+			setMiniAppCache(w, "/")
 			serveIndex(w, req)
 			return
 		}
@@ -112,12 +115,26 @@ func mountMiniApp(r chi.Router, dir string) {
 			return
 		}
 		if st, err := os.Stat(full); err == nil && !st.IsDir() {
+			setMiniAppCache(w, path)
 			http.ServeFile(w, req, full)
 			return
 		}
 		// SPA fallback for client-side routes (BrowserRouter basename=/app).
+		setMiniAppCache(w, "/")
 		serveIndex(w, req)
 	}))
+}
+
+func setMiniAppCache(w http.ResponseWriter, path string) {
+	switch {
+	case strings.HasPrefix(path, "/assets/"):
+		// Filenames are content-hashed by Vite.
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	case path == "/telegram-web-app.js":
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+	default:
+		w.Header().Set("Cache-Control", "no-cache")
+	}
 }
 
 func (s *Server) Start() error {

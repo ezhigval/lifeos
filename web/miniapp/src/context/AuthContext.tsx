@@ -167,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const token = loadSession()?.accessToken
             const res = await fetch('/api/v1/settings', {
               headers: token ? { Authorization: `Bearer ${token}` } : {},
+              signal: AbortSignal.timeout(4_000),
             })
             if (res.status === 401) {
               clearSession()
