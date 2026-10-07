@@ -21,7 +21,7 @@ Alias ключа: `LIFEOS_OPENAI_API_KEY` (если `LIFEOS_LLM_API_KEY` пус�
 `serve` **fail-closed**:
 - пустой `TELEGRAM_BOT_TOKEN` / `LIFEOS_JWT_SECRET` → ошибка старта (обход: `LIFEOS_ALLOW_NO_TELEGRAM` / `LIFEOS_ALLOW_NO_API`)
 - openai без API key → ошибка старта
-- `scripts/mock_ollama.go` (модель `lifeos_mock` в `/api/tags`) → ошибка, пока нет `LIFEOS_ALLOW_MOCK_LLM=true`
+- `scripts/mock_ollama` (модель `lifeos_mock` в `/api/tags`) → ошибка, пока нет `LIFEOS_ALLOW_MOCK_LLM=true`
 
 ---
 

@@ -50,7 +50,8 @@ async function waitForInitData(maxMs: number): Promise<string> {
   let data = getInitData()
   while (!data && Date.now() - started < maxMs) {
     await new Promise((r) => setTimeout(r, 50))
-    initTelegram()
+    // Read only. initTelegram() posts ready/expand and freezes the WebView
+    // if it runs on this timer.
     data = getInitData()
   }
   return data
@@ -167,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const token = loadSession()?.accessToken
             const res = await fetch('/api/v1/settings', {
               headers: token ? { Authorization: `Bearer ${token}` } : {},
+              signal: AbortSignal.timeout(4_000),
             })
             if (res.status === 401) {
               clearSession()

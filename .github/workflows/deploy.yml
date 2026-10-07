@@ -16,7 +16,7 @@ name: Deploy
 #        (optional) LIFEOS_SEED_TELEGRAM_ID
 #   4) Actions → Deploy → Run workflow
 #
-# Docs: docs/ops/PRODUCTION.md
+# Docs: docs/deploy/hosting.md
 
 on:
   workflow_dispatch:

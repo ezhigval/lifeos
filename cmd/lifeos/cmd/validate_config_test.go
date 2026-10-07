@@ -32,11 +32,22 @@ func TestValidateRuntimeConfigOpenAINeedsKey(t *testing.T) {
 	}
 }
 
+func TestValidateRuntimeConfigRejectsShortJWT(t *testing.T) {
+	t.Parallel()
+	err := validateRuntimeConfig(config.Config{
+		TelegramBotToken: "t",
+		JWTSecret:        "too-short",
+	})
+	if err == nil || !strings.Contains(err.Error(), "32 bytes") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestValidateRuntimeConfigOK(t *testing.T) {
 	t.Parallel()
 	if err := validateRuntimeConfig(config.Config{
 		TelegramBotToken: "t",
-		JWTSecret:        "s",
+		JWTSecret:        "dev-only-jwt-secret-at-least-32-bytes",
 	}); err != nil {
 		t.Fatal(err)
 	}

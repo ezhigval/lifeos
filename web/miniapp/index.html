@@ -1,6 +1,41 @@
 <!doctype html>
 <html lang="ru">
   <head>
+    <script>
+      /* Tell Telegram to drop its cover before any file download.
+         The cover stays up until web_app_ready, and the full WebApp
+         script is large enough to stall that on a slow LTE link. */
+      (function () {
+        function signal() {
+          try {
+            var payload = JSON.stringify('')
+            if (window.TelegramWebviewProxy && TelegramWebviewProxy.postEvent) {
+              TelegramWebviewProxy.postEvent('web_app_ready', payload)
+              TelegramWebviewProxy.postEvent('web_app_expand', payload)
+              return true
+            }
+            if (window.external && typeof window.external.notify === 'function') {
+              window.external.notify(JSON.stringify({eventType: 'web_app_ready', eventData: ''}))
+              window.external.notify(JSON.stringify({eventType: 'web_app_expand', eventData: ''}))
+              return true
+            }
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage(JSON.stringify({eventType: 'web_app_ready', eventData: ''}), '*')
+              window.parent.postMessage(JSON.stringify({eventType: 'web_app_expand', eventData: ''}), '*')
+              return true
+            }
+          } catch (e) {}
+          return false
+        }
+        if (!signal()) {
+          var tries = 0
+          var timer = setInterval(function () {
+            tries++
+            if (signal() || tries > 40) clearInterval(timer)
+          }, 50)
+        }
+      })()
+    </script>
     <meta charset="UTF-8" />
     <meta
       name="viewport"
@@ -21,25 +56,20 @@
         align-items: center;
         justify-content: center;
         padding: 2rem;
-        color: #94a3b8;
+        color: #e2e8f0;
+        font-size: 17px;
         text-align: center;
       }
     </style>
-    <!-- Official Telegram script only. Do NOT also import @twa-dev/sdk —
-         it embeds another copy and double-loading blanks many WebViews. -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Capture launch payload BEFORE the React module boots. Reload() drops
-         #tgWebAppData; sessionStorage keeps initData for this Mini App sheet. -->
+  </head>
+  <body>
+    <div id="root"><div id="boot">Загрузка LifeOS…</div></div>
+    <!-- Hash only. telegram-web-app.js is not loaded yet, and a blocking
+         tag in front of the module keeps this line up forever if that file
+         stalls inside TelegramWebviewProxy. -->
     <script>
       (function () {
         var KEY = 'lifeos.tg.initData.v1'
-        function readWebApp() {
-          try {
-            return (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) || ''
-          } catch (e) {
-            return ''
-          }
-        }
         function readHash() {
           try {
             var h = location.hash || ''
@@ -62,8 +92,7 @@
             return ''
           }
         }
-        // Prefer live WebApp.initData; never let a stale storage copy win.
-        var raw = readWebApp() || readHash() || readStored()
+        var raw = readHash() || readStored()
         if (raw) {
           window.__LIFEOS_INIT_DATA__ = raw
           try {
@@ -72,9 +101,38 @@
         }
       })()
     </script>
-  </head>
-  <body>
-    <div id="root"><div id="boot">Загрузка LifeOS…</div></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      /* telegram-web-app.js is injected by main.tsx after React mounts. */
+      function lifeosBoot(msg) {
+        var boot = document.getElementById('boot')
+        if (boot) boot.textContent = msg
+      }
+      var tags = document.getElementsByTagName('script')
+      for (var i = 0; i < tags.length; i++) {
+        var src = tags[i].getAttribute('src') || ''
+        if (src.indexOf('/assets/') >= 0 || src.indexOf('/src/main') >= 0) {
+          tags[i].addEventListener('error', function () {
+            lifeosBoot('Не удалось загрузить приложение')
+          })
+        }
+      }
+      window.addEventListener('error', function (e) {
+        if (e && e.message) lifeosBoot('Ошибка: ' + e.message)
+      })
+      setTimeout(function () {
+        if (!document.getElementById('boot')) return
+        var info = 'нет запроса'
+        try {
+          var entries = performance.getEntriesByType('resource')
+          for (var j = 0; j < entries.length; j++) {
+            if (entries[j].name.indexOf('/assets/') < 0 && entries[j].name.indexOf('/src/main') < 0) continue
+            var n = entries[j]
+            info = Math.round(n.transferSize || n.encodedBodySize || 0) + 'б ' + Math.round(n.duration) + 'мс'
+          }
+        } catch (e) {}
+        lifeosBoot((window.__LIFEOS_JS ? 'Скрипт завис' : 'Скрипт не запустился') + ' (' + info + ')')
+      }, 15000)
+    </script>
   </body>
 </html>

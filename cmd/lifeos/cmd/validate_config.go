@@ -18,8 +18,14 @@ func validateRuntimeConfig(cfg config.Config) error {
 	if strings.TrimSpace(cfg.TelegramBotToken) == "" && !envTruthy("LIFEOS_ALLOW_NO_TELEGRAM") {
 		errs = append(errs, "TELEGRAM_BOT_TOKEN is required for serve (bot polling + notifications); set LIFEOS_ALLOW_NO_TELEGRAM=true only for API-only local runs")
 	}
-	if strings.TrimSpace(cfg.JWTSecret) == "" && !envTruthy("LIFEOS_ALLOW_NO_API") {
-		errs = append(errs, "LIFEOS_JWT_SECRET is required for serve (Mini App / REST API); set LIFEOS_ALLOW_NO_API=true only for bot-only local runs")
+	if !envTruthy("LIFEOS_ALLOW_NO_API") {
+		secret := strings.TrimSpace(cfg.JWTSecret)
+		switch {
+		case secret == "":
+			errs = append(errs, "LIFEOS_JWT_SECRET is required for serve (Mini App / REST API); set LIFEOS_ALLOW_NO_API=true only for bot-only local runs")
+		case len(secret) < 32:
+			errs = append(errs, "LIFEOS_JWT_SECRET must be at least 32 bytes")
+		}
 	}
 	if cfg.LLMEnabled {
 		switch strings.ToLower(strings.TrimSpace(cfg.LLMProvider)) {
@@ -97,7 +103,7 @@ func rejectMockOllamaUnlessAllowed(cfg config.Config) error {
 	for _, m := range body.Models {
 		name := strings.ToLower(strings.TrimSpace(m.Name))
 		if name == "lifeos_mock" || strings.HasPrefix(name, "lifeos_mock:") {
-			return fmt.Errorf("Ollama at %s looks like scripts/mock_ollama.go (model lifeos_mock); set LIFEOS_ALLOW_MOCK_LLM=true for local stub testing, or run a real Ollama", base)
+			return fmt.Errorf("Ollama at %s looks like scripts/mock_ollama (model lifeos_mock); set LIFEOS_ALLOW_MOCK_LLM=true for local stub testing, or run a real Ollama", base)
 		}
 	}
 	return nil

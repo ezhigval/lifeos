@@ -3,6 +3,7 @@ package telegram_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -13,11 +14,12 @@ import (
 
 type stubHandler struct {
 	called bool
+	err    error
 }
 
 func (s *stubHandler) HandleUpdate(_ context.Context, _ telegram.Update) error {
 	s.called = true
-	return nil
+	return s.err
 }
 
 func TestWebhookRejectsInvalidSecret(t *testing.T) {
@@ -55,5 +57,21 @@ func TestWebhookAcceptsValidUpdate(t *testing.T) {
 	}
 	if !h.called {
 		t.Fatal("handler should be called")
+	}
+}
+
+func TestWebhookReturns500WhenHandlerFails(t *testing.T) {
+	t.Parallel()
+	h := &stubHandler{err: errors.New("db down")}
+	wh := telegram.NewWebhook(h, "secret", slog.Default())
+
+	body := []byte(`{"update_id":7}`)
+	req := httptest.NewRequest(http.MethodPost, "/webhook/telegram", bytes.NewReader(body))
+	req.Header.Set("X-Telegram-Bot-Api-Secret-Token", "secret")
+	rec := httptest.NewRecorder()
+	wh.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
 	}
 }

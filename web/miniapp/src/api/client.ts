@@ -96,7 +96,7 @@ export async function authWithInitData(initData: string): Promise<AuthResult> {
     }
   } catch (e) {
     if (e instanceof ApiClientError && e.status === 404) {
-      throw new Error('auth/telegram-webapp not implemented')
+      throw new Error('На этом сервере нет входа Mini App (/api/v1/auth/telegram-webapp)')
     }
     throw e
   }

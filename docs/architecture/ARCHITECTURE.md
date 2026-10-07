@@ -173,7 +173,7 @@ lifeos/
 ├── queries/                        # SQLC sources
 ├── deployments/                    # Dockerfile, docker-compose, prometheus/grafana
 ├── e2e/
-├── docs/                           # architecture, ADR, roadmap, agents, api
+├── docs/                           # architecture, ADR, deploy, api
 ├── Makefile
 ├── sqlc.yaml
 └── .github/workflows/ci.yml
@@ -480,6 +480,6 @@ Coverage gate: ≥80% on `domain` + `app` packages only.
 | [../diagrams/ER.md](../diagrams/ER.md) | Schema |
 | [../diagrams/SEQUENCE.md](../diagrams/SEQUENCE.md) | Flows |
 | [../adr/](../adr/) | Decisions |
-| [../roadmap/ROADMAP.md](../roadmap/ROADMAP.md) | Roadmap |
 | [../api/openapi.yaml](../api/openapi.yaml) | REST contract |
-| [../agents/](../agents/) | Orchestrator + backend / frontend / telegram agents |
+| [../getting-started.md](../getting-started.md) | Local and Docker run |
+| [../deploy/vm.md](../deploy/vm.md) | VM, autodeploy, Telegram tunnel |

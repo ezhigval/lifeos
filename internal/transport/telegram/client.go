@@ -14,26 +14,65 @@ import (
 )
 
 type Client struct {
-	token string
-	http  *http.Client
-	base  string
+	token  string
+	http   *http.Client
+	base   string
+	origin string
 }
 
 func NewClient(token string) *Client {
-	// Default transport honours HTTP(S)_PROXY env vars; hosts that block
-	// Telegram IPs (e.g. Yandex Cloud) can route via LIFEOS_HTTP_PROXY.
+	// Default transport honours LIFEOS_HTTP_PROXY. On networks that block
+	// Telegram IPs the proxy must see a plain-HTTP absolute URI: HTTPS would
+	// CONNECT directly to api.telegram.org and never reach the worker.
 	tr := http.DefaultTransport.(*http.Transport).Clone()
-	if p := os.Getenv("LIFEOS_HTTP_PROXY"); p != "" {
-		u, err := url.Parse(p)
-		if err == nil {
+	origin := "https://api.telegram.org"
+	if p := strings.TrimSpace(os.Getenv("LIFEOS_HTTP_PROXY")); p != "" {
+		if u, err := url.Parse(p); err == nil && u.Host != "" {
 			tr.Proxy = http.ProxyURL(u)
+			origin = "http://api.telegram.org"
 		}
 	}
 	return &Client{
-		token: token,
-		base:  "https://api.telegram.org/bot" + token, // https default; LIFEOS_HTTP_PROXY relay still applies via transport
-		http:  &http.Client{Timeout: 15 * time.Second, Transport: tr},
+		token:  token,
+		origin: origin,
+		base:   origin + "/bot" + token,
+		http:   &http.Client{Timeout: 15 * time.Second, Transport: tr},
 	}
+}
+
+func (c *Client) do(req *http.Request) (*http.Response, error) {
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, c.redactErr(err)
+	}
+	return resp, nil
+}
+
+// redactErr strips the bot token from transport errors. net/http includes the
+// full request URL, and that URL contains the token.
+func (c *Client) redactErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := c.redact(err.Error())
+	if msg == err.Error() {
+		return err
+	}
+	return fmt.Errorf("%s", msg)
+}
+
+func (c *Client) redact(s string) string {
+	if c.token == "" || s == "" {
+		return s
+	}
+	s = strings.ReplaceAll(s, c.token, "REDACTED")
+	if esc := url.PathEscape(c.token); esc != c.token {
+		s = strings.ReplaceAll(s, esc, "REDACTED")
+	}
+	if esc := url.QueryEscape(c.token); esc != c.token {
+		s = strings.ReplaceAll(s, esc, "REDACTED")
+	}
+	return s
 }
 
 type Update struct {
@@ -154,7 +193,7 @@ func (c *Client) GetUpdates(ctx context.Context, offset int64, timeout int) ([]U
 	pollClient := &http.Client{Timeout: time.Duration(timeout+10) * time.Second, Transport: c.http.Transport}
 	resp, err := pollClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, c.redactErr(err)
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
@@ -165,9 +204,9 @@ func (c *Client) GetUpdates(ctx context.Context, offset int64, timeout int) ([]U
 	if !out.OK {
 		desc := strings.TrimSpace(out.Description)
 		if desc == "" {
-			desc = truncate(string(body), 200)
+			desc = truncate(c.redact(string(body)), 200)
 		}
-		return nil, fmt.Errorf("telegram getUpdates failed: %s", desc)
+		return nil, c.redactErr(fmt.Errorf("telegram getUpdates failed: %s", desc))
 	}
 	return out.Result, nil
 }
@@ -256,14 +295,14 @@ func (c *Client) EditScreen(ctx context.Context, chatID, messageID int64, text s
 			return err
 		}
 		req.Header.Set("Content-Type", "application/json")
-		resp, err := c.http.Do(req)
+		resp, err := c.do(req)
 		if err != nil {
 			return err
 		}
 		defer resp.Body.Close()
 		body, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode >= 300 {
-			return fmt.Errorf("telegram editMessageText: %s", string(body))
+			return c.redactErr(fmt.Errorf("telegram editMessageText: %s", c.redact(string(body))))
 		}
 		var out messageResponse
 		if err := json.Unmarshal(body, &out); err != nil {
@@ -372,7 +411,7 @@ func (c *Client) ResolveUsername(ctx context.Context, username string) (int64, e
 		return 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.http.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -408,14 +447,14 @@ func (c *Client) postMessage(ctx context.Context, payload sendMessageRequest) (i
 			return err
 		}
 		req.Header.Set("Content-Type", "application/json")
-		resp, err := c.http.Do(req)
+		resp, err := c.do(req)
 		if err != nil {
 			return err
 		}
 		defer resp.Body.Close()
 		body, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode >= 300 {
-			return fmt.Errorf("telegram sendMessage: %s", string(body))
+			return c.redactErr(fmt.Errorf("telegram sendMessage: %s", c.redact(string(body))))
 		}
 		var out messageResponse
 		if err := json.Unmarshal(body, &out); err != nil {
@@ -466,7 +505,7 @@ func (c *Client) AnswerCallback(ctx context.Context, callbackID string) error {
 			return err
 		}
 		req.Header.Set("Content-Type", "application/json")
-		resp, err := c.http.Do(req)
+		resp, err := c.do(req)
 		if err != nil {
 			return err
 		}
@@ -524,7 +563,7 @@ func (c *Client) GetFile(ctx context.Context, fileID string) (File, error) {
 		return File{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.http.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return File{}, err
 	}
@@ -553,7 +592,7 @@ func (c *Client) DownloadFile(ctx context.Context, filePath string, maxBytes int
 	if maxBytes <= 0 {
 		maxBytes = 20 << 20
 	}
-	url := "https://api.telegram.org/file/bot" + c.token + "/" + filePath
+	url := c.origin + "/file/bot" + c.token + "/" + filePath
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -564,12 +603,12 @@ func (c *Client) DownloadFile(ctx context.Context, filePath string, maxBytes int
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, c.redactErr(err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return nil, fmt.Errorf("telegram download: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, c.redactErr(fmt.Errorf("telegram download: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(c.redact(string(body)))))
 	}
 	limited := io.LimitReader(resp.Body, maxBytes+1)
 	data, err := io.ReadAll(limited)
@@ -592,7 +631,7 @@ func (c *Client) postAPI(ctx context.Context, method string, payload any) error 
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.http.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return err
 	}
@@ -614,7 +653,7 @@ func (c *Client) getAPIResult(ctx context.Context, method string) (json.RawMessa
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.http.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
 	}

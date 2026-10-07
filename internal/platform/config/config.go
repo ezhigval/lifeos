@@ -70,10 +70,13 @@ func Load() (Config, error) {
 			os.Getenv("DATABASE_URL"), // Fly.io postgres attach sets this
 			"postgres://lifeos:lifeos@localhost:5433/lifeos?sslmode=disable",
 		),
-		HTTPAddr:              envOr("LIFEOS_HTTP_ADDR", ":8080"),
-		LogLevel:              envOr("LIFEOS_LOG_LEVEL", "info"),
-		LogFormat:             envOr("LIFEOS_LOG_FORMAT", "text"),
-		TelegramBotToken:      os.Getenv("TELEGRAM_BOT_TOKEN"),
+		HTTPAddr:  envOr("LIFEOS_HTTP_ADDR", ":8080"),
+		LogLevel:  envOr("LIFEOS_LOG_LEVEL", "info"),
+		LogFormat: envOr("LIFEOS_LOG_FORMAT", "text"),
+		TelegramBotToken: firstNonEmpty(
+			os.Getenv("TELEGRAM_BOT_TOKEN"),
+			os.Getenv("LIFEOS_TELEGRAM_BOT_TOKEN"),
+		),
 		TelegramMode:          envOr("LIFEOS_TELEGRAM_MODE", "polling"),
 		TelegramWebhookURL:    os.Getenv("LIFEOS_TELEGRAM_WEBHOOK_URL"),
 		TelegramWebhookSecret: os.Getenv("LIFEOS_TELEGRAM_WEBHOOK_SECRET"),
