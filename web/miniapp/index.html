@@ -122,19 +122,22 @@
       })
       setTimeout(function () {
         if (!document.getElementById('boot')) return
-        var info = window.__LIFEOS_JS_END ? 'end' : 'no-end'
+        var info = window.__LIFEOS_LOAD || 'не стартовал'
         try {
           var entries = performance.getEntriesByType('resource')
+          var jsCount = 0
+          var last = ''
           for (var j = 0; j < entries.length; j++) {
             var n = entries[j]
             if (n.name.indexOf('.js') < 0) continue
             if (n.name.indexOf('/assets/') < 0 && n.name.indexOf('/src/main') < 0) continue
-            var file = n.name.split('/').pop().split('?')[0]
-            info = file + ' ' + Math.round(n.transferSize || n.encodedBodySize || 0) + 'б ' + Math.round(n.duration) + 'мс'
+            jsCount++
+            last = n.name.split('/').pop().split('?')[0]
           }
+          if (jsCount) info = info + ' ' + jsCount + ' ' + last
         } catch (e) {}
         lifeosBoot((window.__LIFEOS_JS ? 'Скрипт завис' : 'Скрипт не запустился') + ' (' + info + ')')
-      }, 15000)
+      }, 30000)
     </script>
   </body>
 </html>
