@@ -2,7 +2,7 @@
 # Deploy LifeOS to Fly.io and wire Telegram Mini App / webhook URLs.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT/deployments"
+cd "$ROOT"
 
 if ! command -v fly >/dev/null 2>&1 && ! command -v flyctl >/dev/null 2>&1; then
   echo "Install flyctl: https://fly.io/docs/hands-on/install-flyctl/" >&2
@@ -15,7 +15,7 @@ echo "==> fly app: $APP"
 
 if ! $FLY status -a "$APP" >/dev/null 2>&1; then
   echo "==> first launch (will prompt for org/region if needed)"
-  $FLY launch --copy-config --name "$APP" --dockerfile Dockerfile --no-deploy --yes || true
+  $FLY launch --copy-config --config fly.toml --name "$APP" --no-deploy --yes || true
 fi
 
 echo "==> ensure Postgres (fly postgres)"
@@ -45,7 +45,7 @@ $FLY secrets set -a "$APP" \
   LIFEOS_SEED_TIMEZONE="${LIFEOS_SEED_TIMEZONE:-Europe/Moscow}"
 
 echo "==> deploy"
-$FLY deploy -a "$APP" --dockerfile Dockerfile
+$FLY deploy -a "$APP" --config fly.toml --remote-only
 
 HOST="$($FLY info -a "$APP" --json 2>/dev/null | python3 -c 'import sys,json; print(json.load(sys.stdin).get("Hostname",""))' 2>/dev/null || true)"
 if [[ -z "$HOST" ]]; then
@@ -60,7 +60,7 @@ $FLY secrets set -a "$APP" \
   LIFEOS_TELEGRAM_WEBHOOK_URL="$WEBHOOK"
 
 # redeploy once so process sees new Mini App URL in menu registration
-$FLY deploy -a "$APP" --dockerfile Dockerfile
+$FLY deploy -a "$APP" --config fly.toml --remote-only
 
 echo "==> wire Telegram"
 export TELEGRAM_BOT_TOKEN LIFEOS_MINIAPP_URL="$MINIAPP" LIFEOS_TELEGRAM_WEBHOOK_URL="$WEBHOOK" LIFEOS_TELEGRAM_WEBHOOK_SECRET

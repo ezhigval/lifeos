@@ -4,6 +4,10 @@
 
 ## Fly.io
 
+GitHub Actions выкладывает на Fly при push в `main` (workflow `.github/workflows/deploy.yml`). Секреты репозитория: `FLY_API_TOKEN`, `TELEGRAM_BOT_TOKEN`, `LIFEOS_JWT_SECRET`, `LIFEOS_API_KEY`, `LIFEOS_TELEGRAM_WEBHOOK_SECRET`. Опционально `FLY_APP` и `LIFEOS_SEED_TELEGRAM_ID`.
+
+Локально, без Actions:
+
 ```bash
 fly postgres create --name lifeos-db --region ams
 fly postgres attach lifeos-db -a lifeos

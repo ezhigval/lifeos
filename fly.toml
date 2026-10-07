@@ -1,12 +1,20 @@
-# LifeOS — Fly.io config (kept for reference).
-# Canonical config for deploy is repo-root `fly.toml` (build context = monorepo root).
-# Prefer: `fly deploy --config fly.toml` from repository root, or GitHub Actions → Deploy.
+# LifeOS — production on Fly.io (stable HTTPS, no rotating tunnel)
+#
+# One-time:
+#   brew install flyctl
+#   fly auth login
+#   fly apps create lifeos
+#   fly postgres create --name lifeos-db --region ams
+#   fly postgres attach lifeos-db -a lifeos
+#   # then GitHub Actions → Deploy, or: ./scripts/ci-deploy-fly.sh
+#
+# App URL: https://<app-name>.fly.dev  → Mini App …/app/ , webhook …/webhook/telegram
 
 app = 'lifeos'
 primary_region = 'ams'
 
 [build]
-  dockerfile = 'Dockerfile'
+  dockerfile = 'deployments/Dockerfile'
 
 [env]
   LIFEOS_HTTP_ADDR = ':8080'
