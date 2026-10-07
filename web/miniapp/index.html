@@ -6,6 +6,15 @@
          The cover stays up until web_app_ready, and the full WebApp
          script is large enough to stall that on a slow LTE link. */
       (function () {
+        // Native Telegram calls this as soon as we signal ready. The real
+        // handler arrives later with telegram-web-app.js; without a stub
+        // WebKit throws and our boot screen shows that TypeError.
+        if (!window.TelegramGameProxy) {
+          window.TelegramGameProxy = { receiveEvent: function () {} }
+        }
+        if (typeof window.TelegramGameProxy_receiveEvent !== 'function') {
+          window.TelegramGameProxy_receiveEvent = function () {}
+        }
         function signal() {
           try {
             var payload = JSON.stringify('')
@@ -118,7 +127,9 @@
         }
       }
       window.addEventListener('error', function (e) {
-        if (e && e.message) lifeosBoot('Ошибка: ' + e.message)
+        var msg = e && e.message ? String(e.message) : ''
+        if (!msg || msg.indexOf('TelegramGameProxy') >= 0) return
+        lifeosBoot('Ошибка: ' + msg)
       })
       setTimeout(function () {
         if (!document.getElementById('boot')) return
@@ -137,7 +148,7 @@
           if (jsCount) info = info + ' ' + jsCount + ' ' + last
         } catch (e) {}
         lifeosBoot((window.__LIFEOS_JS ? 'Скрипт завис' : 'Скрипт не запустился') + ' (' + info + ')')
-      }, 30000)
+      }, 60000)
     </script>
   </body>
 </html>

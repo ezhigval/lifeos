@@ -33,6 +33,8 @@ function partLoader(urls: string[]): string {
   var urls = ${list}
   window.__LIFEOS_LOAD = '0/' + urls.length
   var got = new Array(urls.length)
+  var tries = new Array(urls.length)
+  var ticket = new Array(urls.length)
   var next = 0
   var inflight = 0
   var done = 0
@@ -43,41 +45,66 @@ function partLoader(urls: string[]): string {
     s.text = got.join('')
     document.body.appendChild(s)
   }
-  function fail(i, msg) {
-    if (failed) return
+  function giveUp(i, msg) {
+    if (failed || got[i] != null) return
     failed = true
     window.__LIFEOS_LOAD = 'fail ' + i
     lifeosBoot('Не удалось загрузить часть ' + (i + 1) + ': ' + msg)
   }
+  function load(i) {
+    if (failed || got[i] != null) return
+    var my = {}
+    ticket[i] = my
+    tries[i] = (tries[i] || 0) + 1
+    inflight++
+    var x = new XMLHttpRequest()
+    x.open('GET', urls[i], true)
+    x.overrideMimeType('text/plain; charset=utf-8')
+    x.onload = function () {
+      if (ticket[i] !== my) return
+      inflight--
+      if (failed || got[i] != null) return
+      if (x.status < 200 || x.status >= 300) { retry(i, 'http ' + x.status); return }
+      var type = x.getResponseHeader('Content-Type') || ''
+      if (type.indexOf('javascript') < 0 && type.indexOf('ecmascript') < 0 && type.indexOf('text/plain') < 0) {
+        retry(i, type || 'не js')
+        return
+      }
+      got[i] = x.responseText
+      done++
+      window.__LIFEOS_LOAD = done + '/' + urls.length
+      lifeosBoot('Загрузка LifeOS… ' + done + '/' + urls.length)
+      if (done === urls.length) finish()
+      else kick()
+    }
+    x.onerror = function () {
+      if (ticket[i] !== my) return
+      inflight--
+      retry(i, 'сеть')
+    }
+    x.ontimeout = function () {
+      if (ticket[i] !== my) return
+      inflight--
+      try { x.abort() } catch (e) {}
+      retry(i, 'таймаут')
+    }
+    x.timeout = 15000
+    x.send()
+  }
+  function retry(i, msg) {
+    if (failed || got[i] != null) return
+    if ((tries[i] || 0) < 3) {
+      window.__LIFEOS_LOAD = 'retry ' + (i + 1)
+      lifeosBoot('Загрузка LifeOS… повтор ' + (i + 1))
+      load(i)
+      return
+    }
+    giveUp(i, msg)
+  }
   function kick() {
     if (failed) return
-    while (inflight < 4 && next < urls.length) {
-      (function (i) {
-        inflight++
-        var x = new XMLHttpRequest()
-        x.open('GET', urls[i], true)
-        x.overrideMimeType('text/plain; charset=utf-8')
-        x.onload = function () {
-          inflight--
-          if (failed) return
-          if (x.status < 200 || x.status >= 300) { fail(i, 'http ' + x.status); return }
-          var type = x.getResponseHeader('Content-Type') || ''
-          if (type.indexOf('javascript') < 0 && type.indexOf('ecmascript') < 0 && type.indexOf('text/plain') < 0) {
-            fail(i, type || 'не js')
-            return
-          }
-          got[i] = x.responseText
-          done++
-          window.__LIFEOS_LOAD = done + '/' + urls.length
-          lifeosBoot('Загрузка LifeOS… ' + done + '/' + urls.length)
-          if (done === urls.length) finish()
-          else kick()
-        }
-        x.onerror = function () { inflight--; fail(i, 'сеть') }
-        x.ontimeout = function () { inflight--; fail(i, 'таймаут') }
-        x.timeout = 20000
-        x.send()
-      })(next)
+    while (inflight < 2 && next < urls.length) {
+      load(next)
       next++
     }
   }
