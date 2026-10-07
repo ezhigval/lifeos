@@ -163,6 +163,23 @@ function Root() {
   return <App />
 }
 
+// After first paint. Repeat visits then read hashed chunks from the Cache API
+// when the WebView drops its HTTP cache. HTML stays on the network.
+function registerStaticCache() {
+  if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return
+  const run = () => {
+    const base = import.meta.env.BASE_URL
+    navigator.serviceWorker.register(`${base}sw.js`, { scope: base }).catch(() => {
+      /* private mode / unsupported WebView */
+    })
+  }
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(run, { timeout: 2000 })
+  } else {
+    window.setTimeout(run, 1500)
+  }
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
@@ -178,3 +195,5 @@ createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </StrictMode>,
 )
+
+registerStaticCache()

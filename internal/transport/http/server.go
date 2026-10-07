@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"log/slog"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -96,12 +97,10 @@ func mountMiniApp(r chi.Router, dir string) {
 	serveIndex := func(w http.ResponseWriter, req *http.Request) {
 		// Telegram WebView caches HTML aggressively. A stale index points at
 		// removed hashed chunks and the module never starts.
-		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		http.ServeFile(w, req, filepath.Join(dir, "index.html"))
+		serveMiniAppFile(w, req, filepath.Join(dir, "index.html"), "/index.html")
 	}
-	// Compress only the Mini App. Caddy/Fly skip bodies that already have
-	// Content-Encoding, so this does not double-gzip behind those proxies.
+	// On-the-fly gzip only when the build did not emit a precompressed file.
+	// Caddy/Fly skip bodies that already have Content-Encoding.
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Compress(5))
 		r.Get("/app", func(w http.ResponseWriter, req *http.Request) {
@@ -113,6 +112,14 @@ func mountMiniApp(r chi.Router, dir string) {
 				serveIndex(w, req)
 				return
 			}
+			// Precompressed siblings are not URLs. A .js.br response with the
+			// wrong content type is worse than a miss.
+			if strings.HasSuffix(path, ".br") || strings.HasSuffix(path, ".gz") {
+				w.Header().Set("Cache-Control", "no-store")
+				w.Header().Set("X-Content-Type-Options", "nosniff")
+				http.NotFound(w, req)
+				return
+			}
 			full := filepath.Join(dir, filepath.Clean("/"+path))
 			root := filepath.Clean(dir)
 			if full != root && !strings.HasPrefix(full, root+string(filepath.Separator)) {
@@ -120,9 +127,7 @@ func mountMiniApp(r chi.Router, dir string) {
 				return
 			}
 			if st, err := os.Stat(full); err == nil && !st.IsDir() {
-				w.Header().Set("Cache-Control", miniAppCacheControl(path))
-				w.Header().Set("X-Content-Type-Options", "nosniff")
-				http.ServeFile(w, req, full)
+				serveMiniAppFile(w, req, full, path)
 				return
 			}
 			// Missing JS/CSS must 404. Falling back to index.html returns
@@ -139,15 +144,94 @@ func mountMiniApp(r chi.Router, dir string) {
 	})
 }
 
+func serveMiniAppFile(w http.ResponseWriter, req *http.Request, full, urlPath string) {
+	w.Header().Set("Cache-Control", miniAppCacheControl(urlPath))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+
+	payload := full
+	if variant, encoding, ok := precompressed(full, req.Header.Get("Accept-Encoding")); ok {
+		payload = variant
+		w.Header().Set("Content-Encoding", encoding)
+		w.Header().Add("Vary", "Accept-Encoding")
+		// A range of brotli bytes is not a valid partial script.
+		req = req.Clone(req.Context())
+		req.Header.Del("Range")
+	}
+	if ctype := mime.TypeByExtension(filepath.Ext(full)); ctype != "" {
+		w.Header().Set("Content-Type", ctype)
+	}
+
+	f, err := os.Open(payload)
+	if err != nil {
+		http.NotFound(w, req)
+		return
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		http.NotFound(w, req)
+		return
+	}
+	http.ServeContent(w, req, filepath.Base(full), st.ModTime(), f)
+}
+
+// precompressed picks a build-time .br or .gz sibling. chi's Compress middleware
+// leaves the body alone once Content-Encoding is set, so this is not wrapped twice.
+func precompressed(full, accept string) (variant, encoding string, ok bool) {
+	if acceptToken(accept, "br") {
+		if st, err := os.Stat(full + ".br"); err == nil && !st.IsDir() {
+			return full + ".br", "br", true
+		}
+	}
+	if acceptToken(accept, "gzip") {
+		if st, err := os.Stat(full + ".gz"); err == nil && !st.IsDir() {
+			return full + ".gz", "gzip", true
+		}
+	}
+	return "", "", false
+}
+
+func acceptToken(header, coding string) bool {
+	for _, part := range strings.Split(header, ",") {
+		name, _, _ := strings.Cut(strings.TrimSpace(part), ";")
+		name = strings.TrimSpace(name)
+		if name == coding || name == "*" {
+			return true
+		}
+	}
+	return false
+}
+
 func miniAppCacheControl(urlPath string) string {
-	if strings.EqualFold(filepath.Base(urlPath), "index.html") {
+	base := strings.ToLower(filepath.Base(urlPath))
+	// HTML and the service worker must revalidate. A cached sw.js would keep
+	// serving an old asset policy after deploy.
+	if base == "index.html" || base == "sw.js" {
 		return "no-store"
 	}
-	// Vite fingerprints files under /assets/.
-	if strings.HasPrefix(urlPath, "/assets/") {
+	// Vite fingerprints files under /assets/. The Telegram SDK is renamed to
+	// telegram-web-app.<hash>.js at build time so it can be immutable too.
+	if strings.HasPrefix(urlPath, "/assets/") || fingerprintedSDK(base) {
 		return "public, max-age=31536000, immutable"
 	}
 	return "public, max-age=86400"
+}
+
+func fingerprintedSDK(base string) bool {
+	const prefix = "telegram-web-app."
+	if !strings.HasPrefix(base, prefix) || !strings.HasSuffix(base, ".js") {
+		return false
+	}
+	hash := strings.TrimSuffix(strings.TrimPrefix(base, prefix), ".js")
+	if len(hash) < 8 {
+		return false
+	}
+	for _, c := range hash {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 func isMiniAppAssetPath(urlPath string) bool {

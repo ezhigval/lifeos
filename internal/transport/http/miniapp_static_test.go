@@ -1,6 +1,9 @@
 package http
 
 import (
+	"bytes"
+	"compress/gzip"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -10,7 +13,7 @@ import (
 	"testing"
 )
 
-func newMiniAppServer(t *testing.T) *Server {
+func newMiniAppServer(t *testing.T) (*Server, string) {
 	t.Helper()
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "assets"), 0o755); err != nil {
@@ -27,12 +30,12 @@ func newMiniAppServer(t *testing.T) *Server {
 	if err := os.WriteFile(filepath.Join(dir, "telegram-web-app.js"), []byte("/* sdk */\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	return New(slog.Default(), ":0", nil, false, nil, nil, Options{StaticDir: dir})
+	return New(slog.Default(), ":0", nil, false, nil, nil, Options{StaticDir: dir}), dir
 }
 
 func TestMiniAppIndexIsNotCached(t *testing.T) {
 	t.Parallel()
-	s := newMiniAppServer(t)
+	s, _ := newMiniAppServer(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/app/", nil)
 	rec := httptest.NewRecorder()
@@ -54,7 +57,7 @@ func TestMiniAppIndexIsNotCached(t *testing.T) {
 
 func TestMiniAppRedirectsBarePath(t *testing.T) {
 	t.Parallel()
-	s := newMiniAppServer(t)
+	s, _ := newMiniAppServer(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/app", nil)
 	rec := httptest.NewRecorder()
@@ -70,7 +73,7 @@ func TestMiniAppRedirectsBarePath(t *testing.T) {
 
 func TestMiniAppHashedAssetIsImmutableJS(t *testing.T) {
 	t.Parallel()
-	s := newMiniAppServer(t)
+	s, _ := newMiniAppServer(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/app/assets/index-abc.js", nil)
 	rec := httptest.NewRecorder()
@@ -92,7 +95,7 @@ func TestMiniAppHashedAssetIsImmutableJS(t *testing.T) {
 
 func TestMiniAppMissingScriptDoesNotFallBackToIndex(t *testing.T) {
 	t.Parallel()
-	s := newMiniAppServer(t)
+	s, _ := newMiniAppServer(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/app/assets/index-stale.js", nil)
 	rec := httptest.NewRecorder()
@@ -111,7 +114,7 @@ func TestMiniAppMissingScriptDoesNotFallBackToIndex(t *testing.T) {
 
 func TestMiniAppSPAFallbackForClientRoutes(t *testing.T) {
 	t.Parallel()
-	s := newMiniAppServer(t)
+	s, _ := newMiniAppServer(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/app/more/habits", nil)
 	rec := httptest.NewRecorder()
@@ -128,9 +131,121 @@ func TestMiniAppSPAFallbackForClientRoutes(t *testing.T) {
 	}
 }
 
+func TestMiniAppPrecompressedPrefersBrotliAndDoesNotWrapGzip(t *testing.T) {
+	t.Parallel()
+	s, dir := newMiniAppServer(t)
+
+	raw := []byte("export const booted = true\n")
+	if err := os.WriteFile(filepath.Join(dir, "assets", "index-abc.js.br"), []byte("BROTLI"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var gz bytes.Buffer
+	zw := gzip.NewWriter(&gz)
+	if _, err := zw.Write(raw); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "assets", "index-abc.js.gz"), gz.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	brReq := httptest.NewRequest(http.MethodGet, "/app/assets/index-abc.js", nil)
+	brReq.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	brRec := httptest.NewRecorder()
+	s.srv.Handler.ServeHTTP(brRec, brReq)
+	if brRec.Code != http.StatusOK {
+		t.Fatalf("br status = %d", brRec.Code)
+	}
+	if brRec.Header().Get("Content-Encoding") != "br" {
+		t.Fatalf("Content-Encoding = %q, want br", brRec.Header().Get("Content-Encoding"))
+	}
+	if brRec.Body.String() != "BROTLI" {
+		t.Fatalf("body = %q", brRec.Body.String())
+	}
+	if !strings.Contains(brRec.Header().Get("Content-Type"), "javascript") {
+		t.Fatalf("Content-Type = %q", brRec.Header().Get("Content-Type"))
+	}
+	if !strings.Contains(brRec.Header().Get("Vary"), "Accept-Encoding") {
+		t.Fatalf("Vary = %q", brRec.Header().Get("Vary"))
+	}
+
+	gzReq := httptest.NewRequest(http.MethodGet, "/app/assets/index-abc.js", nil)
+	gzReq.Header.Set("Accept-Encoding", "gzip")
+	gzRec := httptest.NewRecorder()
+	s.srv.Handler.ServeHTTP(gzRec, gzReq)
+	if gzRec.Header().Get("Content-Encoding") != "gzip" {
+		t.Fatalf("Content-Encoding = %q, want gzip", gzRec.Header().Get("Content-Encoding"))
+	}
+	zr, err := gzip.NewReader(gzRec.Body)
+	if err != nil {
+		t.Fatalf("body is not a single gzip stream: %v", err)
+	}
+	got, err := io.ReadAll(zr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, raw) {
+		t.Fatalf("gunzip = %q, want %q", got, raw)
+	}
+}
+
+func TestMiniAppFingerprintedSDKIsImmutable(t *testing.T) {
+	t.Parallel()
+	s, dir := newMiniAppServer(t)
+	name := "telegram-web-app.abcdef1234.js"
+	if err := os.WriteFile(filepath.Join(dir, name), []byte("/* sdk */\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/app/"+name, nil)
+	rec := httptest.NewRecorder()
+	s.srv.Handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "public, max-age=31536000, immutable" {
+		t.Fatalf("Cache-Control = %q", cc)
+	}
+}
+
+func TestMiniAppServiceWorkerIsNotStored(t *testing.T) {
+	t.Parallel()
+	s, dir := newMiniAppServer(t)
+	if err := os.WriteFile(filepath.Join(dir, "sw.js"), []byte("/* sw */\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/app/sw.js", nil)
+	rec := httptest.NewRecorder()
+	s.srv.Handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "no-store" {
+		t.Fatalf("Cache-Control = %q, want no-store", cc)
+	}
+}
+
+func TestMiniAppRejectsDirectCompressedURL(t *testing.T) {
+	t.Parallel()
+	s, _ := newMiniAppServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/app/assets/index-abc.js.br", nil)
+	rec := httptest.NewRecorder()
+	s.srv.Handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "export const") || strings.Contains(rec.Body.String(), "LifeOS") {
+		t.Fatalf("compressed sibling leaked: %q", rec.Body.String())
+	}
+}
+
 func TestMiniAppUnhashedPublicFileIsRevalidated(t *testing.T) {
 	t.Parallel()
-	s := newMiniAppServer(t)
+	s, _ := newMiniAppServer(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/app/telegram-web-app.js?v=20261007", nil)
 	rec := httptest.NewRecorder()
