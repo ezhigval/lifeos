@@ -5,6 +5,7 @@
 | Поставить себе и запустить | [getting-started.md](getting-started.md) |
 | Бот и Mini App | [telegram.md](telegram.md) |
 | ВМ, автодеплой, постоянный туннель | [deploy/vm.md](deploy/vm.md) |
+| Край Cloudflare, без nginx | [deploy/EDGE.md](deploy/EDGE.md) |
 | Fly.io или VPS с Caddy | [deploy/hosting.md](deploy/hosting.md) |
 | Как устроен код | [architecture/ARCHITECTURE.md](architecture/ARCHITECTURE.md) |
 | Сущности | [architecture/DOMAIN_MODEL.md](architecture/DOMAIN_MODEL.md) |

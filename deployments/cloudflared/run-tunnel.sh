@@ -37,4 +37,8 @@ fi
 
 # http2 over TCP 7844. QUIC (UDP 7844) is not reliable from this network,
 # and the VM has no routable IPv6.
+#
+# TUNNEL_TOKEN selects a remotely-managed tunnel. Ingress is not in this
+# file: Zero Trust → the tunnel → Public Hostname → HTTP → 127.0.0.1:8080
+# (the Go app). Do not point it at nginx on :80. See docs/deploy/EDGE.md.
 exec "$CF" --no-autoupdate --protocol http2 --edge-ip-version 4 tunnel run

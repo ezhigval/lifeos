@@ -1,5 +1,6 @@
 // tg-proxy worker — deploy on Cloudflare Workers (free tier, 100k req/day).
 // Proxies api.telegram.org for hosts whose egress to Telegram is blocked.
+// This is not the Mini App path. Cache rules live in cache-rules.json.
 // Redeploy after pulling this file so /file/bot downloads are allowed.
 export default {
   async fetch(request, env) {

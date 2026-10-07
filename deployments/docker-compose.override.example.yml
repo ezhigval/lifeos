@@ -4,7 +4,7 @@
 
 services:
   postgres:
-    # Do not expose DB port to the internet on a public VM.
+    # No host port. If you must publish one, use "127.0.0.1:5433:5432" only.
     ports: []
     environment:
       POSTGRES_PASSWORD: ${LIFEOS_DB_PASSWORD:?set in .env}

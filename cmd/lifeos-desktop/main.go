@@ -8,7 +8,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -77,7 +76,7 @@ func main() {
 	// The Mac window reads this single line from stdout.
 	fmt.Printf("PORT=%s\n", port)
 	log.Printf("lifeos desktop %s http://127.0.0.1:%s api %s", desktopVersion, port, origin)
-	go watchUpdates(ctx, updateURL(origin), desktopVersion, dataDir(), func() {
+	go watchUpdates(ctx, updateURL(), desktopVersion, dataDir(), func() {
 		shut, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		_ = httpSrv.Shutdown(shut)
@@ -87,18 +86,16 @@ func main() {
 	}
 }
 
-func updateURL(apiOrigin string) string {
+// githubReleaseManifest is the desktop update feed. The zip and this JSON are
+// GitHub Release assets from .github/workflows/desktop-release.yml. The VM
+// does not serve them, and that workflow has no R2 bucket.
+const githubReleaseManifest = "https://github.com/ezhigval/lifeos/releases/latest/download/latest.json"
+
+func updateURL() string {
 	if v := os.Getenv("LIFEOS_UPDATE_URL"); v != "" {
 		return v
 	}
-	u, err := url.Parse(apiOrigin)
-	if err != nil || u.Scheme == "" || u.Host == "" {
-		return "https://local-ai-assist.ru/app/desktop/latest.json"
-	}
-	u.Path = "/app/desktop/latest.json"
-	u.RawQuery = ""
-	u.Fragment = ""
-	return u.String()
+	return githubReleaseManifest
 }
 
 func dataDir() string {

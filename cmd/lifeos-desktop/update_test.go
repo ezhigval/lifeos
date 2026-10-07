@@ -9,8 +9,24 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestUpdateURLIsGitHubRelease(t *testing.T) {
+	t.Setenv("LIFEOS_UPDATE_URL", "")
+	got := updateURL()
+	if got != githubReleaseManifest {
+		t.Fatalf("default update url %s", got)
+	}
+	if strings.Contains(got, "/app/desktop/") {
+		t.Fatal("updater must not use the VM mini app path")
+	}
+	t.Setenv("LIFEOS_UPDATE_URL", "https://example.com/latest.json")
+	if updateURL() != "https://example.com/latest.json" {
+		t.Fatal("LIFEOS_UPDATE_URL override")
+	}
+}
 
 func TestVersionNewer(t *testing.T) {
 	if !versionNewer("0.2.0", "0.1.0") {
