@@ -36,6 +36,13 @@ class ApiClientError extends Error {
   }
 }
 
+/** Empty in the Mini App (same origin). Desktop sets VITE_API_BASE when it cannot proxy. */
+export function apiUrl(path: string): string {
+  const base = import.meta.env.VITE_API_BASE
+  if (!base) return path
+  return String(base).replace(/\/$/, '') + path
+}
+
 async function request<T>(
   path: string,
   init: RequestInit = {},
@@ -49,7 +56,7 @@ async function request<T>(
     headers.set('Authorization', `Bearer ${accessToken}`)
   }
 
-  const res = await fetch(path, { ...init, headers })
+  const res = await fetch(apiUrl(path), { ...init, headers })
   if (res.status === 401 && allowRefresh && onUnauthorized) {
     const refreshed = await onUnauthorized()
     if (refreshed) {
