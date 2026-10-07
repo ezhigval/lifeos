@@ -122,7 +122,7 @@
       })
       setTimeout(function () {
         if (!document.getElementById('boot')) return
-        var info = 'js не запрошен'
+        var info = window.__LIFEOS_JS_END ? 'end' : 'no-end'
         try {
           var entries = performance.getEntriesByType('resource')
           for (var j = 0; j < entries.length; j++) {
