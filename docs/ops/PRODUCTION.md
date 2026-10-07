@@ -1,46 +1,65 @@
 # Production hosting — LifeOS Mini App + bot (без trycloudflare)
 
 Quick-tunnel (`*.trycloudflare.com`) удобен на час, но URL умирает → бот/Mini App «молчат».
-Ниже два нормальных варианта со **стабильным HTTPS**.
+Ниже стабильный HTTPS + деплой через **GitHub Actions**.
+
+> **Важно:** GitHub Actions — это CI/CD (сборка и выкладка), а не место, где бот живёт 24/7.
+> Бот крутится на **Fly.io** (или VPS). Actions только деплоит туда.
 
 ## Что выбрать
 
 | Вариант | Когда | URL |
 |--------|--------|-----|
-| **A. Fly.io** | Нет VPS/домена, хочешь быстро | `https://<app>.fly.dev/app/` |
-| **B. VPS + Caddy** | Есть сервер + домен | `https://lifeos.example.com/app/` |
+| **A. Fly.io + GitHub Actions** | Быстрый прод без своего сервера | `https://<app>.fly.dev/app/` |
+| **B. VPS + Caddy** | Есть сервер + домен (`lifeos.…`) | `https://lifeos.example.com/app/` |
 
 Оба отдают **один origin**: `/app` + `/api` + `/webhook` — Telegram WebView это любит.
 
 ---
 
-## A. Fly.io
+## A. Fly.io через GitHub Actions (рекомендуется)
+
+### Один раз (локально)
 
 ```bash
 # 1) Аккаунт: https://fly.io  →  fly auth login
-# 2) Postgres (один раз)
+fly apps create lifeos
 fly postgres create --name lifeos-db --region ams
 fly postgres attach lifeos-db -a lifeos
-# 3) Деплой + привязка URL к Telegram
-./scripts/deploy-fly.sh
+fly tokens create deploy -x 999999h   # → это FLY_API_TOKEN
 ```
 
-Скрипт:
-- собирает Docker-образ из `deployments/Dockerfile`
-- выставляет secrets из корневого `.env`
-- ставит `LIFEOS_MINIAPP_URL` / webhook
-- вызывает `scripts/set-telegram-urls.sh` (menu button + webhook)
+### Secrets в GitHub
 
-`fly postgres attach` пишет `DATABASE_URL` — приложение читает его как fallback к `LIFEOS_DATABASE_URL`.
+Repo → **Settings → Secrets and variables → Actions** → New repository secret:
+
+| Secret | Откуда |
+|--------|--------|
+| `FLY_API_TOKEN` | `fly tokens create deploy` |
+| `TELEGRAM_BOT_TOKEN` | @BotFather |
+| `LIFEOS_JWT_SECRET` | длинная случайная строка |
+| `LIFEOS_API_KEY` | случайная строка |
+| `LIFEOS_TELEGRAM_WEBHOOK_SECRET` | `openssl rand -hex 24` |
+| `LIFEOS_SEED_TELEGRAM_ID` | опционально, твой telegram id |
+| `FLY_APP` | опционально, default `lifeos` |
+
+### Деплой
+
+- **Actions → Deploy → Run workflow**, или
+- push в `main` (workflow `.github/workflows/deploy.yml`)
+
+Скрипт: `scripts/ci-deploy-fly.sh` — secrets на Fly, `fly deploy`, health, `setWebhook` + Mini App menu.
 
 Проверка:
 
 ```bash
-curl -sS https://<app>.fly.dev/health
-curl -sS https://<app>.fly.dev/app/ | head
+curl -sS https://lifeos.fly.dev/health
+curl -sS https://lifeos.fly.dev/app/ | head
 ```
 
-В Telegram: **Menu → Mini App** или синяя inline-кнопка (не старая из истории).
+В Telegram: **Menu → Mini App** или свежая синяя кнопка (не из старой истории).
+
+Локальный деплой без Actions: `./scripts/deploy-fly.sh` (нужен `.env` + flyctl).
 
 ---
 
