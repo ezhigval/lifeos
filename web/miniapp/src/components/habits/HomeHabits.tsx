@@ -7,7 +7,8 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/cn'
 import { ruApiError } from '@/lib/apiError'
 import { hapticError, hapticLight, hapticSuccess } from '@/lib/telegram'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { bootMark, bootReport } from '@/lib/bootTiming'
 
 /** Today’s habit checkboxes only — full tracker lives under More → Привычки. */
 export function HomeHabits() {
@@ -21,6 +22,12 @@ export function HomeHabits() {
       return Array.isArray(res.habits) ? res.habits : []
     },
   })
+
+  useEffect(() => {
+    if (isLoading) return
+    bootMark(isError ? 'habits-error' : 'habits')
+    bootReport('home')
+  }, [isLoading, isError])
 
   const track = useMutation({
     mutationFn: (id: string) => api.trackHabit(id),

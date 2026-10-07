@@ -7,7 +7,8 @@ import { QueryError } from '@/components/ui/QueryError'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { ruApiError } from '@/lib/apiError'
 import { hapticError, hapticLight, hapticSuccess } from '@/lib/telegram'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { bootMark, bootReport } from '@/lib/bootTiming'
 
 const LIMIT = 7
 
@@ -28,6 +29,12 @@ export function UpcomingTasks() {
       return Array.isArray(res.tasks) ? res.tasks : []
     },
   })
+
+  useEffect(() => {
+    if (isLoading) return
+    bootMark(isError ? 'tasks-error' : 'tasks')
+    bootReport('home')
+  }, [isLoading, isError])
 
   // TASK-011 item 7: sphere names for badges on task cards.
   const { data: spheresData } = useQuery({

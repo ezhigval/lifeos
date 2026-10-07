@@ -3,11 +3,13 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
+import { bootMark, bootReport } from '@/lib/bootTiming'
 import { freezeInitData, initTelegram } from '@/lib/telegram'
 import App from './App'
 import './index.css'
 
-// Module reached the WebView. Cancel the HTML boot watchdog before React paints.
+// Imports above are already evaluated: this mark is "bundle downloaded and parsed".
+bootMark('module')
 window.__LIFEOS_BOOT_OK__?.()
 
 // Capture Telegram launch payload before the router can touch location.hash.
@@ -81,6 +83,12 @@ function Root() {
     if (auth.status !== 'loading') return
     const timer = window.setTimeout(() => setStuck(true), 6_000)
     return () => window.clearTimeout(timer)
+  }, [auth.status])
+
+  useEffect(() => {
+    if (auth.status === 'loading') return
+    bootMark(auth.status === 'ready' ? 'paint-ready' : 'paint-error')
+    bootReport(auth.status)
   }, [auth.status])
 
   if (auth.status === 'loading') {
@@ -179,6 +187,14 @@ function registerStaticCache() {
     window.setTimeout(run, 1500)
   }
 }
+
+bootMark('render')
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    bootMark('paint')
+    bootReport('paint')
+  })
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

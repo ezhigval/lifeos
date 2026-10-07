@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
@@ -12,6 +12,7 @@ const CreateTaskSheet = lazy(() =>
 )
 import { QueryError } from '@/components/ui/QueryError'
 import { api, enrichFinanceCategories } from '@/api/client'
+import { bootMark, bootReport } from '@/lib/bootTiming'
 import { periodKey } from '@/lib/periods'
 import { hapticLight, tgUser } from '@/lib/telegram'
 
@@ -31,6 +32,15 @@ export function HomePage() {
     queryKey: ['finance', periodKey(period)],
     queryFn: () => api.financeOverview(period).then(enrichFinanceCategories),
   })
+
+  useEffect(() => {
+    bootMark('home')
+  }, [])
+  useEffect(() => {
+    if (isLoading) return
+    bootMark(isError ? 'finance-error' : 'finance')
+    bootReport('home')
+  }, [isLoading, isError])
 
   const greeting = user?.first_name ? `Привет, ${user.first_name}` : 'LifeOS'
   const dateStr = new Date().toLocaleDateString('ru-RU', {

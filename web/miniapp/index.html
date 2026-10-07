@@ -8,6 +8,17 @@
     />
     <meta name="theme-color" content="#0f172a" />
     <title>LifeOS</title>
+    <script>
+      window.__LIFEOS_T = []
+      window.__LIFEOS_MARK = function (name) {
+        var rows = window.__LIFEOS_T
+        for (var i = 0; i < rows.length; i++) if (rows[i][0] === name) return
+        var now = window.performance && performance.now ? performance.now() : 0
+        rows.push([name, Math.round(now)])
+        try { performance.mark('lifeos:' + name) } catch (e) {}
+      }
+      window.__LIFEOS_MARK('html')
+    </script>
     <style>
       html, body, #root { height: 100%; margin: 0; }
       body {
@@ -52,7 +63,7 @@
     <link rel="preload" href="%BASE_URL%telegram-web-app.js?v=20261007" as="script" />
     <!-- async, not defer: a deferred SDK blocks the app module until the
          whole file executes. If that request stalls, the Mini App never starts. -->
-    <script async src="%BASE_URL%telegram-web-app.js?v=20261007" onerror="window.__LIFEOS_TG_SDK_FAILED=1"></script>
+    <script async src="%BASE_URL%telegram-web-app.js?v=20261007" onload="window.__LIFEOS_MARK&&window.__LIFEOS_MARK('sdk')" onerror="window.__LIFEOS_TG_SDK_FAILED=1;window.__LIFEOS_MARK&&window.__LIFEOS_MARK('sdk-error')"></script>
     <!-- Capture launch payload BEFORE the React module boots. Reload() drops
          #tgWebAppData; sessionStorage keeps initData for this Mini App sheet. -->
     <script>
@@ -95,6 +106,7 @@
             sessionStorage.setItem(KEY, raw)
           } catch (e) {}
         }
+        window.__LIFEOS_MARK && window.__LIFEOS_MARK(raw ? 'initdata' : 'initdata-empty')
       })()
     </script>
     <!-- Registered before Vite injects the module into <head>, so a failed
@@ -151,6 +163,7 @@
         }
         post('web_app_ready')
         post('web_app_expand')
+        window.__LIFEOS_MARK && window.__LIFEOS_MARK('tg-ready')
       })()
     </script>
     <script type="module" src="/src/main.tsx"></script>

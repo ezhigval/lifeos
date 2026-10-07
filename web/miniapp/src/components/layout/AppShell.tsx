@@ -1,7 +1,8 @@
-import { Suspense } from 'react'
+import { useEffect, Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { bootMark } from '@/lib/bootTiming'
 import { useTelegramBackButton } from '@/hooks/useTelegramBackButton'
 
 const ROOT_PATHS = new Set(['/', '/spheres', '/more'])
@@ -34,6 +35,9 @@ export function AppShell() {
       ? '/'
       : '/spheres'
   useTelegramBackButton(nested, fallback)
+  useEffect(() => {
+    bootMark('shell')
+  }, [])
 
   return (
     <div className="mx-auto min-h-full max-w-lg pb-24">
