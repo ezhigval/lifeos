@@ -143,7 +143,15 @@ sudo bash deployments/vps/tg-proxy.sh test
 
 Клиент Telegram при непустом `LIFEOS_HTTP_PROXY` ходит на `http://api.telegram.org`. Иначе библиотека открыла бы CONNECT, и прокси не увидел бы запрос.
 
-Если `test` пишет, что воркер недоступен, с ВМ закрыт 443 до `*.workers.dev`. Туннель и Mini App при этом живы. Для ответов бота нужен релей с тем же контрактом `GET/POST /fetch?path=` на хосте, который ВМ открывает по 443. Его URL подставляется вместо URL воркера.
+Если с ВМ не открывается `*.workers.dev`, повесь воркер маршрутом на хост туннеля: `example.com/fetch*` (Route, не Custom domain). Прокси тогда ходит на этот хост, а звонит на те edge IP, которые ВМ реально открывает. SNI остаётся именем хоста. Ответы Cloudflare 1034 и `404 page not found` от самого приложения пропускаются, берётся следующий IP.
+
+Московские edge (198.41.192/200, cf-ray DME) открывают сайт, но вызов воркера в Telegram с них зависает. В `LIFEOS_TG_PROXY_EDGE_IPS` нужен адрес, с которого `https://example.com/fetch?path=%2Fbot0%3Ax%2FgetMe` возвращает JSON Telegram, а не обрыв по таймауту.
+
+```bash
+sudo LIFEOS_TG_PROXY_WORKER_URL='https://example.com' \
+  LIFEOS_TG_PROXY_EDGE_IPS='198.41.192.107,198.41.200.113' \
+  bash deployments/vps/tg-proxy.sh install
+```
 
 ## 5. Публичный origin
 

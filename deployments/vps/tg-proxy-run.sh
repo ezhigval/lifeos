@@ -24,13 +24,41 @@ if git -C "$(dirname "$real")" rev-parse --is-inside-work-tree >/dev/null 2>&1; 
   exit 1
 fi
 
-bind="127.0.0.1"
-if command -v docker >/dev/null 2>&1 && docker network inspect lifeos_default >/dev/null 2>&1; then
-  gw=$(docker network inspect lifeos_default -f '{{(index .IPAM.Config 0).Gateway}}' 2>/dev/null || true)
-  if [[ -n "$gw" ]]; then
-    bind="127.0.0.1,${gw}"
-  fi
-fi
+# host.docker.internal is docker0 (host-gateway), not the compose-network
+# gateway. Bind every docker bridge, plus 127.0.0.1. Never the public NIC.
+bind=$(python3 - <<'PY'
+import os, subprocess
+addrs = ["127.0.0.1"]
+seen = set(addrs)
+try:
+    out = subprocess.check_output(["ip", "-4", "-o", "addr", "show"], text=True)
+except Exception:
+    out = ""
+for line in out.splitlines():
+    parts = line.split()
+    if len(parts) < 4:
+        continue
+    iface, cidr = parts[1], parts[3]
+    if iface != "docker0" and not iface.startswith("br-"):
+        continue
+    ip = cidr.split("/", 1)[0]
+    if ip not in seen:
+        addrs.append(ip)
+        seen.add(ip)
+if os.path.exists("/var/run/docker.sock") or os.path.exists("/run/docker.sock"):
+    try:
+        gw = subprocess.check_output(
+            ["docker", "network", "inspect", "lifeos_default", "-f", "{{(index .IPAM.Config 0).Gateway}}"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        gw = ""
+    if gw and gw not in seen:
+        addrs.append(gw)
+print(",".join(addrs))
+PY
+)
 
 python3 - "$ENV_FILE" "$bind" <<'PY'
 import os, sys

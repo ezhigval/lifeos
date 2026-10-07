@@ -140,11 +140,14 @@ secret = os.environ.get("LIFEOS_TG_PROXY_SECRET", "").strip()
 def q(value: str) -> str:
     return "'" + value.replace("'", "'\\''") + "'"
 
+edges = os.environ.get("LIFEOS_TG_PROXY_EDGE_IPS", "").strip()
 lines = [
     f"LIFEOS_TG_PROXY_WORKER_URL={q(worker)}",
     f"TG_PROXY_PORT={port}",
     "TG_PROXY_BIND=127.0.0.1",
 ]
+if edges:
+    lines.append(f"LIFEOS_TG_PROXY_EDGE_IPS={q(edges)}")
 if secret:
     lines.append(f"LIFEOS_TG_PROXY_SECRET={q(secret)}")
 open(path, "w").write("\n".join(lines) + "\n")
