@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     var window: NSWindow?
     var server: Process?
     var stderrHandle: FileHandle?
+    var quitting = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
@@ -31,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        quitting = true
         server?.terminate()
     }
 
@@ -58,6 +60,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         process.executableURL = exe
         process.standardOutput = pipe
         process.standardError = log
+        process.terminationHandler = { [weak self] _ in
+            DispatchQueue.main.async {
+                guard let self, !self.quitting else { return }
+                NSApp.terminate(nil)
+            }
+        }
         try process.run()
         server = process
 

@@ -39,7 +39,7 @@ export function HomeHabits() {
 
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between px-4">
+      <div className="mb-3 flex w-full items-center justify-between gap-3 px-4">
         <h2 className="text-base font-semibold">Привычки сегодня</h2>
         <Link to="/more/habits" className="text-sm text-[var(--tg-theme-link-color,#22c55e)]">
           Трекер →

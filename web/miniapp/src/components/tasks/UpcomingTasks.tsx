@@ -57,7 +57,7 @@ export function UpcomingTasks() {
 
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between px-4">
+      <div className="mb-3 flex w-full items-center justify-between gap-3 px-4">
         <h2 className="text-base font-semibold">Ближайшие задачи</h2>
         <Link to="/spheres" className="text-sm text-[var(--tg-theme-link-color,#22c55e)]">
           Все →

@@ -31,13 +31,16 @@ const items = [
 
 export function DesktopFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-full min-h-full">
+    <div
+      className="flex h-screen w-screen overflow-hidden"
+      style={{ display: 'flex', width: '100vw', height: '100vh' }}
+    >
       <aside className="flex h-full w-60 shrink-0 flex-col border-r border-white/10 bg-black/20">
         <div className="px-4 py-5">
           <div className="text-sm font-semibold tracking-wide">LifeOS</div>
           <div className="mt-1 text-xs text-[#94a3b8]">экраны на этом компьютере</div>
         </div>
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-4">
+        <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-4">
           {items.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
@@ -58,7 +61,7 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
           ))}
         </nav>
       </aside>
-      <div className="min-w-0 flex-1 overflow-y-auto">
+      <div className="min-w-0 flex-1 overflow-y-auto" style={{ flex: '1 1 auto', minWidth: 0 }}>
         <div className="mx-auto w-full max-w-3xl">{children}</div>
       </div>
     </div>

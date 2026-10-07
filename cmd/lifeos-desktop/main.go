@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -18,6 +19,9 @@ import (
 
 //go:embed all:ui
 var uiEmbed embed.FS
+
+// desktopVersion is overridden by -X main.desktopVersion in the Mac build.
+var desktopVersion = "0.2.0"
 
 func main() {
 	log.SetFlags(0)
@@ -72,10 +76,29 @@ func main() {
 
 	// The Mac window reads this single line from stdout.
 	fmt.Printf("PORT=%s\n", port)
-	log.Printf("lifeos desktop http://127.0.0.1:%s api %s", port, origin)
+	log.Printf("lifeos desktop %s http://127.0.0.1:%s api %s", desktopVersion, port, origin)
+	go watchUpdates(ctx, updateURL(origin), desktopVersion, dataDir(), func() {
+		shut, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = httpSrv.Shutdown(shut)
+	})
 	if err := httpSrv.Serve(ln); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
+}
+
+func updateURL(apiOrigin string) string {
+	if v := os.Getenv("LIFEOS_UPDATE_URL"); v != "" {
+		return v
+	}
+	u, err := url.Parse(apiOrigin)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return "https://local-ai-assist.ru/app/desktop/latest.json"
+	}
+	u.Path = "/app/desktop/latest.json"
+	u.RawQuery = ""
+	u.Fragment = ""
+	return u.String()
 }
 
 func dataDir() string {

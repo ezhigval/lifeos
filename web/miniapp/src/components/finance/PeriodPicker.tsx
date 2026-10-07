@@ -11,8 +11,8 @@ export function PeriodPicker({ selected, onChange }: Props) {
   const periods = recentPeriods(12)
 
   return (
-    <div className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div className="flex gap-2">
+    <div className="w-full overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex w-max gap-2">
         {periods.map((p) => {
           const active = isSamePeriod(p, selected)
           return (
