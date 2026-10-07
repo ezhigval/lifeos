@@ -1,0 +1,6 @@
+@import '../src/index.css';
+
+/* Vite's desktop root is this folder. Without an explicit source, Tailwind
+   only sees classes written here and drops the screen styles. */
+@source '../src';
+@source '.';

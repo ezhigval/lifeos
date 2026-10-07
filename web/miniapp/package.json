@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "dev:desktop": "vite --config vite.desktop.ts",
+    "build:desktop": "tsc -p tsconfig.desktop.json --noEmit && vite build --config vite.desktop.ts",
     "lint": "oxlint",
     "preview": "vite preview"
   },

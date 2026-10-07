@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from 'react'
 import {
+  apiUrl,
   setAccessToken,
   setUnauthorizedHandler,
   authWithInitData,
@@ -167,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (tryRestoreSession()) {
           try {
             const token = loadSession()?.accessToken
-            const res = await fetch('/api/v1/settings', {
+            const res = await fetch(apiUrl('/api/v1/settings'), {
               headers: token ? { Authorization: `Bearer ${token}` } : {},
               signal: AbortSignal.timeout(4_000),
             })

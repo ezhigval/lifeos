@@ -1,0 +1,44 @@
+name: Desktop release
+
+on:
+  push:
+    tags:
+      - 'desktop-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  mac:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/miniapp/package-lock.json
+
+      - name: Build LifeOS.app
+        env:
+          LIFEOS_DESKTOP_VERSION: ${{ github.ref_name }}
+        run: bash scripts/build-mac-app.sh
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/LifeOS-mac.zip
+          fail_on_unmatched_files: true
+          body: |
+            LifeOS для Mac, Apple Silicon и Intel.
+
+            Экраны на всю ширину окна. При каждом запуске приложение спрашивает https://local-ai-assist.ru/app/desktop/latest.json и, если на ВМ лежит более новая сборка, само ставит её и открывается заново.
+
+            Первый запуск: правый клик по LifeOS.app → Открыть. Подпись без сертификата Apple, поэтому двойной клик система блокирует.
+
+            Вход — ник Telegram и код из бота.
