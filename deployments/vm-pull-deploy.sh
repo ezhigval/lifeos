@@ -87,9 +87,16 @@ NGINX
   ln -sfn /etc/nginx/sites-available/lifeos.conf /etc/nginx/sites-enabled/lifeos.conf
   rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/lifeos
   if nginx -t; then
-    systemctl reload nginx
-    log "nginx site reloaded"
-    return 0
+    if systemctl reload nginx; then
+      log "nginx site reloaded"
+      return 0
+    fi
+    if systemctl start nginx; then
+      log "nginx was down; started"
+      return 0
+    fi
+    log "nginx reload and start failed"
+    return 1
   fi
   log "nginx -t failed; restoring previous site"
   if [[ -f /etc/nginx/sites-available/lifeos.conf.bak ]]; then
