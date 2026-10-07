@@ -39,6 +39,9 @@ func TestMiniAppAssetsAreCachedAndGzipped(t *testing.T) {
 	if cc := rr.Header().Get("Cache-Control"); !strings.Contains(cc, "immutable") {
 		t.Fatalf("cache %q", cc)
 	}
+	if got := rr.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("asset acao %q", got)
+	}
 	if rr.Header().Get("Content-Encoding") != "gzip" {
 		t.Fatalf("encoding %q len %d", rr.Header().Get("Content-Encoding"), rr.Body.Len())
 	}
@@ -54,5 +57,8 @@ func TestMiniAppAssetsAreCachedAndGzipped(t *testing.T) {
 	}
 	if cc := rr.Header().Get("Cache-Control"); cc != "no-cache" {
 		t.Fatalf("index cache %q", cc)
+	}
+	if got := rr.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("index acao %q", got)
 	}
 }

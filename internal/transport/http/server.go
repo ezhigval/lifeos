@@ -126,6 +126,10 @@ func mountMiniApp(r chi.Router, dir string) {
 }
 
 func setMiniAppCache(w http.ResponseWriter, path string) {
+	// Telegram Desktop fetches type=module with CORS from a webview origin
+	// that is not the page. Without this header the module is dropped and
+	// the static boot line stays on screen.
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	switch {
 	case strings.HasPrefix(path, "/assets/"):
 		// Filenames are content-hashed by Vite.

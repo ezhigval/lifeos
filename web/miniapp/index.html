@@ -64,30 +64,12 @@
   </head>
   <body>
     <div id="root"><div id="boot">Загрузка LifeOS…</div></div>
-    <!-- Same-origin copy of https://telegram.org/js/telegram-web-app.js.
-         Kept after the boot line: a blocking script in head paints nothing
-         until the file arrives, which is the gray screen on a slow LTE link.
-         Do NOT also import @twa-dev/sdk — a second copy blanks many WebViews. -->
-    <script src="/app/telegram-web-app.js"></script>
-    <!-- Capture launch payload BEFORE the React module boots. Reload() drops
-         #tgWebAppData; sessionStorage keeps initData for this Mini App sheet. -->
+    <!-- Hash only. telegram-web-app.js is not loaded yet, and a blocking
+         tag in front of the module keeps this line up forever if that file
+         stalls inside TelegramWebviewProxy. -->
     <script>
       (function () {
-        try {
-          var wa = window.Telegram && window.Telegram.WebApp
-          if (wa) {
-            if (wa.ready) wa.ready()
-            if (wa.expand) wa.expand()
-          }
-        } catch (e) {}
         var KEY = 'lifeos.tg.initData.v1'
-        function readWebApp() {
-          try {
-            return (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) || ''
-          } catch (e) {
-            return ''
-          }
-        }
         function readHash() {
           try {
             var h = location.hash || ''
@@ -110,8 +92,7 @@
             return ''
           }
         }
-        // Prefer live WebApp.initData; never let a stale storage copy win.
-        var raw = readWebApp() || readHash() || readStored()
+        var raw = readHash() || readStored()
         if (raw) {
           window.__LIFEOS_INIT_DATA__ = raw
           try {
@@ -121,5 +102,24 @@
       })()
     </script>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      /* telegram-web-app.js is injected by main.tsx after React mounts.
+         A tag here runs too early and can block the module inside Telegram. */
+      var mod = document.querySelector('script[type="module"]')
+      if (mod) {
+        mod.addEventListener('error', function () {
+          var boot = document.getElementById('boot')
+          if (boot) boot.textContent = 'Не удалось загрузить приложение'
+        })
+      }
+      window.addEventListener('error', function (e) {
+        var boot = document.getElementById('boot')
+        if (boot && e && e.message) boot.textContent = 'Ошибка: ' + e.message
+      })
+      setTimeout(function () {
+        var boot = document.getElementById('boot')
+        if (boot) boot.textContent = 'Приложение не запустилось. Закрой Mini App и открой снова.'
+      }, 12000)
+    </script>
   </body>
 </html>
