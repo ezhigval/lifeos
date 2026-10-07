@@ -122,13 +122,15 @@
       })
       setTimeout(function () {
         if (!document.getElementById('boot')) return
-        var info = 'нет запроса'
+        var info = 'js не запрошен'
         try {
           var entries = performance.getEntriesByType('resource')
           for (var j = 0; j < entries.length; j++) {
-            if (entries[j].name.indexOf('/assets/') < 0 && entries[j].name.indexOf('/src/main') < 0) continue
             var n = entries[j]
-            info = Math.round(n.transferSize || n.encodedBodySize || 0) + 'б ' + Math.round(n.duration) + 'мс'
+            if (n.name.indexOf('.js') < 0) continue
+            if (n.name.indexOf('/assets/') < 0 && n.name.indexOf('/src/main') < 0) continue
+            var file = n.name.split('/').pop().split('?')[0]
+            info = file + ' ' + Math.round(n.transferSize || n.encodedBodySize || 0) + 'б ' + Math.round(n.duration) + 'мс'
           }
         } catch (e) {}
         lifeosBoot((window.__LIFEOS_JS ? 'Скрипт завис' : 'Скрипт не запустился') + ' (' + info + ')')

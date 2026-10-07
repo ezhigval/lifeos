@@ -25,12 +25,15 @@ function telegramClassicBundle(): Plugin {
       }
     },
     transformIndexHtml(html) {
-      return html
-        .replace(
-          /<script type="module"(?: crossorigin)? src="([^"]+)"><\/script>/g,
-          '<script defer src="$1"></script>',
-        )
-        .replace(/<link rel="stylesheet" crossorigin href=/g, '<link rel="stylesheet" href=')
+      // defer in <head> is fetched and then never run by Telegram Desktop's
+      // webview: inline boot JS runs, the stylesheet arrives, __LIFEOS_JS stays unset.
+      // A classic script at the end of body runs as soon as the parser reaches it.
+      const tag = html.match(/<script type="module"(?: crossorigin)? src="([^"]+)"><\/script>/)
+      let out = html.replace(/<link rel="stylesheet" crossorigin href=/g, '<link rel="stylesheet" href=')
+      if (!tag) return out
+      out = out.replace(tag[0], '')
+      const classic = `<script src="${tag[1]}"></script>`
+      return out.includes('</body>') ? out.replace('</body>', `${classic}\n  </body>`) : out + classic
     },
   }
 }
