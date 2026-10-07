@@ -1,6 +1,41 @@
 <!doctype html>
 <html lang="ru">
   <head>
+    <script>
+      /* Tell Telegram to drop its cover before any file download.
+         The cover stays up until web_app_ready, and the full WebApp
+         script is large enough to stall that on a slow LTE link. */
+      (function () {
+        function signal() {
+          try {
+            var payload = JSON.stringify('')
+            if (window.TelegramWebviewProxy && TelegramWebviewProxy.postEvent) {
+              TelegramWebviewProxy.postEvent('web_app_ready', payload)
+              TelegramWebviewProxy.postEvent('web_app_expand', payload)
+              return true
+            }
+            if (window.external && typeof window.external.notify === 'function') {
+              window.external.notify(JSON.stringify({eventType: 'web_app_ready', eventData: ''}))
+              window.external.notify(JSON.stringify({eventType: 'web_app_expand', eventData: ''}))
+              return true
+            }
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage(JSON.stringify({eventType: 'web_app_ready', eventData: ''}), '*')
+              window.parent.postMessage(JSON.stringify({eventType: 'web_app_expand', eventData: ''}), '*')
+              return true
+            }
+          } catch (e) {}
+          return false
+        }
+        if (!signal()) {
+          var tries = 0
+          var timer = setInterval(function () {
+            tries++
+            if (signal() || tries > 40) clearInterval(timer)
+          }, 50)
+        }
+      })()
+    </script>
     <meta charset="UTF-8" />
     <meta
       name="viewport"
