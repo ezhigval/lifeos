@@ -14,6 +14,7 @@ const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage').then((m) => ({ 
 const NotesPage = lazy(() => import('@/pages/NotesPage').then((m) => ({ default: m.NotesPage })))
 const HealthPage = lazy(() => import('@/pages/HealthPage').then((m) => ({ default: m.HealthPage })))
 const DebtsPage = lazy(() => import('@/pages/DebtsPage').then((m) => ({ default: m.DebtsPage })))
+const CareerPage = lazy(() => import('@/pages/CareerPage').then((m) => ({ default: m.CareerPage })))
 const TriagePage = lazy(() => import('@/pages/TriagePage').then((m) => ({ default: m.TriagePage })))
 
 function PageFallback() {
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="more/notes" element={whenOpen(<NotesPage />)} />
         <Route path="more/health" element={whenOpen(<HealthPage />)} />
         <Route path="more/debts" element={whenOpen(<DebtsPage />)} />
+        <Route path="more/career" element={whenOpen(<CareerPage />)} />
         <Route path="more/triage" element={whenOpen(<TriagePage />)} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
