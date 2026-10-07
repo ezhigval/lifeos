@@ -55,7 +55,28 @@ install_nginx_site() {
   elif [[ -f "$BASE/bin/nginx-lifeos.conf" ]]; then
     src="$BASE/bin/nginx-lifeos.conf"
   else
-    return 0
+    install -d -m 755 "$BASE/bin"
+    src="$BASE/bin/nginx-lifeos.conf"
+    cat > "$src" <<'NGINX'
+# Fallback copy of deployments/nginx/lifeos.conf, used when that file
+# is not in the checked-out revision yet.
+server {
+    listen 80 default_server;
+    server_name _;
+    gzip off;
+    client_max_body_size 8m;
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Accept-Encoding $http_accept_encoding;
+        proxy_buffering on;
+        proxy_read_timeout 120s;
+    }
+}
+NGINX
   fi
   command -v nginx >/dev/null 2>&1 || return 0
   install -d -m 755 /etc/nginx/sites-available /etc/nginx/sites-enabled
@@ -113,7 +134,11 @@ backup_postgres() {
   install -d -m 700 "$BASE/backups"
   out="$BASE/backups/lifeos-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
   log "pg_dump before schema or port change"
-  docker exec "$cid" pg_dump -U lifeos -d lifeos --no-owner | gzip -c > "$out"
+  if ! docker exec "$cid" pg_dump -U lifeos -d lifeos --no-owner | gzip -c > "$out"; then
+    rm -f "$out"
+    log "pg_dump failed; not changing postgres or schema"
+    exit 1
+  fi
   gzip -t "$out"
   bytes=$(wc -c < "$out")
   if [[ "$bytes" -lt 100 ]]; then
@@ -156,14 +181,23 @@ build_app() {
     log "skip build: under 1.5GB free disk; timer will retry"
     return 2
   fi
-  log "docker build (classic builder, 1200m cap)"
+  log "docker build (classic builder, memory cap)"
+  local help flags=()
+  help=$(docker build --help 2>&1 || true)
+  if grep -q -- '--memory ' <<<"$help" || grep -q -- '--memory=' <<<"$help"; then
+    flags+=(--memory=1200m)
+  fi
+  if grep -q -- '--memory-swap' <<<"$help"; then
+    flags+=(--memory-swap=2200m)
+  fi
+  if grep -q -- '--oom-score-adj' <<<"$help"; then
+    flags+=(--oom-score-adj=800)
+  fi
   if ! (
     cd "$REPO"
     # BuildKit ignores --memory and the compile can OOM the host.
     DOCKER_BUILDKIT=0 docker build \
-      --memory=1200m \
-      --memory-swap=2200m \
-      --oom-score-adj=800 \
+      "${flags[@]}" \
       -f deployments/Dockerfile \
       -t "$IMAGE" \
       .
@@ -205,7 +239,7 @@ if [[ -f "$fail_stamp" ]]; then
 fi
 
 log "deploying $LOCAL -> $REMOTE"
-git checkout "$BRANCH"
+git checkout -f "$BRANCH"
 git reset --hard "origin/$BRANCH"
 
 repo_script="$REPO/deployments/vm-pull-deploy.sh"
@@ -235,7 +269,18 @@ compose up -d postgres
 compose run --rm --no-deps --no-build app migrate up
 compose up -d --no-build --force-recreate app
 docker image prune -f >/dev/null 2>&1 || true
+ok=0
+for _ in 1 2 3 4 5 6; do
+  if curl -fsS http://127.0.0.1:8080/health >/dev/null; then
+    ok=1
+    break
+  fi
+  sleep 3
+done
+if [[ "$ok" -ne 1 ]]; then
+  printf '%s\t%s\n' "$REMOTE" "$(date +%s)" > "$fail_stamp"
+  log "health check failed after deploy"
+  exit 1
+fi
 printf '%s\n' "$REMOTE" > "$SHA_FILE"
-sleep 3
-curl -fsS http://127.0.0.1:8080/health
 log "health OK ($REMOTE)"
