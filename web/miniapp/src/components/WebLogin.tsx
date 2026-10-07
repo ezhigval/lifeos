@@ -4,7 +4,7 @@ import {
   setAccessToken,
   verifyTelegramLoginCode,
 } from '@/api/client'
-import { buildSession, saveSession } from '@/lib/session'
+import { buildSession, commitSession, homePath } from '@/lib/session'
 
 const field: CSSProperties = {
   width: '100%',
@@ -59,8 +59,8 @@ export function WebLogin() {
     try {
       const result = await verifyTelegramLoginCode(username.trim(), code.trim())
       setAccessToken(result.accessToken)
-      saveSession(buildSession(result.accessToken, result.expiresIn, result.telegramId))
-      window.location.assign('/app/')
+      await commitSession(buildSession(result.accessToken, result.expiresIn, result.telegramId))
+      window.location.assign(homePath())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось войти')
       setPending(false)
