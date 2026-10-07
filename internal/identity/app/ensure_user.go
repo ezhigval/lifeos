@@ -30,6 +30,8 @@ type EnsureUserByTelegram struct {
 type EnsureUserInput struct {
 	TelegramID  int64
 	DisplayName string
+	// Username is the public Telegram nick without @. Empty leaves the stored nick alone.
+	Username string
 }
 
 func NewEnsureUserByTelegram(
@@ -54,6 +56,8 @@ func (uc *EnsureUserByTelegram) Execute(ctx context.Context, in EnsureUserInput)
 
 	user, err := uc.repo.GetByTelegramID(ctx, in.TelegramID)
 	if err == nil {
+		uc.rememberUsername(ctx, user.ID, in.Username)
+		user.TelegramUsername = normalizeStoredUsername(in.Username, user.TelegramUsername)
 		return user, nil
 	}
 	if !errors.Is(err, domain.ErrNotFound) {
@@ -82,5 +86,33 @@ func (uc *EnsureUserByTelegram) Execute(ctx context.Context, in EnsureUserInput)
 			return domain.User{}, fmt.Errorf("on user created: %w", err)
 		}
 	}
+	uc.rememberUsername(ctx, user.ID, in.Username)
+	user.TelegramUsername = normalizeStoredUsername(in.Username, "")
 	return user, nil
+}
+
+type usernameRecorder interface {
+	RememberUsername(ctx context.Context, userID ids.UserID, username string) error
+}
+
+func (uc *EnsureUserByTelegram) rememberUsername(ctx context.Context, userID ids.UserID, raw string) {
+	username, ok := NormalizeTelegramUsername(raw)
+	if !ok {
+		return
+	}
+	rec, ok := uc.repo.(usernameRecorder)
+	if !ok {
+		return
+	}
+	// A nick collision must not fail /start. The next login lookup still works
+	// once RememberUsername can move the nick.
+	_ = rec.RememberUsername(ctx, userID, username)
+}
+
+func normalizeStoredUsername(raw, existing string) string {
+	username, ok := NormalizeTelegramUsername(raw)
+	if !ok {
+		return existing
+	}
+	return username
 }

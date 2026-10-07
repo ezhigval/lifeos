@@ -262,6 +262,7 @@ func (h *MessageHandler) HandleUpdate(ctx context.Context, update Update) error 
 		user, uerr := h.ensureUser.Execute(ctx, identityapp.EnsureUserInput{
 			TelegramID:  update.Message.From.ID,
 			DisplayName: FormatDisplayName(update.Message.From),
+			Username:    update.Message.From.Username,
 		})
 		if uerr != nil {
 			return fmt.Errorf("resolve user: %w", uerr)
@@ -281,6 +282,7 @@ func (h *MessageHandler) HandleUpdate(ctx context.Context, update Update) error 
 	user, err := h.ensureUser.Execute(ctx, identityapp.EnsureUserInput{
 		TelegramID:  update.Message.From.ID,
 		DisplayName: FormatDisplayName(update.Message.From),
+		Username:    update.Message.From.Username,
 	})
 	if err != nil {
 		return fmt.Errorf("resolve user: %w", err)
@@ -300,6 +302,7 @@ func (h *MessageHandler) HandleUpdate(ctx context.Context, update Update) error 
 	if fresh, eerr := h.ensureUser.Execute(ctx, identityapp.EnsureUserInput{
 		TelegramID:  update.Message.From.ID,
 		DisplayName: FormatDisplayName(update.Message.From),
+		Username:    update.Message.From.Username,
 	}); eerr == nil {
 		user = fresh
 	}
@@ -435,6 +438,7 @@ func (h *MessageHandler) handleCallback(ctx context.Context, update Update) erro
 	user, err := h.ensureUser.Execute(ctx, identityapp.EnsureUserInput{
 		TelegramID:  update.CallbackQuery.From.ID,
 		DisplayName: FormatDisplayName(update.CallbackQuery.From),
+		Username:    update.CallbackQuery.From.Username,
 	})
 	if err != nil {
 		return err
@@ -478,6 +482,7 @@ func (h *MessageHandler) handleCallback(ctx context.Context, update Update) erro
 			if fresh, eerr := h.ensureUser.Execute(ctx, identityapp.EnsureUserInput{
 				TelegramID:  update.CallbackQuery.From.ID,
 				DisplayName: FormatDisplayName(update.CallbackQuery.From),
+				Username:    update.CallbackQuery.From.Username,
 			}); eerr == nil {
 				user = fresh
 			}

@@ -55,6 +55,7 @@ func (rt *Router) authTelegramWebApp(w http.ResponseWriter, r *http.Request) {
 	user, err := rt.deps.EnsureUser.Execute(r.Context(), identityapp.EnsureUserInput{
 		TelegramID:  parsed.User.ID,
 		DisplayName: parsed.User.DisplayName(),
+		Username:    parsed.User.Username,
 	})
 	if err != nil {
 		if rt.deps.Log != nil {

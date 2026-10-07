@@ -1,14 +1,17 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
 
 	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
+	identityinfra "github.com/valentinezhov/lifeos/internal/identity/infra"
 	"github.com/valentinezhov/lifeos/internal/platform/auth"
 	"github.com/valentinezhov/lifeos/internal/platform/config"
 	"github.com/valentinezhov/lifeos/internal/transport/http/api"
+	tg "github.com/valentinezhov/lifeos/internal/transport/telegram"
 )
 
 func (rt *runtime) apiRouter(cfg config.Config, log *slog.Logger) (*api.Router, error) {
@@ -19,12 +22,28 @@ func (rt *runtime) apiRouter(cfg config.Config, log *slog.Logger) (*api.Router, 
 	if err != nil {
 		return nil, fmt.Errorf("jwt: %w", err)
 	}
+	var loginSender identityapp.LoginCodeSender
+	var loginResolver identityapp.LoginUsernameResolver
+	if rt.tgClient != nil {
+		adapter := telegramLoginAdapter{client: rt.tgClient}
+		loginSender = adapter
+		loginResolver = adapter
+	}
+	telegramLogin := identityapp.NewTelegramLogin(
+		rt.users,
+		identityinfra.NewLoginCodes(rt.pool),
+		rt.ensureUser,
+		loginSender,
+		loginResolver,
+		cfg.JWTSecret,
+	)
 	return api.NewRouter(api.Deps{
 		Log:                 log,
 		APIKey:              cfg.APIKey,
 		BotToken:            cfg.TelegramBotToken,
 		WebAppAuthTTL:       time.Duration(cfg.WebAppAuthTTLHours) * time.Hour,
 		Tokens:              tokens,
+		TelegramLogin:       telegramLogin,
 		GetUser:             identityapp.NewGetUserByTelegram(rt.users),
 		GetUserByID:         identityapp.NewGetUserByID(rt.users),
 		EnsureUser:          rt.ensureUser,
@@ -111,4 +130,18 @@ func (rt *runtime) apiRouter(cfg config.Config, log *slog.Logger) (*api.Router, 
 		UpdateHomeWidgets:   rt.updateHomeWidgets,
 		Dialogue:            rt.agent,
 	}), nil
+}
+
+// telegramLoginAdapter keeps the HTTP layer off the Telegram client.
+type telegramLoginAdapter struct {
+	client *tg.Client
+}
+
+func (a telegramLoginAdapter) Send(ctx context.Context, telegramID int64, text string) error {
+	_, err := a.client.SendPlainMessage(ctx, telegramID, text)
+	return err
+}
+
+func (a telegramLoginAdapter) Resolve(ctx context.Context, username string) (int64, error) {
+	return a.client.ResolveUsername(ctx, username)
 }
