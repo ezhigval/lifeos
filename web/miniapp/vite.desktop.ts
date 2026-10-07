@@ -12,7 +12,8 @@ const apiOrigin = process.env.LIFEOS_API_ORIGIN || 'http://127.0.0.1:8080'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   root: path.resolve(__dirname, './desktop'),
-  base: './',
+  // Absolute asset paths so a refresh on /more/notes still loads /assets, not /more/assets.
+  base: '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
