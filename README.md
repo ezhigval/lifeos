@@ -54,7 +54,7 @@ make package-win      # windows/amd64
 | Запуск локально и в Docker | [docs/getting-started.md](docs/getting-started.md) |
 | Бот, Mini App, туннель на ноутбуке | [docs/telegram.md](docs/telegram.md) |
 | ВМ, секреты, автодеплой, постоянный туннель | [docs/deploy/vm.md](docs/deploy/vm.md) |
-| Fly.io и Caddy | [docs/deploy/hosting.md](docs/deploy/hosting.md) |
+| VPS и Caddy | [docs/deploy/hosting.md](docs/deploy/hosting.md) |
 | Архитектура | [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) |
 | Модель и схема | [docs/architecture/DOMAIN_MODEL.md](docs/architecture/DOMAIN_MODEL.md), [docs/diagrams/](docs/diagrams/) |
 | Решения | [docs/adr/](docs/adr/) |
