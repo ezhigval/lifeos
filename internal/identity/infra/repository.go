@@ -189,6 +189,7 @@ func (r *Repository) Delete(ctx context.Context, userID ids.UserID) error {
 		`DELETE FROM telegram_sessions WHERE user_id = $1`,
 		`DELETE FROM life_spheres WHERE user_id = $1`,
 		`DELETE FROM user_settings WHERE user_id = $1`,
+		`DELETE FROM login_codes WHERE telegram_id IN (SELECT telegram_id FROM users WHERE id = $1)`,
 	}
 	for _, q := range stmts {
 		if _, err := tx.Exec(ctx, q, uid); err != nil {
@@ -207,6 +208,75 @@ func (r *Repository) Delete(ctx context.Context, userID ids.UserID) error {
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit delete user: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) GetByUsername(ctx context.Context, username string) (domain.User, error) {
+	const q = `
+		SELECT id, telegram_id, display_name, timezone, created_at, telegram_username
+		FROM users
+		WHERE telegram_username = $1
+	`
+	var (
+		id          ids.UserID
+		tgID        int64
+		displayName string
+		timezone    string
+		createdAt   time.Time
+		nick        *string
+	)
+	err := r.pool.QueryRow(ctx, q, username).Scan(
+		&id, &tgID, &displayName, &timezone, &createdAt, &nick,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.User{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.User{}, fmt.Errorf("query user by username: %w", err)
+	}
+	user := domain.User{
+		ID:          id,
+		TelegramID:  tgID,
+		DisplayName: displayName,
+		Timezone:    timezone,
+		CreatedAt:   createdAt,
+	}
+	if nick != nil {
+		user.TelegramUsername = *nick
+	}
+	return user, nil
+}
+
+// RememberUsername stores the public nick. If another row holds it, the nick
+// moves: Telegram usernames are unique and can change hands.
+func (r *Repository) RememberUsername(ctx context.Context, userID ids.UserID, username string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin remember username: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE users
+		SET telegram_username = NULL, updated_at = now()
+		WHERE telegram_username = $1 AND id <> $2
+	`, username, userID.UUID()); err != nil {
+		return fmt.Errorf("clear username: %w", err)
+	}
+	tag, err := tx.Exec(ctx, `
+		UPDATE users
+		SET telegram_username = $1, updated_at = now()
+		WHERE id = $2
+	`, username, userID.UUID())
+	if err != nil {
+		return fmt.Errorf("set username: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrNotFound
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit remember username: %w", err)
 	}
 	return nil
 }

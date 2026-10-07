@@ -66,6 +66,69 @@ paths:
           description: Invalid or expired init_data
         '503':
           description: Auth or bot token not configured
+  /api/v1/auth/telegram-login/request:
+    post:
+      summary: Send a one-time login code to a Telegram nick
+      description: |
+        Web sign-in outside Mini App. The bot messages the code to a user who
+        already pressed /start. The code is not returned in the response.
+        Later account linking (including Yandex) should issue the same JWT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username:
+                  type: string
+                  description: Telegram nick, with or without @
+      responses:
+        '200':
+          description: Code sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  ttl_seconds:
+                    type: integer
+        '400':
+          description: Username is not a Telegram nick
+        '404':
+          description: Bot does not know this user yet
+        '429':
+          description: A code was sent recently
+        '502':
+          description: Telegram did not accept the message
+  /api/v1/auth/telegram-login/verify:
+    post:
+      summary: Exchange a login code for a JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, code]
+              properties:
+                username:
+                  type: string
+                code:
+                  type: string
+                  description: Six digits from the bot chat
+      responses:
+        '200':
+          description: Access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Wrong or expired code
   /api/v1/assistant/chat:
     post:
       summary: Conversational assistant turn (Mini App)

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
+import { WebLogin } from '@/components/WebLogin'
 import { freezeInitData, initTelegram } from '@/lib/telegram'
 import App from './App'
 import './index.css'
@@ -63,6 +64,10 @@ function Root() {
         Загрузка…
       </div>
     )
+  }
+
+  if (auth.status === 'login') {
+    return <WebLogin />
   }
 
   if (auth.status === 'error') {
