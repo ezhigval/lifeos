@@ -1,117 +1,11 @@
-import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-// Telegram's webview finishes small files (the page, the stylesheet) and then
-// stalls on a large body. A 441KB inline script never reaches its closing tag,
-// so the marker after it stays "no-end". Ship the bundle as small slices and
-// assemble them with an inline loader.
-const PART_CHARS = 12_000
-
-function splitParts(code: string): string[] {
-  const parts: string[] = []
-  let i = 0
-  while (i < code.length) {
-    let end = Math.min(i + PART_CHARS, code.length)
-    if (end < code.length) {
-      const nl = code.lastIndexOf('\n', end)
-      if (nl > i + PART_CHARS / 2) end = nl + 1
-    }
-    parts.push(code.slice(i, end))
-    i = end
-  }
-  return parts
-}
-
-function partLoader(urls: string[]): string {
-  const list = JSON.stringify(urls)
-  return `<script>
-(function () {
-  var urls = ${list}
-  window.__LIFEOS_LOAD = '0/' + urls.length
-  var got = new Array(urls.length)
-  var tries = new Array(urls.length)
-  var ticket = new Array(urls.length)
-  var next = 0
-  var inflight = 0
-  var done = 0
-  var failed = false
-  function finish() {
-    window.__LIFEOS_LOAD = 'run'
-    var s = document.createElement('script')
-    s.text = got.join('')
-    document.body.appendChild(s)
-  }
-  function giveUp(i, msg) {
-    if (failed || got[i] != null) return
-    failed = true
-    window.__LIFEOS_LOAD = 'fail ' + i
-    lifeosBoot('Не удалось загрузить часть ' + (i + 1) + ': ' + msg)
-  }
-  function load(i) {
-    if (failed || got[i] != null) return
-    var my = {}
-    ticket[i] = my
-    tries[i] = (tries[i] || 0) + 1
-    inflight++
-    var x = new XMLHttpRequest()
-    x.open('GET', urls[i], true)
-    x.overrideMimeType('text/plain; charset=utf-8')
-    x.onload = function () {
-      if (ticket[i] !== my) return
-      inflight--
-      if (failed || got[i] != null) return
-      if (x.status < 200 || x.status >= 300) { retry(i, 'http ' + x.status); return }
-      var type = x.getResponseHeader('Content-Type') || ''
-      if (type.indexOf('javascript') < 0 && type.indexOf('ecmascript') < 0 && type.indexOf('text/plain') < 0) {
-        retry(i, type || 'не js')
-        return
-      }
-      got[i] = x.responseText
-      done++
-      window.__LIFEOS_LOAD = done + '/' + urls.length
-      lifeosBoot('Загрузка LifeOS… ' + done + '/' + urls.length)
-      if (done === urls.length) finish()
-      else kick()
-    }
-    x.onerror = function () {
-      if (ticket[i] !== my) return
-      inflight--
-      retry(i, 'сеть')
-    }
-    x.ontimeout = function () {
-      if (ticket[i] !== my) return
-      inflight--
-      try { x.abort() } catch (e) {}
-      retry(i, 'таймаут')
-    }
-    x.timeout = 15000
-    x.send()
-  }
-  function retry(i, msg) {
-    if (failed || got[i] != null) return
-    if ((tries[i] || 0) < 3) {
-      window.__LIFEOS_LOAD = 'retry ' + (i + 1)
-      lifeosBoot('Загрузка LifeOS… повтор ' + (i + 1))
-      load(i)
-      return
-    }
-    giveUp(i, msg)
-  }
-  function kick() {
-    if (failed) return
-    while (inflight < 2 && next < urls.length) {
-      load(next)
-      next++
-    }
-  }
-  kick()
-})()
-</script>`
-}
+// One classic script. Thirty-seven XHR slices added a round trip each, and any
+// stalled slice aborted the boot. The gzipped bundle is about 126KB.
 
 function telegramClassicBundle(): Plugin {
   return {
@@ -137,33 +31,25 @@ function telegramClassicBundle(): Plugin {
       let out = html.replace(/<link rel="stylesheet" crossorigin href=/g, '<link rel="stylesheet" href=')
       if (!tag) return out
       out = out.replace(tag[0], '')
-      const classic = `<script src="${tag[1]}"></script>`
+      const href = tag[1]
+      const preload = `<link rel="preload" href="${href}" as="script">`
+      if (out.includes('</head>')) out = out.replace('</head>', `${preload}\n  </head>`)
+      const classic = `<script src="${href}"></script>`
       return out.includes('</body>') ? out.replace('</body>', `${classic}\n  </body>`) : out + classic
     },
     closeBundle() {
-      const dist = path.resolve(__dirname, 'dist')
-      const htmlPath = path.join(dist, 'index.html')
-      const assetsDir = path.join(dist, 'assets')
-      let html = fs.readFileSync(htmlPath, 'utf8')
-      const tag = html.match(/<script src="(\/app\/assets\/[^"]+\.js)"><\/script>/)
-      if (!tag) throw new Error('telegram-classic-bundle: classic script tag missing')
-      const jsPath = path.join(dist, tag[1].replace(/^\/app\//, ''))
-      let code = fs.readFileSync(jsPath, 'utf8')
-      code = code.replace(/\n\/\/# sourceMappingURL=\S+\s*$/, '')
-      const parts = splitParts(code)
-      if (parts.join('') !== code) throw new Error('telegram-classic-bundle: part join mismatch')
-      const hash = crypto.createHash('sha256').update(code).digest('hex').slice(0, 10)
+      const assetsDir = path.resolve(__dirname, 'dist/assets')
       for (const name of fs.readdirSync(assetsDir)) {
-        if (/^lifeos-[0-9a-f]+-\d+\.js$/.test(name)) fs.unlinkSync(path.join(assetsDir, name))
+        const filePath = path.join(assetsDir, name)
+        if (name.endsWith('.map')) {
+          fs.unlinkSync(filePath)
+          continue
+        }
+        if (!name.endsWith('.js')) continue
+        const code = fs.readFileSync(filePath, 'utf8')
+        const stripped = code.replace(/\n\/\/# sourceMappingURL=\S+\s*$/, '')
+        if (stripped !== code) fs.writeFileSync(filePath, stripped)
       }
-      const urls: string[] = []
-      parts.forEach((part, i) => {
-        const name = `lifeos-${hash}-${i}.js`
-        fs.writeFileSync(path.join(assetsDir, name), part)
-        urls.push(`/app/assets/${name}`)
-      })
-      html = html.replace(tag[0], () => partLoader(urls))
-      fs.writeFileSync(htmlPath, html)
     },
   }
 }
