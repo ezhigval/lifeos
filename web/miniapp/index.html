@@ -56,13 +56,17 @@
         align-items: center;
         justify-content: center;
         padding: 2rem;
-        color: #94a3b8;
+        color: #e2e8f0;
+        font-size: 17px;
         text-align: center;
       }
     </style>
+  </head>
+  <body>
+    <div id="root"><div id="boot">Загрузка LifeOS…</div></div>
     <!-- Same-origin copy of https://telegram.org/js/telegram-web-app.js.
-         The official host sits on Telegram IPs that some networks cannot open,
-         and a blocked script in <head> never lets the app call WebApp.ready().
+         Kept after the boot line: a blocking script in head paints nothing
+         until the file arrives, which is the gray screen on a slow LTE link.
          Do NOT also import @twa-dev/sdk — a second copy blanks many WebViews. -->
     <script src="/app/telegram-web-app.js"></script>
     <!-- Capture launch payload BEFORE the React module boots. Reload() drops
@@ -116,9 +120,6 @@
         }
       })()
     </script>
-  </head>
-  <body>
-    <div id="root"><div id="boot">Загрузка LifeOS…</div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
