@@ -121,6 +121,8 @@ type Deps struct {
 	UpdateHomeWidgets   *settingsapp.UpdateHomeWidgets
 	Triage              TriageProposer
 	Dialogue            *dialogue.Service
+	// TelegramLogin is web sign-in: nick → code in the bot → same JWT as Mini App.
+	TelegramLogin *identityapp.TelegramLogin
 }
 
 type Router struct {
@@ -135,6 +137,8 @@ func (rt *Router) Mount(r chi.Router) {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/auth/token", rt.issueToken)
 		r.Post("/auth/telegram-webapp", rt.authTelegramWebApp)
+		r.Post("/auth/telegram-login/request", rt.requestTelegramLoginCode)
+		r.Post("/auth/telegram-login/verify", rt.verifyTelegramLoginCode)
 		r.Group(func(r chi.Router) {
 			r.Use(rt.jwtMiddleware)
 			r.Post("/assistant/chat", rt.assistantChat)

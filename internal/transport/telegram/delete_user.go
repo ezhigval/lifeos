@@ -175,9 +175,14 @@ func (h *MessageHandler) confirmPendingDelete(ctx context.Context, actor ids.Use
 	}
 
 	if targetTG == actorTG {
+		nick := ""
+		if strings.HasPrefix(label, "@") {
+			nick = label
+		}
 		fresh, err := h.ensureUser.Execute(ctx, identityapp.EnsureUserInput{
 			TelegramID:  actorTG,
 			DisplayName: deleted.DisplayName,
+			Username:    nick,
 		})
 		if err != nil {
 			return dispatchResult{}, fmt.Errorf("recreate user: %w", err)

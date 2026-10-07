@@ -25,6 +25,7 @@ import {
 type AuthState =
   | { status: 'loading' }
   | { status: 'ready' }
+  | { status: 'login' }
   | { status: 'error'; message: string }
 
 const AuthContext = createContext<AuthState>({ status: 'loading' })
@@ -199,11 +200,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (!cancelled) {
+          if (!isTelegramEnv()) {
+            setState({ status: 'login' })
+            return
+          }
           setState({
             status: 'error',
-            message: isTelegramEnv()
-              ? 'Нет initData. Закрой окно и открой синей кнопкой «📱 Открыть Mini App» в чате (или Menu → Mini App). Reply-клавиатура и ссылка из текста не передают initData.'
-              : 'Открой из Telegram или задай VITE_DEV_API_KEY и VITE_DEV_TELEGRAM_ID',
+            message:
+              'Нет initData. Закрой окно и открой синей кнопкой «📱 Открыть Mini App» в чате (или Menu → Mini App). Reply-клавиатура и ссылка из текста не передают initData.',
           })
         }
       } catch (e) {
@@ -218,6 +222,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           /* fall through */
         }
         if (!cancelled) {
+          if (!isTelegramEnv()) {
+            setState({ status: 'login' })
+            return
+          }
           setState({
             status: 'error',
             message: e instanceof Error ? e.message : 'Ошибка авторизации',

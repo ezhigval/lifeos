@@ -102,6 +102,38 @@ export async function authWithInitData(initData: string): Promise<AuthResult> {
   }
 }
 
+export async function requestTelegramLoginCode(username: string): Promise<void> {
+  await request(
+    '/api/v1/auth/telegram-login/request',
+    {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    },
+    false,
+  )
+}
+
+export async function verifyTelegramLoginCode(username: string, code: string): Promise<AuthResult> {
+  const data = await request<{
+    access_token: string
+    expires_in?: number
+    telegram_id?: number
+  }>(
+    '/api/v1/auth/telegram-login/verify',
+    {
+      method: 'POST',
+      body: JSON.stringify({ username, code }),
+    },
+    false,
+  )
+  return {
+    accessToken: data.access_token,
+    expiresIn: data.expires_in ?? 0,
+    telegramId:
+      typeof data.telegram_id === 'number' && data.telegram_id > 0 ? data.telegram_id : undefined,
+  }
+}
+
 export async function authWithDevCredentials(
   apiKey: string,
   telegramId: number,

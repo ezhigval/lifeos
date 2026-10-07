@@ -14,11 +14,12 @@ var (
 )
 
 type User struct {
-	ID          ids.UserID
-	TelegramID  int64
-	DisplayName string
-	Timezone    string
-	CreatedAt   time.Time
+	ID               ids.UserID
+	TelegramID       int64
+	DisplayName      string
+	Timezone         string
+	TelegramUsername string
+	CreatedAt        time.Time
 }
 
 func NewUser(telegramID int64, displayName, timezone string, now time.Time) (User, error) {
