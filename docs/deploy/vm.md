@@ -68,7 +68,7 @@ sudo systemctl start lifeos-deploy.service
 curl -fsS http://127.0.0.1:8080/health
 ```
 
-В `.env` обязательны `TELEGRAM_BOT_TOKEN` и `LIFEOS_JWT_SECRET` (от 32 байт). Таймер `lifeos-deploy.timer` примерно раз в 5 минут делает `git fetch`. Образ пересобирается только если SHA в `origin/main` отличается от `/opt/lifeos/.last_deploy_sha`. Миграции выполняются в контейнере до рестарта приложения.
+В `.env` обязательны `TELEGRAM_BOT_TOKEN` и `LIFEOS_JWT_SECRET` (от 32 байт). Таймер `lifeos-deploy.timer` раз в сутки в 04:15 UTC делает `git fetch` (`Persistent=true`: пропущенный запуск выполняется после загрузки). Образ пересобирается только если SHA в `origin/main` отличается от `/opt/lifeos/.last_deploy_sha`. Миграции выполняются в контейнере до рестарта приложения.
 
 Повторный запуск того же скрипта безопасен. Снести установку и поставить заново, сохранив дамп БД: `sudo bash deployments/vm-reset.sh`. Полный проход с переносом старого тома: `sudo bash deployments/vm-bootstrap.sh`.
 

@@ -68,5 +68,5 @@ echo """
   2) First deploy now:  systemctl start lifeos-deploy.service
                         journalctl -u lifeos-deploy -n 80 --no-pager
   3) Verify:            curl -fsS http://localhost:8080/health
-After that the timer pulls main every 5 minutes (rebuild only on new commit).
+After that the timer pulls main once a day at 04:15 UTC (rebuild only on new commit).
 """

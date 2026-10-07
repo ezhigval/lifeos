@@ -343,7 +343,7 @@ cp "$REPO/deployments/systemd/lifeos-deploy.service" /etc/systemd/system/
 cp "$REPO/deployments/systemd/lifeos-deploy.timer"   /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now lifeos-deploy.timer
-ok "таймер автодеплоя активен (каждые 5 мин)"
+ok "таймер автодеплоя активен (ежедневно в 04:15 UTC)"
 
 # ---------------------------------------------------------------------------
 step "[11] Health check"
