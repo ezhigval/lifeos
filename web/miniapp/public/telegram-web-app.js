@@ -1,3 +1,5 @@
+/* Vendored from https://telegram.org/js/telegram-web-app.js (2026-10-07).
+   Same-origin copy: Mini App boot must not wait on telegram.org. */
 // WebView
 (function () {
   var eventHandlers = {};
@@ -3487,3 +3489,13 @@
   WebView.postEvent('web_app_request_content_safe_area');
 
 })();
+
+/* LifeOS: signal Telegram as soon as the SDK evaluates. The page injects this
+   file after React mounts, so ready() here does not race the app script. */
+try {
+  var lifeosWebApp = window.Telegram && window.Telegram.WebApp
+  if (lifeosWebApp) {
+    if (typeof lifeosWebApp.ready === "function") lifeosWebApp.ready()
+    if (typeof lifeosWebApp.expand === "function") lifeosWebApp.expand()
+  }
+} catch (_e) {}

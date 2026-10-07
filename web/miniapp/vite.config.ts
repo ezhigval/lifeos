@@ -3,6 +3,7 @@ import path from 'path'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { lifeosStaticCache } from './vite.assets.ts'
 
 // Telegram's webview runs classic scripts, not ES modules. The entry stays one
 // script. Other screens are separate classic scripts and load on navigation.
@@ -67,7 +68,10 @@ function telegramClassicBundle(): Plugin {
       const preload = `<link rel="preload" href="${href}" as="script">`
       if (out.includes('</head>')) out = out.replace('</head>', `${preload}\n  </head>`)
       const classic = `<script src="${href}"></script>`
-      return out.includes('</body>') ? out.replace('</body>', `${classic}\n  </body>`) : out + classic
+      // Last close tag: an earlier </body> inside a comment must not swallow the script.
+      const bodyClose = out.lastIndexOf('</body>')
+      if (bodyClose < 0) return out + classic
+      return `${out.slice(0, bodyClose)}${classic}\n  ${out.slice(bodyClose)}`
     },
     closeBundle() {
       const assetsDir = path.resolve(__dirname, 'dist/assets')
@@ -88,7 +92,7 @@ function telegramClassicBundle(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), telegramClassicBundle()],
+  plugins: [react(), tailwindcss(), telegramClassicBundle(), lifeosStaticCache()],
   base: '/app/',
   resolve: {
     alias: {

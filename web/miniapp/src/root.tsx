@@ -1,10 +1,11 @@
-import { Component, StrictMode, type ErrorInfo, type ReactNode } from 'react'
+import { Component, StrictMode, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { WebLogin } from '@/components/WebLogin'
 import { DesktopFrameProvider, type DesktopFrame } from '@/components/layout/shell'
+import { bootMark, bootReport } from '@/lib/bootTiming'
 import { freezeInitData, initTelegram } from '@/lib/telegram'
 import App from './App'
 
@@ -17,6 +18,8 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       retry: 1,
+      // Telegram WebView toggles focus on keyboard/sheets and would refetch everything.
+      refetchOnWindowFocus: false,
     },
   },
 })
@@ -34,10 +37,34 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error?: string 
 
   render() {
     if (this.state.error) {
+      const chunk =
+        /dynamically imported module|loading chunk|failed to fetch|importing a module/i.test(
+          this.state.error,
+        )
       return (
         <div style={{ padding: 24, color: '#f8fafc', background: '#0f172a', minHeight: '100%' }}>
           <h1 style={{ fontSize: 18, marginBottom: 8 }}>Ошибка Mini App</h1>
-          <p style={{ color: '#94a3b8', fontSize: 14 }}>{this.state.error}</p>
+          <p style={{ color: '#94a3b8', fontSize: 14 }}>
+            {chunk
+              ? 'Не удалось догрузить экран. Проверь сеть и открой ещё раз.'
+              : this.state.error}
+          </p>
+          <button
+            type="button"
+            style={{
+              marginTop: 16,
+              borderRadius: 16,
+              border: 'none',
+              background: '#22c55e',
+              color: '#fff',
+              padding: '8px 16px',
+              fontSize: 14,
+              fontWeight: 500,
+            }}
+            onClick={() => window.location.reload()}
+          >
+            Повторить
+          </button>
         </div>
       )
     }
@@ -47,6 +74,19 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error?: string 
 
 function Root() {
   const auth = useAuth()
+  const [stuck, setStuck] = useState(false)
+
+  useEffect(() => {
+    if (auth.status !== 'loading') return
+    const timer = window.setTimeout(() => setStuck(true), 6_000)
+    return () => window.clearTimeout(timer)
+  }, [auth.status])
+
+  useEffect(() => {
+    if (auth.status === 'loading') return
+    bootMark(auth.status === 'ready' ? 'paint-ready' : 'paint-error')
+    bootReport(auth.status)
+  }, [auth.status])
 
   if (auth.status === 'loading') {
     return (
@@ -54,14 +94,34 @@ function Root() {
         style={{
           display: 'flex',
           minHeight: '100%',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          gap: 12,
           padding: 32,
           background: '#0f172a',
           color: '#94a3b8',
+          textAlign: 'center',
         }}
       >
-        Загрузка…
+        <div>Загрузка…</div>
+        {stuck ? (
+          <button
+            type="button"
+            style={{
+              borderRadius: 16,
+              border: 'none',
+              background: '#22c55e',
+              color: '#fff',
+              padding: '8px 16px',
+              fontSize: 14,
+              fontWeight: 500,
+            }}
+            onClick={() => window.location.reload()}
+          >
+            Повторить
+          </button>
+        ) : null}
       </div>
     )
   }
@@ -113,6 +173,13 @@ function Root() {
 }
 
 export function renderApp(basename: string, frame: DesktopFrame | null = null) {
+  bootMark('render')
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      bootMark('paint')
+      bootReport('paint')
+    })
+  })
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <ErrorBoundary>
