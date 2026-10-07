@@ -236,10 +236,26 @@ apply_oom_scores
 install_nginx_site || true
 
 cd "$REPO"
-git fetch --quiet origin "$BRANCH"
+# github.com:22 from this VM often times out. Fail fast and keep going
+# with the checkout that is already on disk.
+if ! GIT_SSH_COMMAND="ssh -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new" \
+  git fetch --quiet origin "$BRANCH"; then
+  log "git fetch failed; using the checkout already on disk"
+fi
 REMOTE=$(git rev-parse "origin/$BRANCH")
 LOCAL=$(cat "$SHA_FILE" 2>/dev/null || echo none)
-if [[ "$REMOTE" == "$LOCAL" ]]; then
+# The stamp can say the SHA is deployed while the container still serves
+# an older image (build skipped or OOM'd after the file was written).
+image_stale=0
+if [[ -f "$REPO/web/miniapp/index.html" ]] && grep -q '__LIFEOS_MARK' "$REPO/web/miniapp/index.html"; then
+  if docker exec lifeos-app-1 grep -q '__LIFEOS_MARK' /app/web/index.html 2>/dev/null; then
+    image_stale=0
+  else
+    image_stale=1
+    log "running image has no __LIFEOS_MARK; will build even if the stamp matches"
+  fi
+fi
+if [[ "$REMOTE" == "$LOCAL" && "$image_stale" -eq 0 ]]; then
   ensure_postgres_localhost
   log "no changes ($REMOTE), skipping"
   exit 0
