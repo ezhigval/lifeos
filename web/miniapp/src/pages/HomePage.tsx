@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { FinanceCard, useFinancePeriod } from '@/components/finance/FinanceCard'
 import { Header } from '@/components/layout/Header'
 import { UpcomingTasks } from '@/components/tasks/UpcomingTasks'
-import { CreateTaskSheet } from '@/components/tasks/CreateTaskSheet'
 import { HomeHabits } from '@/components/habits/HomeHabits'
+
+const CreateTaskSheet = lazy(() =>
+  import('@/components/tasks/CreateTaskSheet').then((m) => ({ default: m.CreateTaskSheet })),
+)
 import { QueryError } from '@/components/ui/QueryError'
 import { api, enrichFinanceCategories } from '@/api/client'
 import { periodKey } from '@/lib/periods'
@@ -16,6 +19,7 @@ export function HomePage() {
   const navigate = useNavigate()
   const user = tgUser()
   const [createOpen, setCreateOpen] = useState(false)
+  const [sheetMounted, setSheetMounted] = useState(false)
   const { period, setPeriod } = useFinancePeriod()
 
   const {
@@ -65,6 +69,7 @@ export function HomePage() {
         aria-label="Новая задача"
         onClick={() => {
           hapticLight()
+          setSheetMounted(true)
           setCreateOpen(true)
         }}
         className={
@@ -76,7 +81,11 @@ export function HomePage() {
         <Plus size={24} />
       </button>
 
-      <CreateTaskSheet open={createOpen} onClose={() => setCreateOpen(false)} />
+      {sheetMounted ? (
+        <Suspense fallback={null}>
+          <CreateTaskSheet open={createOpen} onClose={() => setCreateOpen(false)} />
+        </Suspense>
+      ) : null}
     </>
   )
 }

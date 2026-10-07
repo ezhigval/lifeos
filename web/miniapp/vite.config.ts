@@ -23,5 +23,23 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    target: 'es2022',
+    cssCodeSplit: true,
+    modulePreload: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          if (
+            id.includes('react-router') ||
+            id.includes('react-dom') ||
+            id.includes('/react/')
+          ) {
+            return 'react'
+          }
+          if (id.includes('@tanstack/react-query')) return 'query'
+        },
+      },
+    },
   },
 })

@@ -140,13 +140,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           initTelegram()
           const initData = getInitData() || (await waitForInitData(800))
-          if (!initData) return false
+          if (!initData) {
+            if (!cancelled) {
+              setState({
+                status: 'error',
+                message: 'Сессия истекла. Закрой окно и открой Mini App снова.',
+              })
+            }
+            return false
+          }
           await loginWithInitData(initData)
+          if (!cancelled) setState({ status: 'ready' })
           return true
         } catch (err) {
           console.warn('silent re-auth failed', err)
           clearSession()
           setAccessToken(null)
+          if (!cancelled) {
+            setState({
+              status: 'error',
+              message: err instanceof Error ? err.message : 'Сессия истекла',
+            })
+          }
           return false
         } finally {
           refreshInFlight = null
@@ -161,24 +176,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         initTelegram()
 
-        // 1) Prefer persisted JWT — but reject wiped user ids (after /delete).
+        // 1) Fresh JWT paints immediately. A dead token surfaces on the first
+        // API call (401 → refreshFromInitData) instead of blocking boot on
+        // GET /settings with no timeout.
         if (tryRestoreSession()) {
-          try {
-            const token = loadSession()?.accessToken
-            const res = await fetch('/api/v1/settings', {
-              headers: token ? { Authorization: `Bearer ${token}` } : {},
-            })
-            if (res.status === 401) {
-              clearSession()
-              setAccessToken(null)
-            } else {
-              if (!cancelled) setState({ status: 'ready' })
-              return
-            }
-          } catch {
-            if (!cancelled) setState({ status: 'ready' })
-            return
-          }
+          if (!cancelled) setState({ status: 'ready' })
+          return
         }
 
         // 2) One-shot Telegram bootstrap when we have no/expired session.

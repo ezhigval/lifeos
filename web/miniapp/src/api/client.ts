@@ -36,6 +36,15 @@ class ApiClientError extends Error {
   }
 }
 
+const REQUEST_TIMEOUT_MS = 15_000
+
+function isAbortError(err: unknown): boolean {
+  return (
+    (err instanceof DOMException && err.name === 'AbortError') ||
+    (err instanceof Error && err.name === 'AbortError')
+  )
+}
+
 async function request<T>(
   path: string,
   init: RequestInit = {},
@@ -49,7 +58,23 @@ async function request<T>(
     headers.set('Authorization', `Bearer ${accessToken}`)
   }
 
-  const res = await fetch(path, { ...init, headers })
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS)
+  const parent = init.signal
+  if (parent) {
+    if (parent.aborted) ctrl.abort()
+    else parent.addEventListener('abort', () => ctrl.abort(), { once: true })
+  }
+
+  let res: Response
+  try {
+    res = await fetch(path, { ...init, headers, signal: ctrl.signal })
+  } catch (err) {
+    if (isAbortError(err)) throw new ApiClientError(0, 'Сервер не отвечает')
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
   if (res.status === 401 && allowRefresh && onUnauthorized) {
     const refreshed = await onUnauthorized()
     if (refreshed) {

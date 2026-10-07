@@ -94,30 +94,69 @@ func New(log *slog.Logger, addr string, db *postgres.Pool, traceHTTP bool, apiRo
 
 func mountMiniApp(r chi.Router, dir string) {
 	serveIndex := func(w http.ResponseWriter, req *http.Request) {
+		// Telegram WebView caches HTML aggressively. A stale index points at
+		// removed hashed chunks and the module never starts.
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		http.ServeFile(w, req, filepath.Join(dir, "index.html"))
 	}
-	r.Get("/app", func(w http.ResponseWriter, req *http.Request) {
-		http.Redirect(w, req, "/app/", http.StatusFound)
-	})
-	r.Handle("/app/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		path := strings.TrimPrefix(req.URL.Path, "/app")
-		if path == "" || path == "/" {
+	// Compress only the Mini App. Caddy/Fly skip bodies that already have
+	// Content-Encoding, so this does not double-gzip behind those proxies.
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Compress(5))
+		r.Get("/app", func(w http.ResponseWriter, req *http.Request) {
+			http.Redirect(w, req, "/app/", http.StatusFound)
+		})
+		r.Handle("/app/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			path := strings.TrimPrefix(req.URL.Path, "/app")
+			if path == "" || path == "/" {
+				serveIndex(w, req)
+				return
+			}
+			full := filepath.Join(dir, filepath.Clean("/"+path))
+			root := filepath.Clean(dir)
+			if full != root && !strings.HasPrefix(full, root+string(filepath.Separator)) {
+				http.NotFound(w, req)
+				return
+			}
+			if st, err := os.Stat(full); err == nil && !st.IsDir() {
+				w.Header().Set("Cache-Control", miniAppCacheControl(path))
+				w.Header().Set("X-Content-Type-Options", "nosniff")
+				http.ServeFile(w, req, full)
+				return
+			}
+			// Missing JS/CSS must 404. Falling back to index.html returns
+			// text/html for a module URL, and the WebView never executes it.
+			if isMiniAppAssetPath(path) {
+				w.Header().Set("Cache-Control", "no-store")
+				w.Header().Set("X-Content-Type-Options", "nosniff")
+				http.NotFound(w, req)
+				return
+			}
+			// SPA fallback for client-side routes (BrowserRouter basename=/app).
 			serveIndex(w, req)
-			return
-		}
-		full := filepath.Join(dir, filepath.Clean("/"+path))
-		root := filepath.Clean(dir)
-		if full != root && !strings.HasPrefix(full, root+string(filepath.Separator)) {
-			http.NotFound(w, req)
-			return
-		}
-		if st, err := os.Stat(full); err == nil && !st.IsDir() {
-			http.ServeFile(w, req, full)
-			return
-		}
-		// SPA fallback for client-side routes (BrowserRouter basename=/app).
-		serveIndex(w, req)
-	}))
+		}))
+	})
+}
+
+func miniAppCacheControl(urlPath string) string {
+	if strings.EqualFold(filepath.Base(urlPath), "index.html") {
+		return "no-store"
+	}
+	// Vite fingerprints files under /assets/.
+	if strings.HasPrefix(urlPath, "/assets/") {
+		return "public, max-age=31536000, immutable"
+	}
+	return "public, max-age=86400"
+}
+
+func isMiniAppAssetPath(urlPath string) bool {
+	switch strings.ToLower(filepath.Ext(urlPath)) {
+	case ".js", ".mjs", ".css", ".map", ".json", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".woff", ".woff2", ".ttf", ".txt", ".webmanifest", ".wasm", ".html":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Server) Start() error {

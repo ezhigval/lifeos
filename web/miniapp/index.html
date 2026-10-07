@@ -18,16 +18,41 @@
       #boot {
         min-height: 100%;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: 12px;
         padding: 2rem;
         color: #94a3b8;
         text-align: center;
       }
+      .boot-spin {
+        width: 28px;
+        height: 28px;
+        border: 3px solid rgba(148, 163, 184, 0.35);
+        border-top-color: #22c55e;
+        border-radius: 50%;
+        animation: boot-spin 0.8s linear infinite;
+      }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+      .boot-retry {
+        margin-top: 8px;
+        border: none;
+        border-radius: 16px;
+        background: #22c55e;
+        color: #fff;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 500;
+      }
     </style>
-    <!-- Official Telegram script only. Do NOT also import @twa-dev/sdk —
-         it embeds another copy and double-loading blanks many WebViews. -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Same-origin SDK (public/telegram-web-app.js). A blocking script from
+         telegram.org hangs the WebView when that host is slow or blocked.
+         async so a slow SDK cannot stall the app module. Do NOT also import @twa-dev/sdk. -->
+    <link rel="preload" href="%BASE_URL%telegram-web-app.js?v=20261007" as="script" />
+    <!-- async, not defer: a deferred SDK blocks the app module until the
+         whole file executes. If that request stalls, the Mini App never starts. -->
+    <script async src="%BASE_URL%telegram-web-app.js?v=20261007" onerror="window.__LIFEOS_TG_SDK_FAILED=1"></script>
     <!-- Capture launch payload BEFORE the React module boots. Reload() drops
          #tgWebAppData; sessionStorage keeps initData for this Mini App sheet. -->
     <script>
@@ -72,9 +97,62 @@
         }
       })()
     </script>
+    <!-- Registered before Vite injects the module into <head>, so a failed
+         chunk is caught even if the network error beats </body>. -->
+    <script>
+      (function () {
+        var shown = false
+        function showBootError() {
+          if (shown) return
+          var root = document.getElementById('root')
+          if (!root || root.getAttribute('data-booted') === '1') return
+          shown = true
+          root.innerHTML =
+            '<div id="boot"><p style="margin:0;color:#f8fafc;font-size:18px;font-weight:500">Не удалось загрузить</p>' +
+            '<p style="margin:8px 0 0;max-width:280px;font-size:14px">Скрипт Mini App не стартовал. Проверь сеть и открой ещё раз.</p>' +
+            '<button type="button" class="boot-retry" onclick="location.reload()">Повторить</button></div>'
+        }
+        window.__LIFEOS_BOOT_OK__ = function () {
+          var root = document.getElementById('root')
+          if (root) root.setAttribute('data-booted', '1')
+        }
+        window.__LIFEOS_BOOT_FAIL__ = showBootError
+        window.addEventListener('error', function (ev) {
+          var t = ev.target
+          if (!t || t.tagName !== 'SCRIPT') return
+          var src = t.src || ''
+          if (src.indexOf('telegram-web-app') >= 0 || src.indexOf('telegram.org') >= 0) return
+          showBootError()
+        }, true)
+        window.setTimeout(showBootError, 15000)
+      })()
+    </script>
   </head>
   <body>
-    <div id="root"><div id="boot">Загрузка LifeOS…</div></div>
+    <div id="root"><div id="boot"><div class="boot-spin"></div><div>Загрузка LifeOS…</div></div></div>
+    <!-- Dismiss Telegram's own loader before the SDK or the app bundle run. -->
+    <script>
+      (function () {
+        function post(eventType) {
+          try {
+            var payload = JSON.stringify({ eventType: eventType, eventData: '' })
+            if (window.TelegramWebviewProxy && window.TelegramWebviewProxy.postEvent) {
+              window.TelegramWebviewProxy.postEvent(eventType, JSON.stringify(''))
+              return
+            }
+            if (window.external && typeof window.external.notify === 'function') {
+              window.external.notify(payload)
+              return
+            }
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage(payload, '*')
+            }
+          } catch (e) {}
+        }
+        post('web_app_ready')
+        post('web_app_expand')
+      })()
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

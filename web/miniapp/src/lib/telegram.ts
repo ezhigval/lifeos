@@ -34,6 +34,9 @@ declare global {
   interface Window {
     Telegram?: { WebApp?: TelegramWebApp }
     __LIFEOS_INIT_DATA__?: string
+    __LIFEOS_BOOT_OK__?: () => void
+    __LIFEOS_BOOT_FAIL__?: () => void
+    __LIFEOS_TG_SDK_FAILED?: boolean
   }
 }
 
@@ -128,23 +131,63 @@ export function clearFrozenInitData() {
   }
 }
 
+let sdkFallbackStarted = false
+
+/** Local SDK is async in index.html. Inject telegram.org only after that tag errors — never both. */
+function ensureTelegramSdk() {
+  if (sdkFallbackStarted || getWebApp()) return
+  if (!window.__LIFEOS_TG_SDK_FAILED) return
+  sdkFallbackStarted = true
+  try {
+    const s = document.createElement('script')
+    s.src = 'https://telegram.org/js/telegram-web-app.js'
+    s.async = true
+    s.onload = () => {
+      try {
+        applyWebApp(getWebApp())
+      } catch (err) {
+        console.warn('telegram init failed', err)
+      }
+    }
+    document.head.appendChild(s)
+  } catch (err) {
+    console.warn('telegram sdk fallback failed', err)
+  }
+}
+
+function applyWebApp(wa: TelegramWebApp | undefined) {
+  if (!wa) return
+  try {
+    wa.ready?.()
+  } catch {
+    /* older clients */
+  }
+  try {
+    wa.expand?.()
+  } catch {
+    /* older clients */
+  }
+  try {
+    wa.setHeaderColor?.('secondary_bg_color')
+  } catch {
+    /* older clients */
+  }
+  try {
+    wa.setBackgroundColor?.('bg_color')
+  } catch {
+    /* older clients */
+  }
+}
+
 export function initTelegram() {
   freezeInitData()
   try {
     const wa = getWebApp()
-    if (!wa) return
-    wa.ready?.()
-    wa.expand?.()
-    try {
-      wa.setHeaderColor?.('secondary_bg_color')
-    } catch {
-      /* older clients */
+    if (!wa) {
+      ensureTelegramSdk()
+      return
     }
-    try {
-      wa.setBackgroundColor?.('bg_color')
-    } catch {
-      /* older clients */
-    }
+    applyWebApp(wa)
   } catch (err) {
     console.warn('telegram init failed', err)
   }
