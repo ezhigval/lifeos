@@ -4,7 +4,7 @@
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
-raw="${LIFEOS_DESKTOP_VERSION:-desktop-v0.2.0}"
+raw="${LIFEOS_DESKTOP_VERSION:-desktop-v0.3.0}"
 version="${raw#desktop-v}"
 case "$version" in
   ''|*[!0-9.]*) echo "bad version: $raw" >&2; exit 1 ;;

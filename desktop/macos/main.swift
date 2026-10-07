@@ -93,7 +93,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     }
 
     private func openWindow(port: Int) {
-        let web = WKWebView(frame: .zero)
+        let config = WKWebViewConfiguration()
+        config.websiteDataStore = WKWebsiteDataStore.default()
+        let web = WKWebView(frame: .zero, configuration: config)
         web.navigationDelegate = self
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 760),

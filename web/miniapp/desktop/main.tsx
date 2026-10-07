@@ -1,7 +1,11 @@
 import { renderApp } from '@/root'
+import { hydrateDesktopSession, markDesktopApp } from '@/lib/desktopSession'
 import { DesktopFrame } from './DesktopFrame'
 import './app.css'
 
-// Screens stay in this window. /api is proxied to the server in dev,
-// or sent to VITE_API_BASE when the desktop build cannot share an origin.
-renderApp('/', DesktopFrame)
+// The window origin is stable, and the login is also written to
+// Application Support so a webview wipe does not ask for the code again.
+markDesktopApp()
+void hydrateDesktopSession().finally(() => {
+  renderApp('/', DesktopFrame)
+})

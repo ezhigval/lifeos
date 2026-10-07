@@ -1,5 +1,11 @@
 const STORAGE_KEY = 'lifeos.miniapp.session.v1'
 
+declare global {
+  interface Window {
+    __LIFEOS_DESKTOP__?: boolean
+  }
+}
+
 export type StoredSession = {
   accessToken: string
   /** Unix epoch milliseconds */
@@ -45,6 +51,28 @@ export function loadSession(): StoredSession | null {
 }
 
 export function saveSession(session: StoredSession): void {
+  writeLocal(session)
+  void syncDesktop(session)
+}
+
+/** Write the browser copy and wait until the desktop file is updated. */
+export async function commitSession(session: StoredSession): Promise<void> {
+  writeLocal(session)
+  await syncDesktop(session)
+}
+
+export function clearSession(): void {
+  if (canUseStorage()) {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      /* ignore */
+    }
+  }
+  void syncDesktop(null)
+}
+
+function writeLocal(session: StoredSession): void {
   if (!canUseStorage()) return
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
@@ -53,13 +81,32 @@ export function saveSession(session: StoredSession): void {
   }
 }
 
-export function clearSession(): void {
-  if (!canUseStorage()) return
+function desktopApp(): boolean {
+  return typeof window !== 'undefined' && window.__LIFEOS_DESKTOP__ === true
+}
+
+async function syncDesktop(session: StoredSession | null): Promise<void> {
+  if (!desktopApp()) return
   try {
-    window.localStorage.removeItem(STORAGE_KEY)
+    if (!session) {
+      await fetch('/desktop/session', { method: 'DELETE', signal: AbortSignal.timeout(2_000) })
+      return
+    }
+    await fetch('/desktop/session', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(session),
+      signal: AbortSignal.timeout(2_000),
+    })
   } catch {
-    /* ignore */
+    /* localStorage already has the login; the verify proxy also writes the file */
   }
+}
+
+/** Mini App lives at /app/. The desktop window lives at /. */
+export function homePath(): string {
+  const base = import.meta.env.BASE_URL || '/'
+  return base.endsWith('/') ? base : `${base}/`
 }
 
 export function isSessionFresh(session: StoredSession, now = Date.now()): boolean {

@@ -21,7 +21,7 @@ import (
 var uiEmbed embed.FS
 
 // desktopVersion is overridden by -X main.desktopVersion in the Mac build.
-var desktopVersion = "0.2.0"
+var desktopVersion = "0.3.0"
 
 func main() {
 	log.SetFlags(0)
@@ -43,12 +43,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	desktop.sessions = openSessionStore(filepath.Join(dataDir(), "session.json"))
 
-	addr := os.Getenv("LIFEOS_DESKTOP_ADDR")
-	if addr == "" {
-		addr = "127.0.0.1:0"
-	}
-	ln, err := net.Listen("tcp", addr)
+	ln, err := listenDesktop(os.Getenv("LIFEOS_DESKTOP_ADDR"))
 	if err != nil {
 		log.Fatal(err)
 	}

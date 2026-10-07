@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -22,11 +23,12 @@ const (
 )
 
 type desktopServer struct {
-	ui     fs.FS
-	origin *url.URL
-	cache  *Cache
-	client *http.Client
-	now    func() time.Time
+	ui       fs.FS
+	origin   *url.URL
+	cache    *Cache
+	sessions *sessionStore
+	client   *http.Client
+	now      func() time.Time
 }
 
 func newDesktopServer(ui fs.FS, origin string, cache *Cache) (*desktopServer, error) {
@@ -45,6 +47,7 @@ func newDesktopServer(ui fs.FS, origin string, cache *Cache) (*desktopServer, er
 
 func (s *desktopServer) routes() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/desktop/session", s.localSession)
 	mux.HandleFunc("/api/", s.proxyAPI)
 	mux.HandleFunc("/", s.serveUI)
 	return mux
@@ -101,7 +104,86 @@ func (s *desktopServer) proxyAPI(w http.ResponseWriter, r *http.Request) {
 			log.Printf("cache put: %v", err)
 		}
 	}
+	if resp.StatusCode == http.StatusOK {
+		s.rememberAuth(r, body)
+	}
 	copyResponse(w, resp, body)
+}
+
+func (s *desktopServer) rememberAuth(r *http.Request, body []byte) {
+	if s.sessions == nil || r.Method != http.MethodPost {
+		return
+	}
+	switch r.URL.Path {
+	case "/api/v1/auth/telegram-login/verify", "/api/v1/auth/telegram-webapp", "/api/v1/auth/token":
+	default:
+		return
+	}
+	var payload struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int64  `json:"expires_in"`
+		TelegramID  int64  `json:"telegram_id"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil || payload.AccessToken == "" {
+		return
+	}
+	exp := s.now().Add(24 * time.Hour)
+	if unix, ok := jwtExpiryUnix(payload.AccessToken); ok {
+		exp = time.Unix(unix, 0)
+	} else if payload.ExpiresIn > 0 {
+		exp = s.now().Add(time.Duration(payload.ExpiresIn) * time.Second)
+	}
+	sess := storedSession{
+		AccessToken: payload.AccessToken,
+		ExpiresAt:   exp.UnixMilli(),
+		TelegramID:  payload.TelegramID,
+	}
+	if !validSession(sess, s.now()) {
+		return
+	}
+	if err := s.sessions.Save(sess); err != nil {
+		log.Printf("session save failed")
+	}
+}
+
+func (s *desktopServer) localSession(w http.ResponseWriter, r *http.Request) {
+	if s.sessions == nil {
+		http.NotFound(w, r)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		sess, ok := s.sessions.Load(s.now())
+		if !ok {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		_ = json.NewEncoder(w).Encode(sess)
+	case http.MethodPut:
+		var sess storedSession
+		if err := json.NewDecoder(io.LimitReader(r.Body, 8192)).Decode(&sess); err != nil || !validSession(sess, s.now()) {
+			http.Error(w, "bad session", http.StatusBadRequest)
+			return
+		}
+		if err := s.sessions.Save(sess); err != nil {
+			log.Printf("session save failed")
+			http.Error(w, "session", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	case http.MethodDelete:
+		if err := s.sessions.Clear(); err != nil {
+			log.Printf("session clear failed")
+			http.Error(w, "session", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.Header().Set("Allow", "GET, PUT, DELETE")
+		http.Error(w, "method", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *desktopServer) forward(r *http.Request) (*http.Response, error) {
