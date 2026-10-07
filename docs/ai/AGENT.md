@@ -58,6 +58,6 @@ Tools дергают **use cases**, не сырой HTTP.
 
 ## Дальше
 
-- UI-чат Mini App (отложен)
+- UI-чат Mini App (отложен). Десктоп-окно уже зовёт этот же агент: колонка справа, `POST /api/v1/assistant/chat`. Карта клиентов: [docs/roadmap/CLIENTS.md](../roadmap/CLIENTS.md).
 - nightly learning → few-shot
 - шифрование `user_memories.value` at rest

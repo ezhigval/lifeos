@@ -12,6 +12,7 @@
 | Почему так, а не иначе | [adr/](adr/) |
 | Что бот делает с фразой | [ai/SCENARIOS.md](ai/SCENARIOS.md) |
 | Диалоговый агент | [ai/AGENT.md](ai/AGENT.md) |
+| Клиенты: бот, Mini App, десктоп | [roadmap/CLIENTS.md](roadmap/CLIENTS.md) |
 | LLM | [ops/LLM.md](ops/LLM.md) |
 | Контракт HTTP | [api/openapi.yaml](api/openapi.yaml) |
 

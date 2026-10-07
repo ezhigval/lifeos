@@ -45,7 +45,9 @@ make package-linux    # linux/amd64
 make package-win      # windows/amd64
 ```
 
-Архив `dist/LifeOS_alpha_1.0.0_<os>_<arch>.tar.gz` содержит бинарь, Mini App, миграции и скрипты Start / Stop / Logs / Settings. Postgres ставится отдельно. Подробности внутри пакета, в `README.txt`.
+Архив `dist/LifeOS_alpha_1.0.0_<os>_<arch>.tar.gz` содержит бинарь, Mini App, миграции и скрипты Start / Stop / Logs / Settings. Postgres ставится отдельно. Подробности внутри пакета, в `README.txt`. Это серверный набор, не окно приложения.
+
+Окно Mac собирает `bash scripts/build-mac-app.sh` (в CI — тег `desktop-v*` на `macos-14`). Окно Windows: `bash scripts/build-win-desktop.sh` → `dist/LifeOS-win.zip`. Справа в обоих — чат того же агента. Карта: [docs/roadmap/CLIENTS.md](docs/roadmap/CLIENTS.md).
 
 ## Документация
 
