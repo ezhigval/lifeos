@@ -2,6 +2,8 @@
 
 FROM node:22-alpine AS web
 WORKDIR /web
+# Vite's peak is the thing that OOM-kills a 2GB VM if the build is uncapped.
+ENV NODE_OPTIONS=--max-old-space-size=768
 COPY web/miniapp/package.json web/miniapp/package-lock.json ./
 RUN npm install
 COPY web/miniapp/ ./
@@ -13,7 +15,8 @@ RUN apk add --no-cache git ca-certificates
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /lifeos ./cmd/lifeos
+# -p 1 keeps the compile inside the deploy script's memory cap.
+RUN CGO_ENABLED=0 GOOS=linux GOMAXPROCS=1 go build -p 1 -ldflags="-s -w" -o /lifeos ./cmd/lifeos
 
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
