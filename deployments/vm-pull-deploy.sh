@@ -152,14 +152,33 @@ backup_postgres() {
 
 # Recreate postgres only when Docker still publishes 5433 on every interface.
 # The app talks to postgres over the compose network, not this host port.
+# If an override file puts 0.0.0.0 back, do not recreate on every timer tick.
 ensure_postgres_localhost() {
   bind_postgres_localhost
-  local ports
+  local ports stamp when now
+  ports=$(docker ps --format '{{.Names}} {{.Ports}}' | grep lifeos-postgres || true)
+  if [[ "$ports" != *0.0.0.0:5433* && "$ports" != *"[::]:5433"* ]]; then
+    return 0
+  fi
+  stamp="$BASE/.postgres_rebind_fail"
+  if [[ -f "$stamp" ]]; then
+    when=$(cat "$stamp")
+    now=$(date +%s)
+    if [[ $((now - when)) -lt 3600 ]]; then
+      log "postgres still on 0.0.0.0; not recreating again this hour ($ports)"
+      return 0
+    fi
+  fi
+  log "rebind postgres off 0.0.0.0 ($ports)"
+  backup_postgres
+  compose up -d postgres
   ports=$(docker ps --format '{{.Names}} {{.Ports}}' | grep lifeos-postgres || true)
   if [[ "$ports" == *0.0.0.0:5433* || "$ports" == *"[::]:5433"* ]]; then
-    log "rebind postgres off 0.0.0.0 ($ports)"
-    backup_postgres
-    compose up -d postgres
+    date +%s > "$stamp"
+    log "postgres still published on every interface after rebind ($ports)"
+  else
+    rm -f "$stamp"
+    log "postgres host port is no longer 0.0.0.0"
   fi
 }
 
