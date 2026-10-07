@@ -103,23 +103,36 @@
     </script>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      /* telegram-web-app.js is injected by main.tsx after React mounts.
-         A tag here runs too early and can block the module inside Telegram. */
-      var mod = document.querySelector('script[type="module"]')
-      if (mod) {
-        mod.addEventListener('error', function () {
-          var boot = document.getElementById('boot')
-          if (boot) boot.textContent = 'Не удалось загрузить приложение'
-        })
+      /* telegram-web-app.js is injected by main.tsx after React mounts. */
+      function lifeosBoot(msg) {
+        var boot = document.getElementById('boot')
+        if (boot) boot.textContent = msg
+      }
+      var tags = document.getElementsByTagName('script')
+      for (var i = 0; i < tags.length; i++) {
+        var src = tags[i].getAttribute('src') || ''
+        if (src.indexOf('/assets/') >= 0 || src.indexOf('/src/main') >= 0) {
+          tags[i].addEventListener('error', function () {
+            lifeosBoot('Не удалось загрузить приложение')
+          })
+        }
       }
       window.addEventListener('error', function (e) {
-        var boot = document.getElementById('boot')
-        if (boot && e && e.message) boot.textContent = 'Ошибка: ' + e.message
+        if (e && e.message) lifeosBoot('Ошибка: ' + e.message)
       })
       setTimeout(function () {
-        var boot = document.getElementById('boot')
-        if (boot) boot.textContent = 'Приложение не запустилось. Закрой Mini App и открой снова.'
-      }, 12000)
+        if (!document.getElementById('boot')) return
+        var info = 'нет запроса'
+        try {
+          var entries = performance.getEntriesByType('resource')
+          for (var j = 0; j < entries.length; j++) {
+            if (entries[j].name.indexOf('/assets/') < 0 && entries[j].name.indexOf('/src/main') < 0) continue
+            var n = entries[j]
+            info = Math.round(n.transferSize || n.encodedBodySize || 0) + 'б ' + Math.round(n.duration) + 'мс'
+          }
+        } catch (e) {}
+        lifeosBoot((window.__LIFEOS_JS ? 'Скрипт завис' : 'Скрипт не запустился') + ' (' + info + ')')
+      }, 15000)
     </script>
   </body>
 </html>
