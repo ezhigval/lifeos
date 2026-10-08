@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -25,6 +26,7 @@ var desktopVersion = "0.2.0"
 
 func main() {
 	log.SetFlags(0)
+	setupWindowsLog()
 	ui, err := fs.Sub(uiEmbed, "ui")
 	if err != nil {
 		log.Fatal(err)
@@ -102,15 +104,46 @@ func updateURL(apiOrigin string) string {
 }
 
 func dataDir() string {
-	if v := os.Getenv("LIFEOS_DESKTOP_DATA"); v != "" {
-		return v
-	}
 	home, err := os.UserHomeDir()
 	if err != nil {
+		home = ""
+	}
+	return desktopDataDir(runtime.GOOS, home, os.Getenv("LOCALAPPDATA"), os.Getenv("LIFEOS_DESKTOP_DATA"))
+}
+
+func desktopDataDir(goos, home, localAppData, override string) string {
+	if override != "" {
+		return override
+	}
+	if home == "" {
 		return ".lifeos"
 	}
-	if runtime.GOOS == "darwin" {
+	switch goos {
+	case "darwin":
 		return filepath.Join(home, "Library", "Application Support", "LifeOS")
+	case "windows":
+		if localAppData != "" {
+			return filepath.Join(localAppData, "LifeOS")
+		}
+		return filepath.Join(home, "AppData", "Local", "LifeOS")
+	default:
+		return filepath.Join(home, ".local", "share", "lifeos")
 	}
-	return filepath.Join(home, ".local", "share", "lifeos")
+}
+
+// The Windows exe is built with -H windowsgui, so there is no console.
+// The Mac shell already captures stderr itself.
+func setupWindowsLog() {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	dir := dataDir()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return
+	}
+	f, err := os.OpenFile(filepath.Join(dir, "desktop.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return
+	}
+	log.SetOutput(io.MultiWriter(os.Stderr, f))
 }

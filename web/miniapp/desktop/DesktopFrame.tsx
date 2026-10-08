@@ -14,6 +14,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { DesktopChat } from './DesktopChat'
 
 const items = [
   { to: '/', label: 'Главная', icon: Home, end: true },
@@ -64,6 +65,7 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
       <div className="min-w-0 flex-1 overflow-y-auto" style={{ flex: '1 1 auto', minWidth: 0 }}>
         <div className="mx-auto w-full max-w-3xl">{children}</div>
       </div>
+      <DesktopChat />
     </div>
   )
 }

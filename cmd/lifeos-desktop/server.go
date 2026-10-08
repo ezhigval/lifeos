@@ -15,18 +15,22 @@ import (
 )
 
 const (
-	freshCache = 2 * time.Minute
-	staleCache = 7 * 24 * time.Hour
-	maxCache   = 2 << 20
-	maxBody    = 8 << 20
+	freshCache        = 2 * time.Minute
+	staleCache        = 7 * 24 * time.Hour
+	maxCache          = 2 << 20
+	maxBody           = 8 << 20
+	apiProxyTimeout   = 25 * time.Second
+	chatProxyTimeout  = 90 * time.Second
+	assistantChatPath = "/api/v1/assistant/chat"
 )
 
 type desktopServer struct {
-	ui     fs.FS
-	origin *url.URL
-	cache  *Cache
-	client *http.Client
-	now    func() time.Time
+	ui         fs.FS
+	origin     *url.URL
+	cache      *Cache
+	client     *http.Client
+	chatClient *http.Client
+	now        func() time.Time
 }
 
 func newDesktopServer(ui fs.FS, origin string, cache *Cache) (*desktopServer, error) {
@@ -35,11 +39,12 @@ func newDesktopServer(ui fs.FS, origin string, cache *Cache) (*desktopServer, er
 		return nil, fmt.Errorf("api origin %q", origin)
 	}
 	return &desktopServer{
-		ui:     ui,
-		origin: u,
-		cache:  cache,
-		client: &http.Client{Timeout: 25 * time.Second},
-		now:    time.Now,
+		ui:         ui,
+		origin:     u,
+		cache:      cache,
+		client:     &http.Client{Timeout: apiProxyTimeout},
+		chatClient: &http.Client{Timeout: chatProxyTimeout},
+		now:        time.Now,
 	}, nil
 }
 
@@ -113,7 +118,11 @@ func (s *desktopServer) forward(r *http.Request) (*http.Response, error) {
 	req.Header = r.Header.Clone()
 	req.Header.Del("Accept-Encoding")
 	req.Host = target.Host
-	return s.client.Do(req)
+	client := s.client
+	if r.URL.Path == assistantChatPath && s.chatClient != nil {
+		client = s.chatClient
+	}
+	return client.Do(req)
 }
 
 func writeCached(w http.ResponseWriter, entry cacheEntry) {

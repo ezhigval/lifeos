@@ -96,13 +96,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         let web = WKWebView(frame: .zero)
         web.navigationDelegate = self
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1100, height: 760),
+            contentRect: NSRect(x: 0, y: 0, width: 1280, height: 800),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "LifeOS"
-        window.minSize = NSSize(width: 800, height: 560)
+        window.minSize = NSSize(width: 1080, height: 640)
         window.contentView = web
         window.center()
         window.makeKeyAndOrderFront(nil)
