@@ -9,11 +9,11 @@ import (
 )
 
 var (
-	ErrInvalidKind  = errors.New("invalid memory kind")
-	ErrEmptyKey     = errors.New("memory key is required")
-	ErrEmptyValue   = errors.New("memory value is required")
-	ErrNotFound     = errors.New("memory not found")
-	ErrInvalidUser  = errors.New("user id is required")
+	ErrInvalidKind = errors.New("invalid memory kind")
+	ErrEmptyKey    = errors.New("memory key is required")
+	ErrEmptyValue  = errors.New("memory value is required")
+	ErrNotFound    = errors.New("memory not found")
+	ErrInvalidUser = errors.New("user id is required")
 )
 
 type Kind string

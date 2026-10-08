@@ -23,14 +23,14 @@ type DeleteNoteByUserParams struct {
 }
 
 type DeleteNoteByUserRow struct {
-	ID        pgtype.UUID
-	UserID    pgtype.UUID
-	Body      string
-	Tags      []string
+	ID         pgtype.UUID
+	UserID     pgtype.UUID
+	Body       string
+	Tags       []string
 	TargetType pgtype.Text
 	TargetID   pgtype.UUID
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
 }
 
 func (q *Queries) DeleteNoteByUser(ctx context.Context, arg DeleteNoteByUserParams) (DeleteNoteByUserRow, error) {
@@ -61,14 +61,14 @@ type GetNoteByIDParams struct {
 }
 
 type GetNoteByIDRow struct {
-	ID        pgtype.UUID
-	UserID    pgtype.UUID
-	Body      string
-	Tags      []string
+	ID         pgtype.UUID
+	UserID     pgtype.UUID
+	Body       string
+	Tags       []string
 	TargetType pgtype.Text
 	TargetID   pgtype.UUID
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
 }
 
 func (q *Queries) GetNoteByID(ctx context.Context, arg GetNoteByIDParams) (GetNoteByIDRow, error) {
@@ -93,14 +93,14 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type InsertNoteParams struct {
-	ID        pgtype.UUID
-	UserID    pgtype.UUID
-	Body      string
-	Tags      []string
+	ID         pgtype.UUID
+	UserID     pgtype.UUID
+	Body       string
+	Tags       []string
 	TargetType pgtype.Text
 	TargetID   pgtype.UUID
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
 }
 
 func (q *Queries) InsertNote(ctx context.Context, arg InsertNoteParams) error {
@@ -188,14 +188,14 @@ type ListNotesByTagParams struct {
 }
 
 type ListNotesByTagRow struct {
-	ID        pgtype.UUID
-	UserID    pgtype.UUID
-	Body      string
-	Tags      []string
+	ID         pgtype.UUID
+	UserID     pgtype.UUID
+	Body       string
+	Tags       []string
 	TargetType pgtype.Text
 	TargetID   pgtype.UUID
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
 }
 
 func (q *Queries) ListNotesByTag(ctx context.Context, arg ListNotesByTagParams) ([]ListNotesByTagRow, error) {
@@ -241,14 +241,14 @@ type ListRecentNotesByUserParams struct {
 }
 
 type ListRecentNotesByUserRow struct {
-	ID        pgtype.UUID
-	UserID    pgtype.UUID
-	Body      string
-	Tags      []string
+	ID         pgtype.UUID
+	UserID     pgtype.UUID
+	Body       string
+	Tags       []string
 	TargetType pgtype.Text
 	TargetID   pgtype.UUID
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
 }
 
 const listNotesCreatedBetween = `-- name: ListNotesCreatedBetween :many
@@ -340,14 +340,14 @@ type SearchNotesByUserParams struct {
 }
 
 type SearchNotesByUserRow struct {
-	ID        pgtype.UUID
-	UserID    pgtype.UUID
-	Body      string
-	Tags      []string
+	ID         pgtype.UUID
+	UserID     pgtype.UUID
+	Body       string
+	Tags       []string
 	TargetType pgtype.Text
 	TargetID   pgtype.UUID
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
 }
 
 func (q *Queries) SearchNotesByUser(ctx context.Context, arg SearchNotesByUserParams) ([]SearchNotesByUserRow, error) {
@@ -394,14 +394,14 @@ type UpdateNoteBodyParams struct {
 }
 
 type UpdateNoteBodyRow struct {
-	ID        pgtype.UUID
-	UserID    pgtype.UUID
-	Body      string
-	Tags      []string
+	ID         pgtype.UUID
+	UserID     pgtype.UUID
+	Body       string
+	Tags       []string
 	TargetType pgtype.Text
 	TargetID   pgtype.UUID
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
 }
 
 func (q *Queries) UpdateNoteBody(ctx context.Context, arg UpdateNoteBodyParams) (UpdateNoteBodyRow, error) {
