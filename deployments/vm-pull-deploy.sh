@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Pull-deploy for a ~2GB VM. The image build is capped so it cannot OOM-kill
-# sshd or nginx. Safe to run from lifeos-deploy.timer every few minutes.
+# sshd or nginx. lifeos-deploy.service runs this script. Schedule is
+# lifeos-deploy.timer (daily 04:15 UTC once #23 lands). Unchanged SHA skips
+# the image build, including after boot.
 set -euo pipefail
 
 BRANCH="${LIFEOS_BRANCH:-main}"

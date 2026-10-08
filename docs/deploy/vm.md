@@ -76,7 +76,7 @@ sudo systemctl start lifeos-deploy.service
 curl -fsS http://127.0.0.1:8080/health
 ```
 
-В `.env` обязательны `TELEGRAM_BOT_TOKEN` и `LIFEOS_JWT_SECRET` (от 32 байт). Таймер `lifeos-deploy.timer` примерно раз в 5 минут запускает `/opt/lifeos/bin/vm-pull-deploy.sh`. Образ пересобирается только если SHA в `origin/main` отличается от `/opt/lifeos/.last_deploy_sha`. Сборка идёт классическим builder с лимитом памяти, чтобы компиляция на ВМ ~2GB не убила sshd и nginx. Перед миграцией скрипт пишет дамп в `/opt/lifeos/backups/`. Миграции выполняются в контейнере до рестарта приложения.
+В `.env` обязательны `TELEGRAM_BOT_TOKEN` и `LIFEOS_JWT_SECRET` (от 32 байт). Расписание — `lifeos-deploy.timer` (daily 04:15 UTC once #23 lands); юнит запускает `/opt/lifeos/bin/vm-pull-deploy.sh`. Образ пересобирается только если SHA в `origin/main` отличается от `/opt/lifeos/.last_deploy_sha`. Сборка идёт классическим builder с лимитом памяти, чтобы компиляция на ВМ ~2GB не убила sshd и nginx. Перед миграцией скрипт пишет дамп в `/opt/lifeos/backups/`. Миграции выполняются в контейнере до рестарта приложения.
 
 Повторный запуск того же скрипта безопасен. Снести установку и поставить заново, сохранив дамп БД: `sudo bash deployments/vm-reset.sh`. Полный проход с переносом старого тома: `sudo bash deployments/vm-bootstrap.sh`.
 
