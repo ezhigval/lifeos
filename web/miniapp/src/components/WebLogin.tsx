@@ -60,7 +60,9 @@ export function WebLogin() {
       const result = await verifyTelegramLoginCode(username.trim(), code.trim())
       setAccessToken(result.accessToken)
       saveSession(buildSession(result.accessToken, result.expiresIn, result.telegramId))
-      window.location.assign('/app/')
+      // Mini App is mounted at /app/. The desktop window is the site root.
+      const home = window.location.pathname.startsWith('/app') ? '/app/' : '/'
+      window.location.assign(home)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось войти')
       setPending(false)

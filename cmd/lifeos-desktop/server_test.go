@@ -145,6 +145,55 @@ func TestPostIsForwardedAndNotCached(t *testing.T) {
 	}
 }
 
+func TestAssistantChatProxyIgnoresShortAPITimeout(t *testing.T) {
+	if chatProxyTimeout <= apiProxyTimeout {
+		t.Fatalf("chat timeout %s must exceed api timeout %s", chatProxyTimeout, apiProxyTimeout)
+	}
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != assistantChatPath {
+			t.Errorf("path %s", r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer secret-token" {
+			t.Errorf("auth %q", got)
+		}
+		time.Sleep(30 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"reply":"ок","waiting":false,"history":[],"tools_run":[]}`)
+	}))
+	t.Cleanup(origin.Close)
+
+	cache, err := OpenCache(t.TempDir() + "/cache.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv, err := newDesktopServer(testUI(), origin.URL, cache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.client = &http.Client{Timeout: time.Millisecond}
+	desk := httptest.NewServer(srv.routes())
+	t.Cleanup(desk.Close)
+
+	req, _ := http.NewRequest(http.MethodPost, desk.URL+assistantChatPath, strings.NewReader(`{"text":"привет"}`))
+	req.Header.Set("Authorization", "Bearer secret-token")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(res.Body)
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusOK || !strings.Contains(string(body), `"ок"`) {
+		t.Fatalf("status %d body %s", res.StatusCode, body)
+	}
+	var n int
+	if err := cache.db.QueryRow(`SELECT COUNT(*) FROM http_cache`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("chat post cached rows %d", n)
+	}
+}
+
 func TestUIFallsBackToIndexForRoutes(t *testing.T) {
 	cache, err := OpenCache(t.TempDir() + "/cache.db")
 	if err != nil {

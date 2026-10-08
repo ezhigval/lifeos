@@ -6,13 +6,14 @@
 | Бот и Mini App | [telegram.md](telegram.md) |
 | ВМ, автодеплой, постоянный туннель | [deploy/vm.md](deploy/vm.md) |
 | Край Cloudflare, без nginx | [deploy/EDGE.md](deploy/EDGE.md) |
-| Fly.io или VPS с Caddy | [deploy/hosting.md](deploy/hosting.md) |
+| VPS с Caddy | [deploy/hosting.md](deploy/hosting.md) |
 | Как устроен код | [architecture/ARCHITECTURE.md](architecture/ARCHITECTURE.md) |
 | Сущности | [architecture/DOMAIN_MODEL.md](architecture/DOMAIN_MODEL.md) |
 | Схема БД и последовательности | [diagrams/](diagrams/) |
 | Почему так, а не иначе | [adr/](adr/) |
 | Что бот делает с фразой | [ai/SCENARIOS.md](ai/SCENARIOS.md) |
 | Диалоговый агент | [ai/AGENT.md](ai/AGENT.md) |
+| Клиенты: бот, Mini App, десктоп | [roadmap/CLIENTS.md](roadmap/CLIENTS.md) |
 | LLM | [ops/LLM.md](ops/LLM.md) |
 | Контракт HTTP | [api/openapi.yaml](api/openapi.yaml) |
 

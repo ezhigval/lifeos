@@ -131,7 +131,7 @@ paths:
           description: Wrong or expired code
   /api/v1/assistant/chat:
     post:
-      summary: Conversational assistant turn (Mini App)
+      summary: Conversational assistant turn (desktop and other JWT clients)
       description: |
         Multi-turn dialogue with tools. Client owns history: send previous
         `history` from the last response when `waiting` is true.

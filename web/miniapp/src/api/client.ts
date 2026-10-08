@@ -44,6 +44,8 @@ export function apiUrl(path: string): string {
 }
 
 const REQUEST_TIMEOUT_MS = 15_000
+/** Tool rounds on the shared agent can outlast a normal REST call. */
+const ASSISTANT_CHAT_TIMEOUT_MS = 90_000
 
 function isAbortError(err: unknown): boolean {
   return (
@@ -56,6 +58,7 @@ async function request<T>(
   path: string,
   init: RequestInit = {},
   allowRefresh = true,
+  timeoutMs = REQUEST_TIMEOUT_MS,
 ): Promise<T> {
   const headers = new Headers(init.headers)
   if (!headers.has('Content-Type') && init.body) {
@@ -66,7 +69,7 @@ async function request<T>(
   }
 
   const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS)
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
   const parent = init.signal
   if (parent) {
     if (parent.aborted) ctrl.abort()
@@ -85,7 +88,7 @@ async function request<T>(
   if (res.status === 401 && allowRefresh && onUnauthorized) {
     const refreshed = await onUnauthorized()
     if (refreshed) {
-      return request<T>(path, init, false)
+      return request<T>(path, init, false, timeoutMs)
     }
     clearSession()
     setAccessToken(null)
@@ -164,6 +167,38 @@ export async function verifyTelegramLoginCode(username: string, code: string): P
     telegramId:
       typeof data.telegram_id === 'number' && data.telegram_id > 0 ? data.telegram_id : undefined,
   }
+}
+
+export type AssistantChatTurn = {
+  role: string
+  content?: string
+  tool_name?: string
+  tool_args?: Record<string, unknown>
+  tool_result?: string
+}
+
+export type AssistantChatResult = {
+  reply: string
+  waiting: boolean
+  history: AssistantChatTurn[]
+  tools_run: string[]
+}
+
+/** Same conversational agent as Telegram. The client owns history. */
+export function assistantChat(
+  text: string,
+  history: AssistantChatTurn[] = [],
+  language = 'ru',
+): Promise<AssistantChatResult> {
+  return request<AssistantChatResult>(
+    '/api/v1/assistant/chat',
+    {
+      method: 'POST',
+      body: JSON.stringify({ text, history, language }),
+    },
+    true,
+    ASSISTANT_CHAT_TIMEOUT_MS,
+  )
 }
 
 export async function authWithDevCredentials(

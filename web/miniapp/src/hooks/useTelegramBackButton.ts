@@ -19,14 +19,30 @@ export function useTelegramBackButton(active: boolean, fallbackTo = '/') {
       return
     }
 
-    const cleanup = showTelegramBackButton(() => {
+    const onBack = () => {
       if (canGoBackInApp()) {
         navigate(-1)
       } else {
         navigate(fallbackTo, { replace: true })
       }
-    })
+    }
 
-    return cleanup
+    // telegram-web-app.js is injected after React mounts. The first show()
+    // no-ops until that script exists, so keep trying briefly.
+    let cleanup = showTelegramBackButton(onBack)
+    const timer = window.setInterval(() => {
+      const btn = window.Telegram?.WebApp?.BackButton
+      if (!btn?.show || !btn?.onClick) return
+      window.clearInterval(timer)
+      cleanup()
+      cleanup = showTelegramBackButton(onBack)
+    }, 300)
+    const stop = window.setTimeout(() => window.clearInterval(timer), 3000)
+
+    return () => {
+      window.clearInterval(timer)
+      window.clearTimeout(stop)
+      cleanup()
+    }
   }, [active, fallbackTo, navigate])
 }
