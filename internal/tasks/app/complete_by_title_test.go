@@ -94,7 +94,7 @@ func (s *titleLookupStore) ListByTag(context.Context, ids.UserID, string) ([]dom
 }
 
 func (s *titleLookupStore) SetSpheres(context.Context, ids.TaskID, []ids.SphereID) error {
-return nil
+	return nil
 }
 
 func (s *titleLookupStore) SetProjects(context.Context, ids.TaskID, []ids.ProjectID) error {

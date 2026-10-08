@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -62,12 +63,21 @@ func TestAPIIntegrationProjectArchive(t *testing.T) {
 	if err := settingsapp.NewEnsureDefaults(settingsRepo).Execute(ctx, user.ID); err != nil {
 		t.Fatal(err)
 	}
+	sphereRepo := spheresinfra.NewRepository(pool)
+	if err := spheresapp.NewEnsureDefaultSpheres(sphereRepo).Execute(ctx, user.ID); err != nil {
+		t.Fatal(err)
+	}
+	spheres, err := spheresapp.NewListSpheres(sphereRepo).Execute(ctx, user.ID)
+	if err != nil || len(spheres) == 0 {
+		t.Fatal("expected default spheres")
+	}
 
 	transactor := platformpostgres.NewTransactor(pool)
 	eventPub := events.NewPublisher(pool)
 	projectRepo := projectsinfra.NewRepository(pool)
 	createProject := projectsapp.NewCreateProject(projectRepo, eventPub, transactor)
 	archiveProject := projectsapp.NewArchiveProject(projectRepo, eventPub, transactor)
+	listProjects := projectsapp.NewListProjects(projectRepo)
 
 	tokens, err := auth.NewTokenService(intJWTSecret, time.Hour)
 	if err != nil {
@@ -80,6 +90,7 @@ func TestAPIIntegrationProjectArchive(t *testing.T) {
 		GetUser:        identityapp.NewGetUserByTelegram(userRepo),
 		CreateProject:  createProject,
 		ArchiveProject: archiveProject,
+		ListProjects:   listProjects,
 	})
 	r := chi.NewRouter()
 	rt.Mount(r)
@@ -100,7 +111,8 @@ func TestAPIIntegrationProjectArchive(t *testing.T) {
 	authHeader := map[string]string{"Authorization": "Bearer " + tokenOut.AccessToken}
 
 	createRec := doJSON(t, r, http.MethodPost, "/api/v1/projects", authHeader, map[string]any{
-		"name": "integration-project",
+		"name":       "integration-project",
+		"sphere_ids": []string{spheres[0].ID.String()},
 	})
 	if createRec.Code != http.StatusCreated {
 		t.Fatalf("create project status=%d body=%s", createRec.Code, createRec.Body.String())
@@ -318,11 +330,10 @@ func startPG(t *testing.T, ctx context.Context) (*pgxpool.Pool, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	migrationsDir := filepath.Join("..", "..", "..", "migrations")
 	if err := goose.SetDialect("postgres"); err != nil {
 		t.Fatal(err)
 	}
-	if err := platformmigrate.Up(ctx, conn, migrationsDir); err != nil {
+	if err := platformmigrate.Up(ctx, conn, repoMigrationsDir(t)); err != nil {
 		t.Fatal(err)
 	}
 	pool, err := pgxpool.New(ctx, conn)
@@ -337,11 +348,10 @@ func startPG(t *testing.T, ctx context.Context) (*pgxpool.Pool, func()) {
 
 func startPGFromURL(t *testing.T, ctx context.Context, conn string) (*pgxpool.Pool, func()) {
 	t.Helper()
-	migrationsDir := filepath.Join("..", "..", "..", "migrations")
 	if err := goose.SetDialect("postgres"); err != nil {
 		t.Fatal(err)
 	}
-	if err := platformmigrate.Up(ctx, conn, migrationsDir); err != nil {
+	if err := platformmigrate.Up(ctx, conn, repoMigrationsDir(t)); err != nil {
 		t.Fatal(err)
 	}
 	pool, err := pgxpool.New(ctx, conn)
@@ -349,4 +359,15 @@ func startPGFromURL(t *testing.T, ctx context.Context, conn string) (*pgxpool.Po
 		t.Fatal(err)
 	}
 	return pool, func() { pool.Close() }
+}
+
+// go test runs with the package directory as cwd, so a relative
+// ../../../migrations lands in internal/, not the repo root.
+func repoMigrationsDir(t *testing.T) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("locate integration test file")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "..", "migrations"))
 }
