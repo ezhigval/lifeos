@@ -42,7 +42,7 @@ func TestSmokeCreateTaskAndReminder(t *testing.T) {
 	taskRepo := tasksinfra.NewRepository(pool)
 	pub := events.NewPublisher(pool)
 	tx := platformpostgres.NewTransactor(pool)
-	create := tasksapp.NewCreateTask(taskRepo, pub, tx, projectsinfra.NewProjectReader(pool))
+	create := tasksapp.NewCreateTask(taskRepo, pub, tx, projectsinfra.NewProjectReader(pool), nil)
 
 	dto, err := create.Execute(ctx, tasksapp.CreateTaskInput{
 		UserID: user.ID, Title: "smoke task", Priority: taskdomain.PriorityHigh, Source: events.SourceCLI,

@@ -14,12 +14,12 @@ func TestParseAction_JSON(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name    string
-		raw     string
-		wantTyp actionType
-		wantTxt string
+		name     string
+		raw      string
+		wantTyp  actionType
+		wantTxt  string
 		wantTool string
-		wantErr bool
+		wantErr  bool
 	}{
 		{
 			name:    "ask",
