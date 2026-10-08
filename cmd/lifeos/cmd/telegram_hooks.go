@@ -76,7 +76,9 @@ func runTelegramSetWebhook() error {
 	if err != nil {
 		return fmt.Errorf("webhook registered but status check failed: %w", err)
 	}
-	fmt.Fprintf(os.Stdout, "webhook set: %s (pending=%d)\n", info.URL, info.PendingUpdateCount)
+	if _, err := fmt.Fprintf(os.Stdout, "webhook set: %s (pending=%d)\n", info.URL, info.PendingUpdateCount); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -92,10 +94,14 @@ func runTelegramWebhookStatus() error {
 		return err
 	}
 	if info.URL == "" {
-		fmt.Fprintln(os.Stdout, "webhook: none (polling mode)")
+		if _, err := fmt.Fprintln(os.Stdout, "webhook: none (polling mode)"); err != nil {
+			return err
+		}
 		return nil
 	}
-	fmt.Fprintf(os.Stdout, "webhook url: %s\npending updates: %d\nlast error: %q\n", info.URL, info.PendingUpdateCount, info.LastError)
+	if _, err := fmt.Fprintf(os.Stdout, "webhook url: %s\npending updates: %d\nlast error: %q\n", info.URL, info.PendingUpdateCount, info.LastError); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -109,6 +115,8 @@ func runTelegramDeleteWebhook() error {
 	if err := tg.ClearWebhook(ctx, client); err != nil {
 		return err
 	}
-	fmt.Fprintln(os.Stdout, "webhook deleted; polling will receive updates again")
+	if _, err := fmt.Fprintln(os.Stdout, "webhook deleted; polling will receive updates again"); err != nil {
+		return err
+	}
 	return nil
 }
