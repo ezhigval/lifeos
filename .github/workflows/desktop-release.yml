@@ -1,5 +1,9 @@
 name: Desktop release
 
+# macOS runner only. The .app command is `bash scripts/build-mac-app.sh`.
+# Windows has no runner in this workflow. The windowed zip is
+# `bash scripts/build-win-desktop.sh` (lifeos-desktop.exe + install.bat).
+
 on:
   push:
     tags:

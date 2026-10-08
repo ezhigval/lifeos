@@ -51,7 +51,10 @@ function telegramClassicBundle(): Plugin {
         code = code.replace(/import\.meta/g, '({})')
         code = rewriteStaticImports(code)
         code = rewriteExports(code, path.posix.basename(file.fileName))
-        code = code.replace(/import\(/g, '__lifeosImport(')
+        // Only string literals. import(expr) is React Router's route-module
+        // loader; rewriting it makes every section navigation reject with
+        // "dynamic" and then reload the WebView.
+        code = code.replace(/import\(\s*(['"`])/g, '__lifeosImport($1')
         if (/[(;\n]import[\s{*]/.test(code) || code.includes('export{') || code.includes('export ')) {
           throw new Error(`telegram-classic-bundle: module syntax left in ${file.fileName}`)
         }
@@ -119,12 +122,10 @@ export default defineConfig({
     modulePreload: false,
     rollupOptions: {
       output: {
-        manualChunks(id: string) {
-          // Pages other than Home stay async. Everything they share stays in the
-          // entry chunk so the first script has no static imports.
-          if (/\/pages\/(?!HomePage\.tsx$)/.test(id)) return undefined
-          return 'app'
-        },
+        // One classic script. A second file for Settings and the other sections
+        // is injected at click time and fails inside Telegram WebView (the screen
+        // then shows "chunk" / "empty" with no way back).
+        codeSplitting: false,
       },
     },
   },

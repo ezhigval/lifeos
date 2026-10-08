@@ -45,7 +45,9 @@ make package-linux    # linux/amd64
 make package-win      # windows/amd64
 ```
 
-Архив `dist/LifeOS_alpha_1.0.0_<os>_<arch>.tar.gz` содержит бинарь, Mini App, миграции и скрипты Start / Stop / Logs / Settings. Postgres ставится отдельно. Подробности внутри пакета, в `README.txt`.
+Архив `dist/LifeOS_alpha_1.0.0_<os>_<arch>.tar.gz` содержит бинарь, Mini App, миграции и скрипты Start / Stop / Logs / Settings. Postgres ставится отдельно. Подробности внутри пакета, в `README.txt`. Это серверный набор, не окно приложения.
+
+Окно Mac собирает `bash scripts/build-mac-app.sh` (в CI — тег `desktop-v*` на `macos-14`). Окно Windows: `bash scripts/build-win-desktop.sh` → `dist/LifeOS-win.zip`. Справа в обоих — чат того же агента. Карта: [docs/roadmap/CLIENTS.md](docs/roadmap/CLIENTS.md).
 
 ## Документация
 
@@ -54,7 +56,7 @@ make package-win      # windows/amd64
 | Запуск локально и в Docker | [docs/getting-started.md](docs/getting-started.md) |
 | Бот, Mini App, туннель на ноутбуке | [docs/telegram.md](docs/telegram.md) |
 | ВМ, секреты, автодеплой, постоянный туннель | [docs/deploy/vm.md](docs/deploy/vm.md) |
-| Fly.io и Caddy | [docs/deploy/hosting.md](docs/deploy/hosting.md) |
+| VPS и Caddy | [docs/deploy/hosting.md](docs/deploy/hosting.md) |
 | Архитектура | [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) |
 | Модель и схема | [docs/architecture/DOMAIN_MODEL.md](docs/architecture/DOMAIN_MODEL.md), [docs/diagrams/](docs/diagrams/) |
 | Решения | [docs/adr/](docs/adr/) |

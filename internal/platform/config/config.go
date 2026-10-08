@@ -67,7 +67,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		DatabaseURL: firstNonEmpty(
 			os.Getenv("LIFEOS_DATABASE_URL"),
-			os.Getenv("DATABASE_URL"), // Fly.io postgres attach sets this
+			os.Getenv("DATABASE_URL"), // fallback when LIFEOS_DATABASE_URL is unset
 			"postgres://lifeos:lifeos@localhost:5433/lifeos?sslmode=disable",
 		),
 		HTTPAddr:  envOr("LIFEOS_HTTP_ADDR", ":8080"),
