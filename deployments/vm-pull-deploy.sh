@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pull-deploy for a ~2GB VM. The image build is capped so it cannot OOM-kill
-# sshd or nginx. lifeos-deploy.service runs this script. Schedule is
+# sshd. lifeos-deploy.service runs this script. Schedule is
 # lifeos-deploy.timer (daily 04:15 UTC, Persistent=true). Unchanged SHA skips
 # the image build, including after boot.
 set -euo pipefail
@@ -23,7 +23,7 @@ log() { echo "[lifeos-deploy] $*"; }
 
 apply_oom_scores() {
   local unit score dir name pid
-  for unit in ssh.service sshd.service nginx.service docker.service containerd.service; do
+  for unit in ssh.service sshd.service docker.service containerd.service; do
     if systemctl cat "$unit" >/dev/null 2>&1; then
       case "$unit" in
         docker.service|containerd.service) score=-500 ;;
@@ -37,7 +37,7 @@ apply_oom_scores() {
   systemctl daemon-reload || true
   # Drop-ins apply on next start. Set the running processes now so a build
   # does not require an ssh restart.
-  for name in sshd nginx dockerd containerd; do
+  for name in sshd dockerd containerd; do
     for pid in $(pgrep -x "$name" 2>/dev/null || true); do
       case "$name" in
         dockerd|containerd) echo -500 > "/proc/$pid/oom_score_adj" 2>/dev/null || true ;;
@@ -50,61 +50,42 @@ apply_oom_scores() {
   fi
 }
 
-install_nginx_site() {
-  local src=""
-  if [[ -f "$REPO/deployments/nginx/lifeos.conf" ]]; then
-    src="$REPO/deployments/nginx/lifeos.conf"
-  elif [[ -f "$BASE/bin/nginx-lifeos.conf" ]]; then
-    src="$BASE/bin/nginx-lifeos.conf"
-  else
-    install -d -m 755 "$BASE/bin"
-    src="$BASE/bin/nginx-lifeos.conf"
-    cat > "$src" <<'NGINX'
-# Fallback copy of deployments/nginx/lifeos.conf, used when that file
-# is not in the checked-out revision yet.
-server {
-    listen 80 default_server;
-    server_name _;
-    gzip off;
-    client_max_body_size 8m;
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Accept-Encoding $http_accept_encoding;
-        proxy_buffering on;
-        proxy_read_timeout 120s;
-    }
+# A previous install left a local HTTP server in front of the app.
+# The only public door is the named tunnel to 127.0.0.1:8080.
+retire_nginx() {
+  rm -f \
+    "$BASE/bin/nginx-lifeos.conf" \
+    /etc/nginx/sites-enabled/lifeos \
+    /etc/nginx/sites-enabled/lifeos.conf \
+    /etc/nginx/sites-available/lifeos.conf \
+    /etc/nginx/sites-available/lifeos.conf.bak
+  if systemctl cat nginx.service >/dev/null 2>&1; then
+    systemctl disable --now nginx >/dev/null 2>&1 || true
+    log "stopped local http server; public path is the tunnel"
+  fi
 }
-NGINX
-  fi
-  command -v nginx >/dev/null 2>&1 || return 0
-  install -d -m 755 /etc/nginx/sites-available /etc/nginx/sites-enabled
-  if [[ -f /etc/nginx/sites-available/lifeos.conf ]]; then
-    cp -a /etc/nginx/sites-available/lifeos.conf /etc/nginx/sites-available/lifeos.conf.bak
-  fi
-  install -m 644 "$src" /etc/nginx/sites-available/lifeos.conf
-  ln -sfn /etc/nginx/sites-available/lifeos.conf /etc/nginx/sites-enabled/lifeos.conf
-  rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/lifeos
-  if nginx -t; then
-    if systemctl reload nginx; then
-      log "nginx site reloaded"
-      return 0
-    fi
-    if systemctl start nginx; then
-      log "nginx was down; started"
-      return 0
-    fi
-    log "nginx reload and start failed"
-    return 1
-  fi
-  log "nginx -t failed; restoring previous site"
-  if [[ -f /etc/nginx/sites-available/lifeos.conf.bak ]]; then
-    mv /etc/nginx/sites-available/lifeos.conf.bak /etc/nginx/sites-available/lifeos.conf
-  fi
-  return 1
+
+bind_loopback_ports() {
+  python3 - "$REPO/deployments/docker-compose.yml" "$BASE/docker-compose.override.yml" <<'PY'
+import pathlib, sys
+replacements = (
+    ('"5433:5432"', '"127.0.0.1:5433:5432"'),
+    ('"0.0.0.0:5433:5432"', '"127.0.0.1:5433:5432"'),
+    ('"8080:8080"', '"127.0.0.1:8080:8080"'),
+    ('"0.0.0.0:8080:8080"', '"127.0.0.1:8080:8080"'),
+)
+for raw in sys.argv[1:]:
+    path = pathlib.Path(raw)
+    if not path.is_file():
+        continue
+    text = path.read_text()
+    new = text
+    for old, repl in replacements:
+        new = new.replace(old, repl)
+    if new != text:
+        path.write_text(new)
+        print(f"[lifeos-deploy] loopback publish updated")
+PY
 }
 
 bind_postgres_localhost() {
@@ -163,6 +144,7 @@ backup_postgres() {
 # The app talks to postgres over the compose network, not this host port.
 # If an override file puts 0.0.0.0 back, do not recreate on every timer tick.
 ensure_postgres_localhost() {
+  bind_loopback_ports
   bind_postgres_localhost
   local ports stamp when now
   ports=$(docker ps --format '{{.Names}} {{.Ports}}' | grep lifeos-postgres || true)
@@ -242,7 +224,7 @@ EOF
 }
 
 apply_oom_scores
-install_nginx_site || true
+retire_nginx || true
 
 cd "$REPO"
 # github.com:22 from this VM often times out. Fail fast and keep going
@@ -293,7 +275,7 @@ if [[ -f "$repo_script" && -f "$SELF" ]] && ! cmp -s "$repo_script" "$SELF"; the
   exec "$SELF"
 fi
 
-install_nginx_site || true
+retire_nginx || true
 ensure_postgres_localhost
 
 build_rc=0

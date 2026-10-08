@@ -1,8 +1,6 @@
 # Locally-managed ingress. The VM unit uses TUNNEL_TOKEN, so the live
 # ingress is the public hostname in Zero Trust, not this file.
-# Service is the Go app. Do not point it at nginx (:80).
-# Rollback while nginx is running: service http://127.0.0.1:80.
-# See docs/deploy/EDGE.md.
+# Service is the Go app on the loopback port. See docs/deploy/EDGE.md.
 tunnel: lifeos
 ingress:
   - hostname: lifeos.example.com

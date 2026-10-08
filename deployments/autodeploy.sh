@@ -59,9 +59,7 @@ fi
 # 5. Pull-deploy script, then the timer that runs it.
 install -d -m 755 "$BASE/bin"
 install -m 755 "$REPO/deployments/vm-pull-deploy.sh" "$BASE/bin/vm-pull-deploy.sh"
-if [[ -f "$REPO/deployments/nginx/lifeos.conf" ]]; then
-  install -m 644 "$REPO/deployments/nginx/lifeos.conf" "$BASE/bin/nginx-lifeos.conf"
-fi
+rm -f "$BASE/bin/nginx-lifeos.conf"
 cp "$REPO/deployments/systemd/lifeos-deploy.service" /etc/systemd/system/
 cp "$REPO/deployments/systemd/lifeos-deploy.timer"   /etc/systemd/system/
 systemctl daemon-reload

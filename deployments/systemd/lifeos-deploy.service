@@ -8,7 +8,7 @@ Requires=docker.service
 Type=oneshot
 WorkingDirectory=/opt/lifeos/repo
 # Installed to /opt/lifeos/bin by autodeploy.sh. The script caps the image
-# build and keeps sshd/nginx off the OOM killer's short list.
+# build and keeps sshd off the OOM killer's short list.
 ExecStart=/opt/lifeos/bin/vm-pull-deploy.sh
 TimeoutStartSec=1200
 Nice=10
