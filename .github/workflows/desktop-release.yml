@@ -1,5 +1,9 @@
 name: Desktop release
 
+# macOS runner only. The .app command is `bash scripts/build-mac-app.sh`.
+# Windows has no runner in this workflow. The windowed zip is
+# `bash scripts/build-win-desktop.sh` (lifeos-desktop.exe + install.bat).
+
 on:
   push:
     tags:
@@ -30,14 +34,34 @@ jobs:
           LIFEOS_DESKTOP_VERSION: ${{ github.ref_name }}
         run: bash scripts/build-mac-app.sh
 
+      - name: Write GitHub Releases manifest
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#desktop-v}"
+          case "$version" in
+            ''|*[!0-9.]*) echo "bad version: $version" >&2; exit 1 ;;
+          esac
+          sha=$(shasum -a 256 dist/LifeOS-mac.zip | awk '{print $1}')
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/LifeOS-mac.zip"
+          python3 - "$version" "$url" "$sha" <<'PY'
+          import json, sys
+          version, url, sha = sys.argv[1:]
+          with open("dist/latest.json", "w") as fh:
+              json.dump({"version": version, "url": url, "sha256": sha}, fh)
+              fh.write("\n")
+          PY
+
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/LifeOS-mac.zip
+          make_latest: true
+          files: |
+            dist/LifeOS-mac.zip
+            dist/latest.json
           fail_on_unmatched_files: true
           body: |
             LifeOS для Mac, Apple Silicon и Intel.
 
-            Экраны на всю ширину окна. При каждом запуске приложение спрашивает https://local-ai-assist.ru/app/desktop/latest.json и, если на ВМ лежит более новая сборка, само ставит её и открывается заново.
+            Экраны на всю ширину окна. При каждом запуске приложение читает https://github.com/ezhigval/lifeos/releases/latest/download/latest.json и, если эта сборка новее, скачивает zip с той же страницы Releases и открывается заново. ВМ эти файлы не отдаёт.
 
             Первый запуск: правый клик по LifeOS.app → Открыть. Подпись без сертификата Apple, поэтому двойной клик система блокирует.
 

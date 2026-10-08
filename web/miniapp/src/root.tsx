@@ -38,7 +38,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error?: string 
   render() {
     if (this.state.error) {
       const chunk =
-        /dynamically imported module|loading chunk|failed to fetch|importing a module/i.test(
+        /chunk|empty|dynamic|dynamically imported module|loading chunk|failed to fetch|importing a module/i.test(
           this.state.error,
         )
       return (
@@ -46,25 +46,47 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error?: string 
           <h1 style={{ fontSize: 18, marginBottom: 8 }}>Ошибка Mini App</h1>
           <p style={{ color: '#94a3b8', fontSize: 14 }}>
             {chunk
-              ? 'Не удалось догрузить экран. Проверь сеть и открой ещё раз.'
+              ? 'Не удалось догрузить экран. Вернись назад или обнови страницу.'
               : this.state.error}
           </p>
-          <button
-            type="button"
-            style={{
-              marginTop: 16,
-              borderRadius: 16,
-              border: 'none',
-              background: '#22c55e',
-              color: '#fff',
-              padding: '8px 16px',
-              fontSize: 14,
-              fontWeight: 500,
-            }}
-            onClick={() => window.location.reload()}
-          >
-            Повторить
-          </button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <button
+              type="button"
+              style={{
+                borderRadius: 16,
+                border: 'none',
+                background: '#1e293b',
+                color: '#f8fafc',
+                padding: '8px 16px',
+                fontSize: 14,
+                fontWeight: 500,
+              }}
+              onClick={() => {
+                if (window.history.length > 1) {
+                  window.history.back()
+                  return
+                }
+                window.location.assign('/app/')
+              }}
+            >
+              Назад
+            </button>
+            <button
+              type="button"
+              style={{
+                borderRadius: 16,
+                border: 'none',
+                background: '#22c55e',
+                color: '#fff',
+                padding: '8px 16px',
+                fontSize: 14,
+                fontWeight: 500,
+              }}
+              onClick={() => window.location.reload()}
+            >
+              Обновить
+            </button>
+          </div>
         </div>
       )
     }

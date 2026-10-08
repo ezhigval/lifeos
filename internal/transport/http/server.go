@@ -36,7 +36,7 @@ func New(log *slog.Logger, addr string, db *postgres.Pool, traceHTTP bool, apiRo
 	// Mini App JS is ~400KB. Compress it before it crosses the tunnel.
 	r.Use(middleware.Compress(5))
 	// RealIP is deprecated (spoofable X-Forwarded-For) but LifeOS sits behind a
-	// trusted reverse proxy (Caddy/Fly) that sets the leftmost hop correctly.
+	// trusted reverse proxy (Caddy) that sets the leftmost hop correctly.
 	r.Use(middleware.RealIP) //nolint:staticcheck // SA1019: trusted proxy edge
 	if traceHTTP {
 		r.Use(func(next http.Handler) http.Handler {

@@ -4,11 +4,11 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -25,6 +25,7 @@ var desktopVersion = "0.2.0"
 
 func main() {
 	log.SetFlags(0)
+	setupWindowsLog()
 	ui, err := fs.Sub(uiEmbed, "ui")
 	if err != nil {
 		log.Fatal(err)
@@ -77,7 +78,7 @@ func main() {
 	// The Mac window reads this single line from stdout.
 	fmt.Printf("PORT=%s\n", port)
 	log.Printf("lifeos desktop %s http://127.0.0.1:%s api %s", desktopVersion, port, origin)
-	go watchUpdates(ctx, updateURL(origin), desktopVersion, dataDir(), func() {
+	go watchUpdates(ctx, updateURL(), desktopVersion, dataDir(), func() {
 		shut, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		_ = httpSrv.Shutdown(shut)
@@ -87,30 +88,59 @@ func main() {
 	}
 }
 
-func updateURL(apiOrigin string) string {
+// githubReleaseManifest is the desktop update feed. The zip and this JSON are
+// GitHub Release assets from .github/workflows/desktop-release.yml. The VM
+// does not serve them, and that workflow has no R2 bucket.
+const githubReleaseManifest = "https://github.com/ezhigval/lifeos/releases/latest/download/latest.json"
+
+func updateURL() string {
 	if v := os.Getenv("LIFEOS_UPDATE_URL"); v != "" {
 		return v
 	}
-	u, err := url.Parse(apiOrigin)
-	if err != nil || u.Scheme == "" || u.Host == "" {
-		return "https://local-ai-assist.ru/app/desktop/latest.json"
-	}
-	u.Path = "/app/desktop/latest.json"
-	u.RawQuery = ""
-	u.Fragment = ""
-	return u.String()
+	return githubReleaseManifest
 }
 
 func dataDir() string {
-	if v := os.Getenv("LIFEOS_DESKTOP_DATA"); v != "" {
-		return v
-	}
 	home, err := os.UserHomeDir()
 	if err != nil {
+		home = ""
+	}
+	return desktopDataDir(runtime.GOOS, home, os.Getenv("LOCALAPPDATA"), os.Getenv("LIFEOS_DESKTOP_DATA"))
+}
+
+func desktopDataDir(goos, home, localAppData, override string) string {
+	if override != "" {
+		return override
+	}
+	if home == "" {
 		return ".lifeos"
 	}
-	if runtime.GOOS == "darwin" {
+	switch goos {
+	case "darwin":
 		return filepath.Join(home, "Library", "Application Support", "LifeOS")
+	case "windows":
+		if localAppData != "" {
+			return filepath.Join(localAppData, "LifeOS")
+		}
+		return filepath.Join(home, "AppData", "Local", "LifeOS")
+	default:
+		return filepath.Join(home, ".local", "share", "lifeos")
 	}
-	return filepath.Join(home, ".local", "share", "lifeos")
+}
+
+// The Windows exe is built with -H windowsgui, so there is no console.
+// The Mac shell already captures stderr itself.
+func setupWindowsLog() {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	dir := dataDir()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return
+	}
+	f, err := os.OpenFile(filepath.Join(dir, "desktop.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return
+	}
+	log.SetOutput(io.MultiWriter(os.Stderr, f))
 }

@@ -1,6 +1,6 @@
 # ВМ: секреты, автодеплой, туннель Telegram
 
-Один способ поднять LifeOS на виртуальной машине. Проверено на Ubuntu и Yandex Cloud. Quick-tunnel здесь не используется: с такой ВМ не открывается `api.trycloudflare.com`, а адрес всё равно сбрасывается при рестарте.
+Один способ поднять LifeOS на виртуальной машине. Проверено на Ubuntu и Yandex Cloud. Quick-tunnel здесь не используется: с такой ВМ не открывается `api.trycloudflare.com`, а адрес всё равно сбрасывается при рестарте. Fly.io не используется.
 
 ```
 Telegram  --webhook-->  Cloudflare (твой домен)
@@ -18,7 +18,7 @@ LifeOS --ответ бота--> 127.0.0.1:8081  локальный прокси
 
 Туннель принимает Mini App, `/health` и webhook. Ответы бота идут через Worker, потому что до Telegram с ВМ напрямую часто нет маршрута. Имя хоста не меняется, когда перезапускается `cloudflared` или контейнер.
 
-A-запись на IP машины не нужна. Входящие 80/8080 снаружи могут быть закрыты, и сертификат на самой ВМ это не лечит.
+A-запись на IP машины не нужна, и сертификат на самой ВМ не нужен. nginx не стоит перед приложением: туннель смотрит на `http://127.0.0.1:8080`. Схема края, кэш Mini App и клики в панели: [EDGE.md](EDGE.md).
 
 ## Один край
 
@@ -76,7 +76,7 @@ sudo systemctl start lifeos-deploy.service
 curl -fsS http://127.0.0.1:8080/health
 ```
 
-В `.env` обязательны `TELEGRAM_BOT_TOKEN` и `LIFEOS_JWT_SECRET` (от 32 байт). Расписание — `lifeos-deploy.timer` (daily 04:15 UTC once #23 lands); юнит запускает `/opt/lifeos/bin/vm-pull-deploy.sh`. Образ пересобирается только если SHA в `origin/main` отличается от `/opt/lifeos/.last_deploy_sha`. Сборка идёт классическим builder с лимитом памяти, чтобы компиляция на ВМ ~2GB не убила sshd и nginx. Перед миграцией скрипт пишет дамп в `/opt/lifeos/backups/`. Миграции выполняются в контейнере до рестарта приложения.
+В `.env` обязательны `TELEGRAM_BOT_TOKEN` и `LIFEOS_JWT_SECRET` (от 32 байт). Таймер `lifeos-deploy.timer` раз в сутки в 04:15 UTC (`Persistent=true`: пропущенный запуск выполняется после загрузки) запускает `/opt/lifeos/bin/vm-pull-deploy.sh`. Образ пересобирается только если SHA в `origin/main` отличается от `/opt/lifeos/.last_deploy_sha`. Сборка идёт классическим builder с лимитом памяти, чтобы компиляция на ВМ ~2GB не убила sshd и nginx. Перед миграцией скрипт пишет дамп в `/opt/lifeos/backups/`. Миграции выполняются в контейнере до рестарта приложения.
 
 Повторный запуск того же скрипта безопасен. Снести установку и поставить заново, сохранив дамп БД: `sudo bash deployments/vm-reset.sh`. Полный проход с переносом старого тома: `sudo bash deployments/vm-bootstrap.sh`.
 
@@ -101,7 +101,7 @@ journalctl -u lifeos-deploy -n 80 --no-pager
 1. [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) → Networks → Tunnels → Create.
 2. Имя, например `lifeos`. Коннектор: cloudflared.
 3. Скопируй токен со шага Install connector. Это длинная строка, чаще всего с `eyJ`.
-4. Public Hostname: тип **HTTP**, URL **`http://127.0.0.1:8080`**.
+4. Public Hostname: тип **HTTP**, URL **`http://127.0.0.1:8080`** (приложение, не nginx на `:80`). Откат — в [EDGE.md](EDGE.md).
 5. Hostname без пути и без слэша на конце, например `https://lifeos.example.com`.
 
 На ВМ токен не должен попасть в историю шелла и в git:

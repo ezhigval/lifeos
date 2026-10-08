@@ -1,0 +1,40 @@
+{
+  "phase": "http_request_cache_settings",
+  "description": "Zone Cache Rules for the LifeOS hostname. Paste into dash.cloudflare.com → Rules → Cache Rules, or PUT this ruleset as the zone entrypoint. wrangler does not deploy this file. The tg-proxy worker is egress to api.telegram.org only. No secrets.",
+  "rules": [
+    {
+      "description": "Mini App HTML and service worker: bypass cache",
+      "expression": "(http.request.uri.path in {\"/app\" \"/app/\" \"/app/index.html\" \"/app/sw.js\"})",
+      "action": "set_cache_settings",
+      "enabled": true,
+      "action_parameters": {
+        "cache": false
+      }
+    },
+    {
+      "description": "API and Telegram webhook: bypass cache",
+      "expression": "(starts_with(http.request.uri.path, \"/api\") or starts_with(http.request.uri.path, \"/webhook\"))",
+      "action": "set_cache_settings",
+      "enabled": true,
+      "action_parameters": {
+        "cache": false
+      }
+    },
+    {
+      "description": "Mini App hashed assets: cache at the edge",
+      "expression": "(starts_with(http.request.uri.path, \"/app/assets/\"))",
+      "action": "set_cache_settings",
+      "enabled": true,
+      "action_parameters": {
+        "cache": true,
+        "edge_ttl": {
+          "mode": "override_origin",
+          "default": 31536000
+        },
+        "browser_ttl": {
+          "mode": "respect_origin"
+        }
+      }
+    }
+  ]
+}
