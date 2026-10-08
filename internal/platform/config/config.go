@@ -27,7 +27,7 @@ type Config struct {
 	OtelEndpoint string
 
 	LLMEnabled      bool
-	LLMAgentEnabled bool   // multi-turn conversational agent (tools + dialogue)
+	LLMAgentEnabled bool   // multi-turn agent; off unless LIFEOS_LLM_ENABLED is also true
 	LLMProvider     string // "ollama" | "openai" (default)
 	LLMAPIKey       string
 	LLMBaseURL      string // OpenAI-compatible base, e.g. https://api.groq.com/openai/v1
@@ -97,7 +97,7 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("LIFEOS_LLM_ENABLED: %w", err)
 	}
 	cfg.LLMEnabled = llmEnabled
-	llmAgent, err := parseBoolDefault(os.Getenv("LIFEOS_LLM_AGENT_ENABLED"), true)
+	llmAgent, err := parseBoolDefault(os.Getenv("LIFEOS_LLM_AGENT_ENABLED"), false)
 	if err != nil {
 		return Config{}, fmt.Errorf("LIFEOS_LLM_AGENT_ENABLED: %w", err)
 	}

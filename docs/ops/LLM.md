@@ -107,7 +107,7 @@ LIFEOS_LLM_PROVIDER=ollama
 ## Диалоговый агент
 
 См. [docs/ai/AGENT.md](../ai/AGENT.md) — multi-turn, tools, память, anon learning.
-`LIFEOS_LLM_AGENT_ENABLED=true` (default).
+`LIFEOS_LLM_AGENT_ENABLED` по умолчанию `false`. Включай вместе с `LIFEOS_LLM_ENABLED=true`, иначе `serve` не стартует.
 
 ## Speech-to-text (голос / кружочки)
 

@@ -12,6 +12,7 @@ import { AnalyticsPage } from '@/pages/AnalyticsPage'
 import { NotesPage } from '@/pages/NotesPage'
 import { HealthPage } from '@/pages/HealthPage'
 import { DebtsPage } from '@/pages/DebtsPage'
+import { CareerPage } from '@/pages/CareerPage'
 import { TriagePage } from '@/pages/TriagePage'
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="more/notes" element={<NotesPage />} />
         <Route path="more/health" element={<HealthPage />} />
         <Route path="more/debts" element={<DebtsPage />} />
+        <Route path="more/career" element={<CareerPage />} />
         <Route path="more/triage" element={<TriagePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

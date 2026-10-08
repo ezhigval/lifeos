@@ -58,6 +58,10 @@ function telegramClassicBundle(): Plugin {
         if (/[(;\n]import[\s{*]/.test(code) || code.includes('export{') || code.includes('export ')) {
           throw new Error(`telegram-classic-bundle: module syntax left in ${file.fileName}`)
         }
+        // Classic scripts share one global scope. A section chunk's `var i`
+        // overwrites the entry helper (Object.getPrototypeOf) and the screen
+        // dies with "empty" or "useContext is not a function".
+        code = `(function(){\n${code}\n})();\n`
         if (file.isEntry) code = `window.__LIFEOS_JS=1;\n${LOADER}${code}`
         file.code = code
       }

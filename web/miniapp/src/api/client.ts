@@ -539,6 +539,45 @@ export const api = {
   cancelReminder: (id: string) =>
     request(`/api/v1/reminders/${id}`, { method: 'DELETE' }),
 
+  careerContacts: (query = '') =>
+    request<{ contacts: import('@/api/types').CareerContact[]; query: string }>(
+      query
+        ? `/api/v1/career/contacts?q=${encodeURIComponent(query)}`
+        : '/api/v1/career/contacts',
+    ),
+
+  createCareerContact: (body: {
+    name: string
+    company?: string
+    role?: string
+    notes?: string
+  }) =>
+    request<import('@/api/types').CareerContact>('/api/v1/career/contacts', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  deleteCareerContact: (id: string) =>
+    request<import('@/api/types').CareerContact>(`/api/v1/career/contacts/${id}`, {
+      method: 'DELETE',
+    }),
+
+  careerSkills: (query = '') =>
+    request<{ skills: import('@/api/types').CareerSkill[]; query: string }>(
+      query ? `/api/v1/career/skills?q=${encodeURIComponent(query)}` : '/api/v1/career/skills',
+    ),
+
+  createCareerSkill: (body: { name: string; level?: string }) =>
+    request<import('@/api/types').CareerSkill>('/api/v1/career/skills', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  deleteCareerSkill: (id: string) =>
+    request<import('@/api/types').CareerSkill>(`/api/v1/career/skills/${id}`, {
+      method: 'DELETE',
+    }),
+
   latestWeight: () =>
     request<import('@/api/types').WeightLog>('/api/v1/health/weight/latest'),
 

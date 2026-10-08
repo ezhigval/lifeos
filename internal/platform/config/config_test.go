@@ -14,6 +14,7 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("LIFEOS_LOG_LEVEL", "")
 	t.Setenv("LIFEOS_LOG_FORMAT", "text")
 	t.Setenv("LIFEOS_LLM_ENABLED", "")
+	t.Setenv("LIFEOS_LLM_AGENT_ENABLED", "")
 	t.Setenv("LIFEOS_LLM_PROVIDER", "")
 	t.Setenv("LIFEOS_LLM_API_KEY", "")
 	t.Setenv("LIFEOS_OPENAI_API_KEY", "")
@@ -38,6 +39,9 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.LLMEnabled {
 		t.Fatalf("LLMEnabled = true, want false")
+	}
+	if cfg.LLMAgentEnabled {
+		t.Fatalf("LLMAgentEnabled = true, want false until LLM is enabled")
 	}
 	if cfg.LLMProvider != "openai" {
 		t.Fatalf("LLMProvider = %q, want openai", cfg.LLMProvider)

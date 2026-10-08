@@ -175,6 +175,22 @@ export type FinancePlan = {
   currency: string
 }
 
+export type CareerContact = {
+  id: string
+  name: string
+  company: string
+  role: string
+  notes: string
+  created_at: string
+}
+
+export type CareerSkill = {
+  id: string
+  name: string
+  level: string
+  created_at: string
+}
+
 export type Reminder = {
   id: string
   message: string
