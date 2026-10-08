@@ -471,6 +471,7 @@ func (rt *Router) createTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.syncTaskReminder(r.Context(), userID, dto)
 	writeJSON(w, http.StatusCreated, taskToJSON(dto))
 }
 
@@ -686,6 +687,7 @@ func (rt *Router) editTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.syncTaskReminder(r.Context(), userID, dto)
 	writeJSON(w, http.StatusOK, taskToJSON(dto))
 }
 
@@ -711,6 +713,7 @@ func (rt *Router) completeTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.cancelTaskReminders(r.Context(), userID, taskID)
 	writeJSON(w, http.StatusOK, taskToJSON(dto))
 }
 
@@ -740,6 +743,7 @@ func (rt *Router) reopenTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.syncTaskReminder(r.Context(), userID, dto)
 	writeJSON(w, http.StatusOK, taskToJSON(dto))
 }
 
@@ -769,6 +773,7 @@ func (rt *Router) cancelTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.cancelTaskReminders(r.Context(), userID, taskID)
 	writeJSON(w, http.StatusOK, taskToJSON(dto))
 }
 
@@ -812,6 +817,7 @@ func (rt *Router) rescheduleTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	rt.syncTaskReminder(r.Context(), userID, dto)
 	writeJSON(w, http.StatusOK, taskToJSON(dto))
 }
 
