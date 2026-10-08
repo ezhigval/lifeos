@@ -189,14 +189,14 @@ WHERE user_id = $2 AND id = ANY($3::uuid[])
 `
 
 type SpheresExistParams struct {
-Expected   int32
-UserID     pgtype.UUID
-SphereIds  []pgtype.UUID
+	Expected  int32
+	UserID    pgtype.UUID
+	SphereIds []pgtype.UUID
 }
 
 func (q *Queries) SpheresExist(ctx context.Context, arg SpheresExistParams) (bool, error) {
-row := q.db.QueryRow(ctx, spheresExist, arg.Expected, arg.UserID, arg.SphereIds)
-var ok bool
-err := row.Scan(&ok)
-return ok, err
+	row := q.db.QueryRow(ctx, spheresExist, arg.Expected, arg.UserID, arg.SphereIds)
+	var ok bool
+	err := row.Scan(&ok)
+	return ok, err
 }

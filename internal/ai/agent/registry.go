@@ -29,7 +29,7 @@ const (
 	ToolReminderCancel      = "reminder.cancel"
 	ToolHabitCreate         = "habit.create"
 	ToolHabitTrack          = "habit.track"
-	ToolHabitList            = "habit.list"
+	ToolHabitList           = "habit.list"
 	ToolNoteCreate          = "note.create"
 	ToolNoteList            = "note.list"
 	ToolNoteSearch          = "note.search"
