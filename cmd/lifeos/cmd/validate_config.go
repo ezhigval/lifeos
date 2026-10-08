@@ -103,7 +103,7 @@ func rejectMockOllamaUnlessAllowed(cfg config.Config) error {
 	for _, m := range body.Models {
 		name := strings.ToLower(strings.TrimSpace(m.Name))
 		if name == "lifeos_mock" || strings.HasPrefix(name, "lifeos_mock:") {
-			return fmt.Errorf("Ollama at %s looks like scripts/mock_ollama (model lifeos_mock); set LIFEOS_ALLOW_MOCK_LLM=true for local stub testing, or run a real Ollama", base)
+			return fmt.Errorf("mock Ollama detected at %s (model lifeos_mock); set LIFEOS_ALLOW_MOCK_LLM=true for local stub testing, or run a real Ollama", base)
 		}
 	}
 	return nil

@@ -15,10 +15,10 @@ const (
 )
 
 type modelAction struct {
-	Type actionType      `json:"type"`
-	Text string          `json:"text"`
-	Tool string          `json:"tool"`
-	Args map[string]any  `json:"args"`
+	Type actionType     `json:"type"`
+	Text string         `json:"text"`
+	Tool string         `json:"tool"`
+	Args map[string]any `json:"args"`
 }
 
 func parseAction(raw string) (modelAction, error) {
