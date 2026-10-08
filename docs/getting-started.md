@@ -20,7 +20,7 @@ make docker-up
 curl -fsS http://127.0.0.1:8080/health
 ```
 
-Compose поднимает Postgres на порту `5433` и приложение на `8080`. Образ перед `serve` выполняет `migrate up`. Mini App отдаётся с `http://127.0.0.1:8080/app/`.
+Compose публикует Postgres на `127.0.0.1:5433` и приложение на `127.0.0.1:8080`. Образ перед `serve` выполняет `migrate up`. Mini App отдаётся с `http://127.0.0.1:8080/app/`.
 
 Остановить: `make docker-down`.
 
