@@ -7,24 +7,11 @@ Requires=docker.service
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/lifeos/repo
-# One script: fetch -> skip if unchanged -> checkout -> build -> migrate -> restart app.
-# NOTE: $ and \ inside ExecStart must be escaped for systemd ($$).
-ExecStart=/bin/bash -ec '\
-  BRANCH=$${LIFEOS_BRANCH:-main}; \
-  git fetch --quiet origin "$$BRANCH"; \
-  REMOTE=$$(git rev-parse "origin/$$BRANCH"); \
-  LOCAL=$$(cat /opt/lifeos/.last_deploy_sha 2>/dev/null || echo none); \
-  if [ "$$REMOTE" = "$$LOCAL" ]; then echo "no changes ($$REMOTE), skipping"; exit 0; fi; \
-  echo "deploying $$LOCAL -> $$REMOTE"; \
-  git checkout "$$BRANCH"; \
-  git reset --hard "origin/$$BRANCH"; \
-  [ -f /opt/lifeos/docker-compose.override.yml ] && OVERRIDE="-f /opt/lifeos/docker-compose.override.yml"; \
-  COMPOSE="docker compose --env-file /opt/lifeos/.env -p lifeos -f deployments/docker-compose.yml $${OVERRIDE:-}"; \
-  $$COMPOSE build app; \
-  $$COMPOSE up -d postgres; \
-  $$COMPOSE run --rm --no-deps app migrate up; \
-  $$COMPOSE up -d app; \
-  docker image prune -f >/dev/null 2>&1 || true; \
-  echo "$$REMOTE" > /opt/lifeos/.last_deploy_sha; \
-  sleep 3; curl -fsS http://localhost:8080/health && echo " health OK"'
-TimeoutStartSec=1800
+# Installed to /opt/lifeos/bin by autodeploy.sh. The script caps the image
+# build and keeps sshd/nginx off the OOM killer's short list.
+ExecStart=/opt/lifeos/bin/vm-pull-deploy.sh
+TimeoutStartSec=1200
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+OOMScoreAdjust=500

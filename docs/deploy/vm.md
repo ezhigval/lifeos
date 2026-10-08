@@ -20,6 +20,14 @@ LifeOS --ответ бота--> 127.0.0.1:8081  локальный прокси
 
 A-запись на IP машины не нужна, и сертификат на самой ВМ не нужен. nginx не стоит перед приложением: туннель смотрит на `http://127.0.0.1:8080`. Схема края, кэш Mini App и клики в панели: [EDGE.md](EDGE.md).
 
+## Один край
+
+Байты Mini App идут так: Telegram WebView → named tunnel (HTTPS на Cloudflare) → `127.0.0.1:8080`. Второго туннеля и TLS на самой ВМ нет. `:443` на ВМ не слушаем.
+
+nginx на `:80` — только прямой IP и локальная проверка. Конфиг `deployments/nginx/lifeos.conf` проксирует на тот же `127.0.0.1:8080`, передаёт `Accept-Encoding` и не ставит свой `Cache-Control`. Иначе HTML застревает в `no-cache`, а скрипт ~380KB уходит без brotli. `index.html` с приложения — `no-store`, файлы в `/app/assets/` — `immutable` и заранее сжаты (`.br` / `.gz`).
+
+Postgres с хоста только `127.0.0.1:5433`. Порты 5432 и 5433 в security group не открывать. Исходящий Bot API (`127.0.0.1:8081` → Worker) к статике не относится.
+
 ## Деньги
 
 | Что | Зачем |
@@ -68,7 +76,7 @@ sudo systemctl start lifeos-deploy.service
 curl -fsS http://127.0.0.1:8080/health
 ```
 
-В `.env` обязательны `TELEGRAM_BOT_TOKEN` и `LIFEOS_JWT_SECRET` (от 32 байт). Таймер `lifeos-deploy.timer` раз в сутки в 04:15 UTC делает `git fetch` (`Persistent=true`: пропущенный запуск выполняется после загрузки). Образ пересобирается только если SHA в `origin/main` отличается от `/opt/lifeos/.last_deploy_sha`. Миграции выполняются в контейнере до рестарта приложения.
+В `.env` обязательны `TELEGRAM_BOT_TOKEN` и `LIFEOS_JWT_SECRET` (от 32 байт). Таймер `lifeos-deploy.timer` раз в сутки в 04:15 UTC (`Persistent=true`: пропущенный запуск выполняется после загрузки) запускает `/opt/lifeos/bin/vm-pull-deploy.sh`. Образ пересобирается только если SHA в `origin/main` отличается от `/opt/lifeos/.last_deploy_sha`. Сборка идёт классическим builder с лимитом памяти, чтобы компиляция на ВМ ~2GB не убила sshd и nginx. Перед миграцией скрипт пишет дамп в `/opt/lifeos/backups/`. Миграции выполняются в контейнере до рестарта приложения.
 
 Повторный запуск того же скрипта безопасен. Снести установку и поставить заново, сохранив дамп БД: `sudo bash deployments/vm-reset.sh`. Полный проход с переносом старого тома: `sudo bash deployments/vm-bootstrap.sh`.
 

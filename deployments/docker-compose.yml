@@ -5,6 +5,8 @@ services:
       POSTGRES_USER: lifeos
       POSTGRES_PASSWORD: lifeos
       POSTGRES_DB: lifeos
+    # Host port is loopback only. The app uses the compose network.
+    # Do not publish 5432 or 5433 on 0.0.0.0, and do not open them in the security group.
     ports:
       # Loopback only. Never publish 5432 or 5433 on 0.0.0.0.
       - "127.0.0.1:5433:5432"

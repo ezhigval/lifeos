@@ -8,7 +8,8 @@
 }
 
 {$LIFEOS_DOMAIN} {
-	encode gzip
+	# The app already serves .br/.gz and Cache-Control. A second encode
+	# hides brotli and can drop Content-Length on hashed assets.
 
 	# Telegram webhook + REST + Mini App all from one origin
 	handle /webhook/* {
