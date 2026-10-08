@@ -37,12 +37,15 @@ Desktop           -- не на ВМ и не на этот хост -> GitHub Rel
 | Входящий webhook | `POST /webhook/telegram` | проксирует в туннель | нет |
 | Исходящий Bot API | прокси `:8081` | Worker | нет |
 | Сборки desktop | нет | нет, бакета R2 в workflow нет | Releases |
+| Образ приложения | pull и запуск | нет | Actions: GHCR и prerelease `vm-image` |
 
 Снаружи на ВМ открыт только SSH 22. Порты 80, 443, 5432, 5433 и 8080 в firewall и в группе безопасности не открывать. Туннель сам устанавливает исходящее соединение.
 
 `/opt/lifeos/docker-compose.override.yml` перекрывает порты из compose и в git не входит. Postgres в нём — `127.0.0.1:5433:5432`. Приложение — `127.0.0.1:8080:8080`. Выкладка сама переписывает `8080:8080` и `0.0.0.0:8080:8080` на loopback. Порт 8080 в группу безопасности не открывать: снаружи к нему ходит только туннель.
 
 Приложение уже принимает webhook: маршрута `POST /webhook/telegram` нет только если процесс запущен без него. На ВМ режим задаёт `LIFEOS_TELEGRAM_MODE=webhook`, URL собирает `deployments/apply-public-origin.sh`. Предпочтительный путь: Telegram → Cloudflare → туннель → этот POST. Токен бота не ротировать. `lifeos-tg-proxy` не удалять.
+
+Образ приложения собирает workflow CI на push в `main`. ВМ его не компилирует. Prerelease `vm-image` не должен становиться Latest.
 
 Desktop-обновлятор читает `https://github.com/ezhigval/lifeos/releases/latest/download/latest.json`. Zip в этом JSON лежит на том же хосте `github.com`, иначе проверка источника его отбросит. Файл появится в релизе со следующим тегом `desktop-v*` (workflow `.github/workflows/desktop-release.yml`). Пока в текущем релизе только zip. `releases/latest` должен указывать на такой тег. Уже установленные сборки ходят на старый URL ВМ, пока их один раз не обновят с Releases.
 
