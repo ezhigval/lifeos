@@ -102,7 +102,7 @@ if token_ready; then
   sleep 2
   systemctl is-active lifeos-tunnel
   echo "[tunnel] named tunnel service is active. Token file: $ENV_FILE (not printed)."
-  echo "[tunnel] public hostname service must be HTTP http://127.0.0.1:8080 (the Go app, not nginx)."
+  echo "[tunnel] public hostname service must be HTTP http://127.0.0.1:8080 (the Go app)."
 else
   systemctl disable --now lifeos-tunnel >/dev/null 2>&1 || true
   echo "[tunnel] unit installed, not started."
