@@ -4,7 +4,7 @@
 |--------|----------|
 | Поставить себе и запустить | [getting-started.md](getting-started.md) |
 | Бот и Mini App | [telegram.md](telegram.md) |
-| Mac дома, Docker, тот же домен | [deploy/mac.md](deploy/mac.md) |
+| Windows дома, Docker, тот же домен | [deploy/windows.md](deploy/windows.md) |
 | ВМ, автодеплой, постоянный туннель | [deploy/vm.md](deploy/vm.md) |
 | Край Cloudflare | [deploy/EDGE.md](deploy/EDGE.md) |
 | VPS с Caddy | [deploy/hosting.md](deploy/hosting.md) |

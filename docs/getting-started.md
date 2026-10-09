@@ -76,4 +76,4 @@ make openapi-check
 
 Полный прогон, как в CI: `make ci` (нужен golangci-lint).
 
-Дальше: [бот и Mini App](telegram.md). Постоянный адрес на домашнем Mac: [deploy/mac.md](deploy/mac.md). ВМ: [deploy/vm.md](deploy/vm.md).
+Дальше: [бот и Mini App](telegram.md). Постоянный адрес на домашнем Windows: [deploy/windows.md](deploy/windows.md).
