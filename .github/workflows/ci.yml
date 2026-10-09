@@ -80,11 +80,11 @@ jobs:
         run: go run ./cmd/lifeos migrate status
 
   # The VM cannot build this image: its network blocks the Alpine package CDN.
-  # Publish only after tests on main. vm-image stays a prerelease so it does
-  # not replace the desktop release that GitHub marks Latest.
+  # Pull requests build and smoke the image. Publish only from main, so a
+  # draft does not move the vm-image prerelease or the :main tag.
   image:
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -105,6 +105,7 @@ jobs:
           docker run --rm --entrypoint /bin/sh lifeos-app:deploy -c 'test -x /app/lifeos && test -d /app/migrations && grep -q __LIFEOS_MARK /app/web/index.html'
 
       - name: Push GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -129,6 +130,7 @@ jobs:
           docker image inspect lifeos-app:deploy >/dev/null
 
       - name: Publish prerelease asset
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: vm-image
@@ -143,6 +145,7 @@ jobs:
             Это не релиз desktop. Latest остаётся на теге desktop-v*.
 
       - name: Keep the two newest image assets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
