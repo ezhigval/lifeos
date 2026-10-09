@@ -78,7 +78,21 @@ LIFEOS_OLLAMA_URL=http://localhost:11434
 LIFEOS_OLLAMA_MODEL=llama3.2
 ```
 
-Compose по умолчанию Ollama не поднимает.
+Compose по умолчанию Ollama не поднимает. На домашнем Windows модель стоит на хосте, LifeOS в Docker ходит на `http://host.docker.internal:11434`. Пошагово: [windows.md](../deploy/windows.md).
+
+### На том же ПК — LM Studio
+
+Локальный сервер LM Studio говорит по OpenAI API, обычно порт `1234`. Провайдер остаётся `openai`, ключ любой непустой: сервер его не проверяет как облачный.
+
+```env
+LIFEOS_LLM_ENABLED=true
+LIFEOS_LLM_PROVIDER=openai
+LIFEOS_LLM_API_KEY=lm-studio
+LIFEOS_LLM_BASE_URL=http://host.docker.internal:1234/v1
+LIFEOS_LLM_MODEL=имя-модели-из-LM-Studio
+```
+
+Включать после того, как webhook уже отвечает. Агент — только вместе с `LIFEOS_LLM_ENABLED=true`.
 
 ### Dev stub (только локально)
 
