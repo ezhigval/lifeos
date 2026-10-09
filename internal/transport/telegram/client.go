@@ -521,10 +521,12 @@ type apiResponse struct {
 
 func (c *Client) SetWebhook(ctx context.Context, webhookURL, secretToken string) error {
 	payload := map[string]any{
-		"url":                  webhookURL,
-		"secret_token":         secretToken,
-		"allowed_updates":      []string{"message", "callback_query"},
-		"drop_pending_updates": true,
+		"url":             webhookURL,
+		"secret_token":    secretToken,
+		"allowed_updates": []string{"message", "callback_query"},
+		// Keep updates that arrived while the process was down. Dropping them
+		// on every registration makes the bot look silent after a redeploy.
+		"drop_pending_updates": false,
 	}
 	return c.postAPI(ctx, "setWebhook", payload)
 }

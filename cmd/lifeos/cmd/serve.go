@@ -119,7 +119,7 @@ func runServe() error {
 				log.Info("telegram webhook registered", "url", cfg.TelegramWebhookURL)
 			}
 		} else {
-			log.Info("telegram webhook active", "url", info.URL, "pending", info.PendingUpdateCount)
+			log.Info("telegram webhook active", "url", info.URL, "pending", info.PendingUpdateCount, "last_error", info.LastError)
 		}
 	}
 
