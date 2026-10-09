@@ -100,8 +100,44 @@ if old in text:
 PY
 }
 
+# The VM's compose rejects `run --no-build` and would compile the image again.
+# Drop the app build stanza so compose can only start the pulled image.
+write_pulled_compose() {
+  python3 - "$REPO/deployments/docker-compose.yml" "$BASE/docker-compose.pulled.yml" "$IMAGE" <<'PY'
+import pathlib, sys
+src, dst, image = sys.argv[1:]
+lines = pathlib.Path(src).read_text().splitlines(True)
+out = []
+service = ""
+skip = False
+build_indent = 0
+for line in lines:
+    stripped = line.strip()
+    indent = len(line) - len(line.lstrip(" ")) if stripped else None
+    if indent == 2 and stripped.endswith(":") and not stripped.startswith("-"):
+        service = stripped[:-1]
+        skip = False
+    if skip:
+        if indent is None or indent > build_indent:
+            continue
+        skip = False
+    if service == "app" and indent == 4 and stripped == "build:":
+        out.append(f"    image: {image}\n")
+        skip = True
+        build_indent = indent
+        continue
+    out.append(line)
+pathlib.Path(dst).write_text("".join(out))
+PY
+  log "compose file has no local build"
+}
+
 compose() {
-  local -a args=(docker compose --env-file "$BASE/.env" -p lifeos -f "$REPO/deployments/docker-compose.yml")
+  local base_file="$REPO/deployments/docker-compose.yml"
+  if [[ -f "$BASE/docker-compose.pulled.yml" ]]; then
+    base_file="$BASE/docker-compose.pulled.yml"
+  fi
+  local -a args=(docker compose --env-file "$BASE/.env" -p lifeos -f "$base_file")
   if [[ -f "$BASE/docker-compose.override.yml" ]]; then
     args+=(-f "$BASE/docker-compose.override.yml")
   fi
@@ -109,6 +145,19 @@ compose() {
     args+=(-f "$BASE/docker-compose.buildimage.yml")
   fi
   "${args[@]}" "$@"
+}
+
+# `docker compose run --no-build` is missing on the compose shipped with this VM.
+compose_cmd() {
+  local sub="$1"
+  shift
+  local -a flags=()
+  local help
+  help=$(docker compose "$sub" --help 2>&1 || true)
+  if grep -q -- '--no-build' <<<"$help"; then
+    flags+=(--no-build)
+  fi
+  compose "$sub" "${flags[@]}" "$@"
 }
 
 backup_postgres() {
@@ -230,24 +279,31 @@ fetch_image() {
   http=$(curl -sS -L --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 300 \
     -o "$tmp" -w '%{http_code}' \
     "https://github.com/ezhigval/lifeos/releases/download/${RELEASE_TAG}/lifeos-${sha}.tar.gz" || true)
-  if [[ "$http" == "200" ]] && gzip -t "$tmp"; then
-    if docker load -i "$tmp"; then
-      rm -f "$tmp"
-      docker image inspect "$IMAGE" >/dev/null
-      pin_image
-      return 0
-    fi
+  # 000 and an empty code are curl transport failures (connect, timeout, DNS).
+  # 404 and other non-200 responses mean the asset is not ready yet. None of
+  # those are a corrupt image, so the caller must not stamp .last_build_fail.
+  if [[ "$http" != "200" ]]; then
+    rm -f "$tmp"
+    log "image for $sha is not ready (http=${http:-empty})"
+    return 2
+  fi
+  if ! gzip -t "$tmp"; then
+    rm -f "$tmp"
+    log "release asset for $sha failed gzip"
+    return 1
+  fi
+  if ! docker load -i "$tmp"; then
     rm -f "$tmp"
     log "docker load failed"
     return 1
   fi
   rm -f "$tmp"
-  if [[ "$http" == "404" ]]; then
-    log "image for $sha is not published yet"
-    return 2
+  if ! docker image inspect "$IMAGE" >/dev/null; then
+    log "loaded image is missing $IMAGE"
+    return 1
   fi
-  log "release download failed http=$http"
-  return 1
+  pin_image
+  return 0
 }
 
 # Tests source this file. A normal run falls through.
@@ -265,11 +321,15 @@ apply_oom_scores
 retire_nginx || true
 
 cd "$REPO"
-# github.com:22 from this VM often times out. Fail fast and keep going
-# with the checkout that is already on disk.
+# github.com:22 from this VM often times out. Port 443 is open, so HTTPS is
+# the fallback. A failed fetch keeps the checkout already on disk.
 if ! GIT_SSH_COMMAND="ssh -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new" \
   git fetch --quiet origin "$BRANCH"; then
-  log "git fetch failed; using the checkout already on disk"
+  log "git fetch over ssh failed; trying https"
+  if ! git fetch --quiet "https://github.com/ezhigval/lifeos.git" \
+    "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"; then
+    log "git fetch failed; using the checkout already on disk"
+  fi
 fi
 REMOTE=$(git rev-parse "origin/$BRANCH")
 LOCAL=$(cat "$SHA_FILE" 2>/dev/null || echo none)
@@ -328,10 +388,13 @@ if [[ "$fetch_rc" -ne 0 ]]; then
 fi
 rm -f "$fail_stamp"
 
+write_pulled_compose
 backup_postgres
-compose up -d postgres
-compose run --rm --no-deps --no-build app migrate up
-compose up -d --no-build --force-recreate app
+compose_cmd up -d postgres
+log "migrate"
+compose_cmd run --rm --no-deps app migrate up
+log "recreate app"
+compose_cmd up -d --force-recreate app
 docker image prune -f >/dev/null 2>&1 || true
 ok=0
 for _ in 1 2 3 4 5 6; do
