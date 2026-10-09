@@ -103,9 +103,9 @@ PY
 # The VM's compose rejects `run --no-build` and would compile the image again.
 # Drop the app build stanza so compose can only start the pulled image.
 write_pulled_compose() {
-  python3 - "$REPO/deployments/docker-compose.yml" "$BASE/docker-compose.pulled.yml" "$IMAGE" <<'PY'
+  python3 - "$REPO/deployments/docker-compose.yml" "$BASE/docker-compose.pulled.yml" "$IMAGE" "$BASE/.env" <<'PY'
 import pathlib, sys
-src, dst, image = sys.argv[1:]
+src, dst, image, env_file = sys.argv[1:]
 lines = pathlib.Path(src).read_text().splitlines(True)
 out = []
 service = ""
@@ -127,7 +127,9 @@ for line in lines:
         build_indent = indent
         continue
     out.append(line)
-pathlib.Path(dst).write_text("".join(out))
+# The generated file lives in /opt/lifeos, not next to deployments/.
+# ../.env would point at /opt/.env. Secrets are $BASE/.env.
+pathlib.Path(dst).write_text("".join(out).replace("../.env", env_file))
 PY
   log "compose file has no local build"
 }
@@ -139,6 +141,13 @@ compose() {
   fi
   local -a args=(docker compose --env-file "$BASE/.env" -p lifeos -f "$base_file")
   if [[ -f "$BASE/docker-compose.override.yml" ]]; then
+    # Same relative-path trap if the override also says ../.env.
+    python3 - "$BASE/docker-compose.override.yml" "$BASE/.env" <<'PY'
+import pathlib, sys
+path, env_file = sys.argv[1:]
+file = pathlib.Path(path)
+file.write_text(file.read_text().replace("../.env", env_file))
+PY
     args+=(-f "$BASE/docker-compose.override.yml")
   fi
   if [[ -f "$BASE/docker-compose.buildimage.yml" ]]; then

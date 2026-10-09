@@ -188,5 +188,10 @@ if grep -q 'dockerfile:' "$BASE/docker-compose.pulled.yml"; then
 fi
 grep -q 'postgres:' "$BASE/docker-compose.pulled.yml"
 grep -q '127.0.0.1:8080:8080' "$BASE/docker-compose.pulled.yml"
+grep -q "$BASE/.env" "$BASE/docker-compose.pulled.yml"
+if grep -F -q '../.env' "$BASE/docker-compose.pulled.yml"; then
+  echo "pulled compose still points env_file at ../.env" >&2
+  exit 1
+fi
 
 echo "vm-pull-deploy tests ok"
