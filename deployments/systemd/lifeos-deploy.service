@@ -1,5 +1,5 @@
 [Unit]
-Description=LifeOS pull-deploy (fetch main, rebuild only on new commit)
+Description=LifeOS pull-deploy (fetch main, pull image only on new commit)
 After=docker.service network-online.target
 Wants=network-online.target
 Requires=docker.service
@@ -7,8 +7,8 @@ Requires=docker.service
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/lifeos/repo
-# Installed to /opt/lifeos/bin by autodeploy.sh. The script caps the image
-# build and keeps sshd off the OOM killer's short list.
+# Installed to /opt/lifeos/bin by autodeploy.sh. The script pulls a GitHub
+# image and keeps sshd off the OOM killer's short list.
 ExecStart=/opt/lifeos/bin/vm-pull-deploy.sh
 TimeoutStartSec=1200
 Nice=10

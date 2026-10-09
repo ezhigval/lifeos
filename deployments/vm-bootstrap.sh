@@ -334,7 +334,7 @@ case "$MIGRATION_NOTE" in
 esac
 
 # ---------------------------------------------------------------------------
-step "[9.5] Зафиксировать SHA для таймера автодеплоя (не пересобирать зря)"
+step "[9.5] Зафиксировать SHA для таймера автодеплоя (не тянуть образ зря)"
 git -C "$REPO" rev-parse HEAD > /opt/lifeos/.last_deploy_sha
 ok "last_deploy_sha=$(cat /opt/lifeos/.last_deploy_sha | head -c 8)"
 
