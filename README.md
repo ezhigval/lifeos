@@ -32,7 +32,7 @@ curl -fsS http://127.0.0.1:8080/health
 
 Приложение слушает `127.0.0.1:8080`. Mini App: `http://127.0.0.1:8080/app/`. Postgres с хоста: `127.0.0.1:5433`. Образ сам накатывает миграции.
 
-Напиши боту `/start`. Без публичного HTTPS откроется только чат. Mini App из Telegram требует HTTPS: для ноутбука это [короткий туннель](docs/telegram.md), для сервера — [домен и named tunnel](docs/deploy/vm.md).
+Напиши боту `/start`. Без публичного HTTPS откроется только чат. Mini App из Telegram требует HTTPS. Прод на домашнем Mac с уже настроенным доменом: [docs/deploy/mac.md](docs/deploy/mac.md). Короткий туннель для разработки: [docs/telegram.md](docs/telegram.md). ВМ: [docs/deploy/vm.md](docs/deploy/vm.md).
 
 Дальше по шагам: [docs/getting-started.md](docs/getting-started.md).
 
@@ -55,6 +55,7 @@ make package-win      # windows/amd64
 |---|---|
 | Запуск локально и в Docker | [docs/getting-started.md](docs/getting-started.md) |
 | Бот, Mini App, туннель на ноутбуке | [docs/telegram.md](docs/telegram.md) |
+| Mac дома, Docker, тот же домен | [docs/deploy/mac.md](docs/deploy/mac.md) |
 | ВМ, секреты, автодеплой, постоянный туннель | [docs/deploy/vm.md](docs/deploy/vm.md) |
 | Край Cloudflare | [docs/deploy/EDGE.md](docs/deploy/EDGE.md) |
 | VPS и Caddy | [docs/deploy/hosting.md](docs/deploy/hosting.md) |
