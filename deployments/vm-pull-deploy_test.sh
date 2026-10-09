@@ -44,10 +44,14 @@ for arg in "$@"; do
   fi
   prev=$arg
 done
-code="${CURL_CODE:-404}"
-if [[ "$code" == "200" ]]; then
-  echo hello | gzip > "$out"
+if [[ "${CURL_CODE+x}" == x ]]; then
+  code=$CURL_CODE
 else
+  code=404
+fi
+if [[ "$code" == "200" && "${CURL_PLAIN:-0}" != 1 ]]; then
+  echo hello | gzip > "$out"
+elif [[ -n "$out" ]]; then
   printf 'nope' > "$out"
 fi
 printf '%s' "$code"
@@ -111,10 +115,46 @@ grep -q 'image: lifeos-app:deploy' "$BASE/docker-compose.buildimage.yml"
 export CURL_CODE=200
 export DOCKER_LOAD_OK=0
 assert_rc 1 fetch_image "$SHA"
+if ! grep -q '^load ' "$DOCKER_LOG"; then
+  echo "corrupt docker load must be attempted" >&2
+  exit 1
+fi
+
+: > "$DOCKER_LOG"
+export CURL_CODE=200
+export CURL_PLAIN=1
+export DOCKER_LOAD_OK=1
+assert_rc 1 fetch_image "$SHA"
+if grep -q '^load ' "$DOCKER_LOG"; then
+  echo "non-gzip 200 must not docker load" >&2
+  exit 1
+fi
+unset CURL_PLAIN
+
+: > "$DOCKER_LOG"
+export CURL_CODE=000
+export DOCKER_LOAD_OK=1
+assert_rc 2 fetch_image "$SHA"
+if grep -q '^load ' "$DOCKER_LOG"; then
+  echo "http 000 must not docker load" >&2
+  exit 1
+fi
+
+: > "$DOCKER_LOG"
+export CURL_CODE=
+assert_rc 2 fetch_image "$SHA"
+if grep -q '^load ' "$DOCKER_LOG"; then
+  echo "empty http status must not docker load" >&2
+  exit 1
+fi
 
 : > "$DOCKER_LOG"
 export CURL_CODE=500
-assert_rc 1 fetch_image "$SHA"
+assert_rc 2 fetch_image "$SHA"
+if grep -q '^load ' "$DOCKER_LOG"; then
+  echo "http 500 must not docker load" >&2
+  exit 1
+fi
 
 mem_available_kb() { echo 1000; }
 assert_rc 2 fetch_image "$SHA"

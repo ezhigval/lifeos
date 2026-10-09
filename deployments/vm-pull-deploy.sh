@@ -230,24 +230,31 @@ fetch_image() {
   http=$(curl -sS -L --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 300 \
     -o "$tmp" -w '%{http_code}' \
     "https://github.com/ezhigval/lifeos/releases/download/${RELEASE_TAG}/lifeos-${sha}.tar.gz" || true)
-  if [[ "$http" == "200" ]] && gzip -t "$tmp"; then
-    if docker load -i "$tmp"; then
-      rm -f "$tmp"
-      docker image inspect "$IMAGE" >/dev/null
-      pin_image
-      return 0
-    fi
+  # 000 and an empty code are curl transport failures (connect, timeout, DNS).
+  # 404 and other non-200 responses mean the asset is not ready yet. None of
+  # those are a corrupt image, so the caller must not stamp .last_build_fail.
+  if [[ "$http" != "200" ]]; then
+    rm -f "$tmp"
+    log "image for $sha is not ready (http=${http:-empty})"
+    return 2
+  fi
+  if ! gzip -t "$tmp"; then
+    rm -f "$tmp"
+    log "release asset for $sha failed gzip"
+    return 1
+  fi
+  if ! docker load -i "$tmp"; then
     rm -f "$tmp"
     log "docker load failed"
     return 1
   fi
   rm -f "$tmp"
-  if [[ "$http" == "404" ]]; then
-    log "image for $sha is not published yet"
-    return 2
+  if ! docker image inspect "$IMAGE" >/dev/null; then
+    log "loaded image is missing $IMAGE"
+    return 1
   fi
-  log "release download failed http=$http"
-  return 1
+  pin_image
+  return 0
 }
 
 # Tests source this file. A normal run falls through.
