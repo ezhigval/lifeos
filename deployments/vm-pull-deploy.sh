@@ -240,13 +240,164 @@ ghcr_reachable() {
   timeout 8 bash -c 'echo >/dev/tcp/ghcr.io/443' >/dev/null 2>&1
 }
 
+# Loopback in LIFEOS_HTTP_PROXY is the VM. Inside the app container that
+# address is the container itself, so replies never reach lifeos-tg-proxy
+# and the bot stays silent. Rewrite only a loopback proxy; leave any other
+# URL untouched. Prints nothing when the file or the variable is absent.
+container_http_proxy() {
+  [[ -f "$BASE/.env" ]] || return 0
+  python3 - "$BASE/.env" <<'PY'
+import sys
+from urllib.parse import urlparse, urlunparse
+
+raw = ""
+for line in open(sys.argv[1]):
+    if line.startswith("LIFEOS_HTTP_PROXY="):
+        raw = line.split("=", 1)[1].strip().strip('"').strip("'")
+        break
+if not raw:
+    raise SystemExit(0)
+parts = urlparse(raw)
+host = (parts.hostname or "").strip("[]").lower()
+if host not in {"127.0.0.1", "localhost", "::1"}:
+    raise SystemExit(0)
+port = parts.port
+if port is None:
+    port = 443 if parts.scheme == "https" else 80
+user = ""
+if parts.username:
+    user = parts.username
+    if parts.password is not None:
+        user += ":" + parts.password
+    user += "@"
+print(urlunparse((parts.scheme or "http", f"{user}host.docker.internal:{port}", parts.path or "", "", parts.query, "")))
+PY
+}
+
 pin_image() {
-  cat > "$BASE/docker-compose.buildimage.yml" <<EOF
-# Points compose at the image published by GitHub Actions.
-services:
-  app:
-    image: ${IMAGE}
-EOF
+  local proxy
+  proxy=$(container_http_proxy || true)
+  python3 - "$BASE/docker-compose.buildimage.yml" "$IMAGE" "$proxy" <<'PY'
+import sys
+path, image, proxy = sys.argv[1:]
+lines = [
+    "# Points compose at the image published by GitHub Actions.",
+    "services:",
+    "  app:",
+    f"    image: {image}",
+    "    extra_hosts:",
+    '      - "host.docker.internal:host-gateway"',
+]
+if proxy:
+    esc = proxy.replace("\\", "\\\\").replace('"', '\\"')
+    lines.append("    environment:")
+    lines.append(f'      LIFEOS_HTTP_PROXY: "{esc}"')
+open(path, "w").write("\n".join(lines) + "\n")
+PY
+}
+
+# Script src the built shell actually loads. Empty when the HTML is not ours.
+miniapp_script_src() {
+  python3 -c 'import re,sys; m=re.search(r"/app/assets/index-[A-Za-z0-9_-]+\.js", sys.stdin.read()); sys.stdout.write(m.group(0) if m else "")'
+}
+
+# Origin only. Query and userinfo stay out of the log.
+public_origin() {
+  [[ -f "$BASE/.env" ]] || return 0
+  python3 - "$BASE/.env" <<'PY'
+import sys
+from urllib.parse import urlparse
+
+def val(prefix):
+    for line in open(sys.argv[1]):
+        if line.startswith(prefix):
+            return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+url = val("LIFEOS_MINIAPP_URL=") or val("LIFEOS_TELEGRAM_WEBHOOK_URL=")
+parts = urlparse(url)
+host = (parts.hostname or "").strip("[]")
+if parts.scheme not in {"http", "https"} or not host:
+    raise SystemExit(0)
+if ":" in host:
+    host = f"[{host}]"
+if parts.port:
+    print(f"{parts.scheme}://{host}:{parts.port}")
+else:
+    print(f"{parts.scheme}://{host}")
+PY
+}
+
+log_port_8080() {
+  ss -H -ltnp 'sport = :8080' 2>/dev/null || true
+  docker ps --filter name=lifeos --format '{{.Names}} {{.Image}} {{.Status}} {{.Ports}}' 2>/dev/null || true
+}
+
+# A leftover host process on 8080 answers /health, so the deploy looks
+# successful while the tunnel still serves the old binary.
+release_stale_listener() {
+  local line
+  line=$(ss -H -ltnp 'sport = :8080' 2>/dev/null || true)
+  [[ -n "$line" ]] || return 0
+  if [[ "$line" == *docker-proxy* || "$line" == *docker-pr* ]]; then
+    return 0
+  fi
+  log "8080 is held outside docker"
+  if [[ "$line" == *nginx* ]]; then
+    systemctl disable --now nginx >/dev/null 2>&1 || true
+    log "stopped nginx"
+  fi
+  if [[ "$line" == *lifeos* ]] && systemctl cat lifeos.service >/dev/null 2>&1; then
+    systemctl disable --now lifeos.service >/dev/null 2>&1 || true
+    log "stopped legacy lifeos.service"
+  fi
+}
+
+# 0 when localhost (and the public origin, when it answers) serve this image.
+assert_image_is_live() {
+  local want got origin pub sw
+  if ! curl -fsS --max-time 3 http://127.0.0.1:8080/health >/dev/null; then
+    log "health check failed"
+    log_port_8080
+    return 1
+  fi
+  want=$(docker exec lifeos-app-1 cat /app/web/index.html | miniapp_script_src)
+  if [[ -z "$want" ]]; then
+    log "image index.html has no mini app script"
+    return 1
+  fi
+  got=$(curl -fsS --max-time 5 http://127.0.0.1:8080/app/ | miniapp_script_src || true)
+  if [[ "$got" != "$want" ]]; then
+    log "127.0.0.1:8080 serves ${got:-nothing}; image has $want"
+    log_port_8080
+    return 1
+  fi
+  sw=$(curl -fsS --max-time 5 http://127.0.0.1:8080/app/sw.js | head -c 12 || true)
+  case "$sw" in
+    "/*"*) ;;
+    *)
+      log "127.0.0.1:8080/app/sw.js is not the service worker"
+      log_port_8080
+      return 1
+      ;;
+  esac
+  origin=$(public_origin || true)
+  if [[ -n "$origin" ]]; then
+    if pub=$(curl -fsS --max-time 15 "$origin/app/?lifecheck=$RANDOM"); then
+      pub=$(printf '%s' "$pub" | miniapp_script_src)
+      if [[ "$pub" != "$want" ]]; then
+        log "public $origin/app/ serves ${pub:-nothing}; image has $want"
+        log "Zero Trust public hostname must be HTTP http://127.0.0.1:8080"
+        # Local process is the new image. Do not hour-lock the SHA: the
+        # next run only has to see the tunnel pointed at this process.
+        return 3
+      fi
+    else
+      log "could not fetch public mini app; tunnel check skipped"
+    fi
+  fi
+  log "listener serves $want"
+  return 0
 }
 
 # return 0 fetched, 2 not ready (retry later), 1 failed
@@ -403,19 +554,32 @@ compose_cmd up -d postgres
 log "migrate"
 compose_cmd run --rm --no-deps app migrate up
 log "recreate app"
+release_stale_listener
 compose_cmd up -d --force-recreate app
 docker image prune -f >/dev/null 2>&1 || true
 ok=0
+public_bad=0
 for _ in 1 2 3 4 5 6; do
-  if curl -fsS http://127.0.0.1:8080/health >/dev/null; then
+  live_rc=0
+  assert_image_is_live || live_rc=$?
+  if [[ "$live_rc" -eq 0 ]]; then
     ok=1
     break
   fi
+  if [[ "$live_rc" -eq 3 ]]; then
+    public_bad=1
+    break
+  fi
+  release_stale_listener
   sleep 3
 done
+if [[ "$public_bad" -eq 1 ]]; then
+  log "image is on 127.0.0.1:8080 but the public site is still the old one"
+  exit 1
+fi
 if [[ "$ok" -ne 1 ]]; then
   printf '%s\t%s\n' "$REMOTE" "$(date +%s)" > "$fail_stamp"
-  log "health check failed after deploy"
+  log "new image is not the process behind 127.0.0.1:8080"
   exit 1
 fi
 printf '%s\n' "$REMOTE" > "$SHA_FILE"
