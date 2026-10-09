@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
@@ -31,7 +31,7 @@ jobs:
       GOTOOLCHAIN: local
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Secret scan
         run: bash scripts/check-no-secrets.sh
@@ -39,13 +39,13 @@ jobs:
       - name: Deploy script
         run: bash deployments/vm-pull-deploy_test.sh
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.25.5'
           cache: true
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v2.4.0
 
@@ -85,12 +85,12 @@ jobs:
   image:
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build image
         run: |
@@ -129,7 +129,7 @@ jobs:
           docker image inspect lifeos-app:deploy >/dev/null
 
       - name: Publish prerelease asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: vm-image
           target_commitish: ${{ github.sha }}
