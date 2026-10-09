@@ -176,4 +176,17 @@ if [[ "$got" != "1" ]]; then
   exit 1
 fi
 
+REPO="$root"
+BASE="$tmp/pullbase"
+mkdir -p "$BASE"
+IMAGE=lifeos-app:deploy
+write_pulled_compose
+grep -q 'image: lifeos-app:deploy' "$BASE/docker-compose.pulled.yml"
+if grep -q 'dockerfile:' "$BASE/docker-compose.pulled.yml"; then
+  echo "pulled compose still has a build stanza" >&2
+  exit 1
+fi
+grep -q 'postgres:' "$BASE/docker-compose.pulled.yml"
+grep -q '127.0.0.1:8080:8080' "$BASE/docker-compose.pulled.yml"
+
 echo "vm-pull-deploy tests ok"
