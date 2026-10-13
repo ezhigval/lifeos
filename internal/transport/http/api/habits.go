@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -25,6 +26,29 @@ func parseDatePtr(field string, v *string) (*time.Time, bool) {
 		return nil, false
 	}
 	return &t, true
+}
+
+// optionalDate distinguishes an omitted JSON field from null/"" (clear) and a date.
+func optionalDate(raw json.RawMessage) (set bool, value *time.Time, ok bool) {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" {
+		return false, nil, true
+	}
+	if trimmed == "null" {
+		return true, nil, true
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return false, nil, false
+	}
+	if strings.TrimSpace(s) == "" {
+		return true, nil, true
+	}
+	t, err := time.Parse("2006-01-02", strings.TrimSpace(s))
+	if err != nil {
+		return false, nil, false
+	}
+	return true, &t, true
 }
 
 type habitJSON struct {
@@ -139,9 +163,9 @@ func (rt *Router) createHabit(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateHabitRequest struct {
-	Name      *string `json:"name"`
-	StartDate *string `json:"start_date"`
-	EndDate   *string `json:"end_date"`
+	Name      *string         `json:"name"`
+	StartDate json.RawMessage `json:"start_date"`
+	EndDate   json.RawMessage `json:"end_date"`
 }
 
 func (rt *Router) updateHabit(w http.ResponseWriter, r *http.Request) {
@@ -168,23 +192,25 @@ func (rt *Router) updateHabit(w http.ResponseWriter, r *http.Request) {
 	if req.Name != nil {
 		name = strings.TrimSpace(*req.Name)
 	}
-	start, okStart := parseDatePtr("start_date", req.StartDate)
+	setStart, start, okStart := optionalDate(req.StartDate)
 	if !okStart {
 		writeError(w, http.StatusBadRequest, "start_date must be YYYY-MM-DD")
 		return
 	}
-	end, okEnd := parseDatePtr("end_date", req.EndDate)
+	setEnd, end, okEnd := optionalDate(req.EndDate)
 	if !okEnd {
 		writeError(w, http.StatusBadRequest, "end_date must be YYYY-MM-DD")
 		return
 	}
 	dto, err := rt.deps.UpdateHabit.Execute(r.Context(), habitsapp.UpdateHabitInput{
-		UserID:    userID,
-		HabitID:   habitID,
-		Name:      name,
-		StartDate: start,
-		EndDate:   end,
-		Source:    events.SourceHTTP,
+		UserID:       userID,
+		HabitID:      habitID,
+		Name:         name,
+		StartDate:    start,
+		EndDate:      end,
+		SetStartDate: setStart,
+		SetEndDate:   setEnd,
+		Source:       events.SourceHTTP,
 	})
 	if err != nil {
 		switch {

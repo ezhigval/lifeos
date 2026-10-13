@@ -12,6 +12,7 @@ var (
 	ErrInvalidFrequency = errors.New("invalid habit frequency")
 	ErrInvalidDeadline  = errors.New("habit deadline ends before it starts")
 	ErrNotFound         = errors.New("habit not found")
+	ErrInactive         = errors.New("habit is outside its active dates")
 )
 
 type Frequency string
