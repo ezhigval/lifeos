@@ -145,6 +145,55 @@ func TestPostIsForwardedAndNotCached(t *testing.T) {
 	}
 }
 
+func TestMutationClearsCachedGet(t *testing.T) {
+	var hits atomic.Int32
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+			_, _ = io.WriteString(w, `{"ok":true}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"tasks":[{"id":"1"}]}`)
+	}))
+	t.Cleanup(origin.Close)
+
+	cache, err := OpenCache(t.TempDir() + "/cache.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv, err := newDesktopServer(testUI(), origin.URL, cache)
+	if err != nil {
+		t.Fatal(err)
+	}
+	desk := httptest.NewServer(srv.routes())
+	t.Cleanup(desk.Close)
+
+	get := func() {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodGet, desk.URL+"/api/v1/tasks/today", nil)
+		req.Header.Set("Authorization", "Bearer secret-token")
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = io.ReadAll(res.Body)
+		_ = res.Body.Close()
+	}
+	get()
+	res, err := http.Post(desk.URL+"/api/v1/tasks", "application/json", strings.NewReader(`{"title":"x"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = io.ReadAll(res.Body)
+	_ = res.Body.Close()
+	get()
+	if hits.Load() != 3 {
+		t.Fatalf("hits %d, want get + post + get after cache clear", hits.Load())
+	}
+}
+
 func TestAssistantChatProxyIgnoresShortAPITimeout(t *testing.T) {
 	if chatProxyTimeout <= apiProxyTimeout {
 		t.Fatalf("chat timeout %s must exceed api timeout %s", chatProxyTimeout, apiProxyTimeout)
