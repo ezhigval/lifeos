@@ -75,6 +75,9 @@ func (r *Review) build(ctx context.Context, userID ids.UserID, header string) (s
 	}
 	taskTitles := make([]string, 0, len(tasks))
 	for _, t := range tasks {
+		if t.Status == "done" || t.Status == "cancelled" {
+			continue
+		}
 		taskTitles = append(taskTitles, t.Title)
 	}
 	projects, err := r.projects.ListActive(ctx, userID)
