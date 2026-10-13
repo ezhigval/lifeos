@@ -17,6 +17,7 @@ import (
 	habitsapp "github.com/valentinezhov/lifeos/internal/habits/app"
 	healthapp "github.com/valentinezhov/lifeos/internal/health/app"
 	identityapp "github.com/valentinezhov/lifeos/internal/identity/app"
+	identitydomain "github.com/valentinezhov/lifeos/internal/identity/domain"
 	knowledgeapp "github.com/valentinezhov/lifeos/internal/knowledge/app"
 	notifapp "github.com/valentinezhov/lifeos/internal/notifications/app"
 	"github.com/valentinezhov/lifeos/internal/platform/auth"
@@ -241,7 +242,14 @@ func (rt *Router) jwtMiddleware(next http.Handler) http.Handler {
 		// (401) so Mini App issues a fresh token for the recreated account.
 		if rt.deps.GetUserByID != nil {
 			if _, err := rt.deps.GetUserByID.Execute(r.Context(), userID); err != nil {
-				writeError(w, http.StatusUnauthorized, "user not found")
+				if errors.Is(err, identitydomain.ErrNotFound) {
+					writeError(w, http.StatusUnauthorized, "user not found")
+					return
+				}
+				if rt.deps.Log != nil {
+					rt.deps.Log.Warn("user lookup failed", "error", err)
+				}
+				writeError(w, http.StatusServiceUnavailable, "auth backend unavailable")
 				return
 			}
 		}

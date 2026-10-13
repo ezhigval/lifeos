@@ -61,6 +61,11 @@ func TestDefaultBotCommandsCoverActions(t *testing.T) {
 	if !seen["triage"] {
 		t.Fatal("/triage must be advertised (MA-C6)")
 	}
+	for _, c := range cmds {
+		if c.Command == "tasks" && c.Description != "Задачи на сегодня" {
+			t.Fatalf("/tasks description %q does not match commandToAction", c.Description)
+		}
+	}
 	// Every advertised command except /clear and /cancel must resolve to an action.
 	for _, c := range cmds {
 		switch c.Command {

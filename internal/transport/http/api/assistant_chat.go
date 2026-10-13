@@ -108,7 +108,7 @@ func fromChatTurns(in []chatTurnJSON) []ai.DialogueTurn {
 	out := make([]ai.DialogueTurn, 0, len(in))
 	for _, t := range in {
 		role := strings.TrimSpace(t.Role)
-		if role == "" {
+		if role == "" || role == "tool" {
 			continue
 		}
 		out = append(out, ai.DialogueTurn{

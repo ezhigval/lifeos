@@ -67,7 +67,7 @@ func DefaultBotCommands() []BotCommandInfo {
 	return []BotCommandInfo{
 		{Command: "start", Description: "Главная"},
 		{Command: "today", Description: "Задачи на сегодня"},
-		{Command: "tasks", Description: "Приоритеты (top 3)"},
+		{Command: "tasks", Description: "Задачи на сегодня"},
 		{Command: "triage", Description: "Разбор просрочек"},
 		{Command: "habits", Description: "Привычки сегодня"},
 		{Command: "projects", Description: "Проекты"},
