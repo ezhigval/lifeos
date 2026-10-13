@@ -229,7 +229,7 @@ func (uc *CompletePlanOccurrence) Execute(ctx context.Context, userID ids.UserID
 				return err
 			}
 			out.Deleted = true
-			return uc.events.Append(txCtx, events.Record{
+			if err := uc.events.Append(txCtx, events.Record{
 				UserID:        userID,
 				AggregateType: "planned_cashflow",
 				AggregateID:   id.UUID(),
@@ -237,37 +237,44 @@ func (uc *CompletePlanOccurrence) Execute(ctx context.Context, userID ids.UserID
 				Payload:       map[string]any{"deleted": true, "title": item.Title},
 				Source:        source,
 				OccurredAt:    now,
-			})
+			}); err != nil {
+				return err
+			}
+		} else {
+			if err := uc.store.UpdatePlannedNextDate(txCtx, item); err != nil {
+				return err
+			}
+			dto := plannedToDTO(item)
+			out.Item = &dto
+			if err := uc.events.Append(txCtx, events.Record{
+				UserID:        userID,
+				AggregateType: "planned_cashflow",
+				AggregateID:   id.UUID(),
+				EventType:     "PlannedCashflowAdvanced",
+				Payload: map[string]any{
+					"title":     item.Title,
+					"next_date": item.NextDate.Format("2006-01-02"),
+					"interval":  item.Interval,
+				},
+				Source:     source,
+				OccurredAt: now,
+			}); err != nil {
+				return err
+			}
 		}
-		if err := uc.store.UpdatePlannedNextDate(txCtx, item); err != nil {
+		posted, err := postPlannedCashflow(txCtx, uc.income, uc.expense, item, source)
+		if err != nil {
 			return err
 		}
-		dto := plannedToDTO(item)
-		out.Item = &dto
-		return uc.events.Append(txCtx, events.Record{
-			UserID:        userID,
-			AggregateType: "planned_cashflow",
-			AggregateID:   id.UUID(),
-			EventType:     "PlannedCashflowAdvanced",
-			Payload: map[string]any{
-				"title":     item.Title,
-				"next_date": item.NextDate.Format("2006-01-02"),
-				"interval":  item.Interval,
-			},
-			Source:     source,
-			OccurredAt: now,
-		})
+		if posted {
+			out.Posted = true
+			out.PostedCents = item.AmountCents
+			out.PostedKind = string(item.Kind)
+		}
+		return nil
 	})
 	if err != nil {
 		return CompletePlanResult{}, fmt.Errorf("complete plan occurrence: %w", err)
-	}
-
-	if posted, err := postPlannedCashflow(ctx, uc.income, uc.expense, item, source); err != nil {
-		return out, fmt.Errorf("post planned cashflow: %w", err)
-	} else if posted {
-		out.Posted = true
-		out.PostedCents = item.AmountCents
-		out.PostedKind = string(item.Kind)
 	}
 	return out, nil
 }
@@ -358,13 +365,14 @@ func (uc *AdvanceOverduePlans) Execute(ctx context.Context, userID ids.UserID, s
 		if !changed {
 			continue
 		}
+		var deleted, advanced, posted bool
 		err := uc.transactor.WithinTransaction(ctx, func(txCtx context.Context) error {
 			if shouldDelete {
 				if err := uc.store.DeletePlanned(txCtx, userID, item.ID); err != nil {
 					return err
 				}
-				result.Deleted++
-				return uc.events.Append(txCtx, events.Record{
+				deleted = true
+				if err := uc.events.Append(txCtx, events.Record{
 					UserID:        userID,
 					AggregateType: "planned_cashflow",
 					AggregateID:   item.ID.UUID(),
@@ -372,31 +380,46 @@ func (uc *AdvanceOverduePlans) Execute(ctx context.Context, userID ids.UserID, s
 					Payload:       map[string]any{"title": item.Title},
 					Source:        source,
 					OccurredAt:    now,
-				})
+				}); err != nil {
+					return err
+				}
+			} else {
+				if err := uc.store.UpdatePlannedNextDate(txCtx, item); err != nil {
+					return err
+				}
+				advanced = true
+				if err := uc.events.Append(txCtx, events.Record{
+					UserID:        userID,
+					AggregateType: "planned_cashflow",
+					AggregateID:   item.ID.UUID(),
+					EventType:     "PlannedCashflowAutoAdvanced",
+					Payload: map[string]any{
+						"title":     item.Title,
+						"next_date": item.NextDate.Format("2006-01-02"),
+					},
+					Source:     source,
+					OccurredAt: now,
+				}); err != nil {
+					return err
+				}
 			}
-			if err := uc.store.UpdatePlannedNextDate(txCtx, item); err != nil {
-				return err
+			ok, postErr := postPlannedCashflow(txCtx, uc.income, uc.expense, snapshot, source)
+			if postErr != nil {
+				return fmt.Errorf("post overdue planned cashflow: %w", postErr)
 			}
-			result.Advanced++
-			return uc.events.Append(txCtx, events.Record{
-				UserID:        userID,
-				AggregateType: "planned_cashflow",
-				AggregateID:   item.ID.UUID(),
-				EventType:     "PlannedCashflowAutoAdvanced",
-				Payload: map[string]any{
-					"title":     item.Title,
-					"next_date": item.NextDate.Format("2006-01-02"),
-				},
-				Source:     source,
-				OccurredAt: now,
-			})
+			posted = ok
+			return nil
 		})
 		if err != nil {
 			return result, err
 		}
-		if posted, postErr := postPlannedCashflow(ctx, uc.income, uc.expense, snapshot, source); postErr != nil {
-			return result, fmt.Errorf("post overdue planned cashflow: %w", postErr)
-		} else if posted {
+		if deleted {
+			result.Deleted++
+		}
+		if advanced {
+			result.Advanced++
+		}
+		if posted {
 			result.Posted++
 		}
 	}

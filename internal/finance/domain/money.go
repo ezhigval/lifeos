@@ -23,10 +23,16 @@ func NewMoney(amountCents int64, currency string) (Money, error) {
 }
 
 func FormatMoney(m Money) string {
-	rub := m.AmountCents / 100
-	kop := m.AmountCents % 100
-	if kop == 0 {
-		return fmt.Sprintf("%d ₽", rub)
+	cents := m.AmountCents
+	sign := ""
+	if cents < 0 {
+		sign = "-"
+		cents = -cents
 	}
-	return fmt.Sprintf("%d,%02d ₽", rub, kop)
+	rub := cents / 100
+	kop := cents % 100
+	if kop == 0 {
+		return fmt.Sprintf("%s%d ₽", sign, rub)
+	}
+	return fmt.Sprintf("%s%d,%02d ₽", sign, rub, kop)
 }

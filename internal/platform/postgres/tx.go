@@ -27,6 +27,11 @@ func NewTransactor(pool *pgxpool.Pool) *Transactor {
 }
 
 func (t *Transactor) WithinTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	// Join an open transaction so a use case called from another one
+	// commits or rolls back together with the caller.
+	if _, ok := TxFromContext(ctx); ok {
+		return fn(ctx)
+	}
 	tx, err := t.pool.Begin(ctx)
 	if err != nil {
 		return err

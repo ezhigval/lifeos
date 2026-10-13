@@ -18,4 +18,13 @@ func TestFormatMoney(t *testing.T) {
 	if got := FormatMoney(Money{AmountCents: 5_000_000}); got != "50000 ₽" {
 		t.Fatalf("got %q", got)
 	}
+	if got := FormatMoney(Money{AmountCents: 150}); got != "1,50 ₽" {
+		t.Fatalf("got %q", got)
+	}
+	if got := FormatMoney(Money{AmountCents: -150}); got != "-1,50 ₽" {
+		t.Fatalf("negative got %q", got)
+	}
+	if got := FormatMoney(Money{AmountCents: -100}); got != "-1 ₽" {
+		t.Fatalf("negative whole got %q", got)
+	}
 }
