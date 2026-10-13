@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Archive, Trash2 } from 'lucide-react'
@@ -41,7 +41,7 @@ export function TaskDetailPage() {
     enabled: Boolean(taskId),
   })
 
-  const { data: linkedNote } = useQuery({
+  const { data: linkedNote, isSuccess: noteLoaded } = useQuery({
     queryKey: ['note', data?.note_id],
     queryFn: () => api.getNote(data!.note_id!),
     enabled: Boolean(data?.note_id),
@@ -56,6 +56,7 @@ export function TaskDetailPage() {
   const [noteText, setNoteText] = useState('')
   const [projectIds, setProjectIds] = useState<string[]>([])
   const [dirty, setDirty] = useState(false)
+  const noteHydrated = useRef('')
 
   const { data: projectsData } = useQuery({
     queryKey: ['projects'],
@@ -71,13 +72,20 @@ export function TaskDetailPage() {
     setAddress(data.address ?? '')
     setDescription(data.description ?? '')
     setProjectIds(data.project_ids ?? [])
-    setNoteText('')
+    if (!data.note_id) setNoteText('')
     setDirty(false)
   }, [data])
 
   useEffect(() => {
-    if (linkedNote) setNoteText(linkedNote.body)
-  }, [linkedNote])
+    if (!data?.note_id) {
+      noteHydrated.current = ''
+      return
+    }
+    if (!linkedNote || linkedNote.id !== data.note_id) return
+    if (noteHydrated.current === linkedNote.id) return
+    noteHydrated.current = linkedNote.id
+    setNoteText(linkedNote.body)
+  }, [linkedNote, data?.note_id])
 
   const invalidateLists = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -92,8 +100,9 @@ export function TaskDetailPage() {
       const addr = address.trim()
       const note = noteText.trim()
       let noteId = data?.note_id
+      const noteReady = !data?.note_id || noteLoaded
 
-      if (note) {
+      if (noteReady && note) {
         if (noteId) {
           await api.updateNote(noteId, { body: note })
         } else {
@@ -108,8 +117,8 @@ export function TaskDetailPage() {
         kind,
         ...(dueDate ? { due_date: dueDate } : { clear_due_date: true }),
         ...(addr ? { address: addr } : { clear_address: true }),
-        ...(note && noteId ? { note_id: noteId } : {}),
-        ...(!note && data?.note_id ? { clear_note_id: true } : {}),
+        ...(noteReady && note && noteId ? { note_id: noteId } : {}),
+        ...(noteReady && !note && data?.note_id ? { clear_note_id: true } : {}),
         ...(desc ? { description: desc } : { clear_description: true }),
         project_ids: projectIds,
       })
@@ -366,7 +375,7 @@ export function TaskDetailPage() {
           </span>
           <textarea
             value={noteText}
-            disabled={readOnly}
+            disabled={readOnly || Boolean(data?.note_id && !noteLoaded)}
             rows={4}
             onChange={(e) => {
               setNoteText(e.target.value)

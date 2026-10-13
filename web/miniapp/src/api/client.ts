@@ -619,14 +619,7 @@ export const api = {
         throw e
       }
       if (!isSamePeriod(period, currentPeriod())) {
-        return {
-          period_label: periodFullLabel(period),
-          income_cents: 0,
-          expense_cents: 0,
-          net_cents: 0,
-          currency: 'RUB',
-          categories: [],
-        }
+        throw e
       }
       const cf = await request<{
         income_cents: number
