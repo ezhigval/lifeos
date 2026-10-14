@@ -6,6 +6,8 @@
 
 Нужны DNS A-запись на машину и открытые 80/443.
 
+Первая загрузка VDS Timeweb (Ubuntu 24.04): вставить `deployments/timeweb/user-data.sh` в User data. Скрипт ставит Docker, открывает 22/80/443 и пишет секреты в `/opt/lifeos/.env`. Токен бота остаётся пустым, контейнеры не стартуют.
+
 ```bash
 cp deployments/.env.prod.example deployments/.env.prod
 # LIFEOS_DOMAIN, CADDY_ACME_EMAIL, TELEGRAM_BOT_TOKEN,
