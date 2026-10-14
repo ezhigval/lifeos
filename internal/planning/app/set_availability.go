@@ -41,7 +41,12 @@ func (uc *SetDayAvailability) Execute(ctx context.Context, userID ids.UserID, ho
 	if err != nil {
 		return "", err
 	}
-	until := time.Date(day.Year(), day.Month(), day.Day(), hour, minute, 0, 0, time.UTC)
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		return "", fmt.Errorf("load timezone %q: %w", tz, err)
+	}
+	// hour:minute is the user's wall clock, not UTC.
+	until := time.Date(day.Year(), day.Month(), day.Day(), hour, minute, 0, 0, loc)
 	a, err := domain.NewDayAvailability(userID, day, until)
 	if err != nil {
 		return "", err

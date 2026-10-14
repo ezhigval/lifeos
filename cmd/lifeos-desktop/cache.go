@@ -57,6 +57,14 @@ func OpenCache(path string) (*Cache, error) {
 	return &Cache{db: db}, nil
 }
 
+func (c *Cache) Clear() error {
+	if c == nil || c.db == nil {
+		return nil
+	}
+	_, err := c.db.Exec(`DELETE FROM http_cache`)
+	return err
+}
+
 func (c *Cache) Close() error {
 	if c == nil || c.db == nil {
 		return nil

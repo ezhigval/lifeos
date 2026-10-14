@@ -543,7 +543,7 @@ func (rt *runtime) wireScheduler() {
 		if err := json.Unmarshal(payload, &p); err != nil {
 			return err
 		}
-		return rt.notifier.Send(ctx, rt.telegramChatID(ctx, userID), p.Message)
+		return rt.notifyUser(ctx, userID, p.Message)
 	})
 	rt.sched.Register("morning_review", rt.periodicReviewHandler("morning_review"))
 	rt.sched.Register("evening_review", rt.periodicReviewHandler("evening_review"))
@@ -551,13 +551,24 @@ func (rt *runtime) wireScheduler() {
 	rt.sched.Register("monthly_review", rt.periodicReviewHandler("monthly_review"))
 }
 
-func (rt *runtime) telegramChatID(ctx context.Context, userID ids.UserID) int64 {
+func (rt *runtime) telegramChatID(ctx context.Context, userID ids.UserID) (int64, error) {
 	user, err := rt.users.GetByID(ctx, userID)
 	if err != nil {
-		rt.log.Warn("telegram chat id lookup failed", "user_id", userID.String(), "error", err)
-		return 0
+		return 0, err
 	}
-	return user.TelegramID
+	return user.TelegramID, nil
+}
+
+func (rt *runtime) notifyUser(ctx context.Context, userID ids.UserID, text string) error {
+	chatID, err := rt.telegramChatID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if chatID == 0 {
+		rt.log.Warn("defer notify: user has no telegram chat", "user_id", userID.String())
+		return scheduler.Defer(15 * time.Minute)
+	}
+	return rt.notifier.Send(ctx, chatID, text)
 }
 
 func (rt *runtime) periodicReviewHandler(jobType string) scheduler.JobHandler {
@@ -591,10 +602,13 @@ func (rt *runtime) periodicReviewHandler(jobType string) scheduler.JobHandler {
 		if err != nil {
 			return err
 		}
-		if err := rt.notifier.Send(ctx, rt.telegramChatID(ctx, userID), text); err != nil {
+		// Queue the next run before delivery. A failed send retries this job;
+		// EnsureReview will not insert a second pending row. Scheduling after a
+		// successful send used to resend the same review when the insert failed.
+		if err := rt.scheduleNextPeriodic(ctx, userID, jobType); err != nil {
 			return err
 		}
-		return rt.scheduleNextPeriodic(ctx, userID, jobType)
+		return rt.notifyUser(ctx, userID, text)
 	}
 }
 

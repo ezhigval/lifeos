@@ -13,6 +13,7 @@ import (
 
 type TaskStore interface {
 	ListByDueDate(ctx context.Context, userID ids.UserID, dueDate time.Time) ([]taskdomain.Task, error)
+	ListOpenDueOnOrBefore(ctx context.Context, userID ids.UserID, dueDate time.Time) ([]taskdomain.Task, error)
 	Update(ctx context.Context, task taskdomain.Task) error
 }
 
@@ -47,6 +48,9 @@ func (uc *TriageOverloadedDay) Propose(ctx context.Context, userID ids.UserID) (
 	var b strings.Builder
 	b.WriteString("😮‍💨 <b>Перегруз</b>\n")
 	for _, t := range tasks {
+		if t.Status == taskdomain.StatusDone || t.Status == taskdomain.StatusCancelled {
+			continue
+		}
 		switch t.Priority {
 		case taskdomain.PriorityUrgent, taskdomain.PriorityHigh:
 			fmt.Fprintf(&b, "🔴 %s\n", t.Title)
@@ -87,6 +91,9 @@ func (uc *TriageOverloadedDay) ApplyDefer(ctx context.Context, userID ids.UserID
 		if _, ok := wanted[t.ID]; !ok {
 			continue
 		}
+		if t.Status == taskdomain.StatusDone || t.Status == taskdomain.StatusCancelled {
+			continue
+		}
 		if err := t.Reschedule(tomorrow, now); err != nil {
 			return count, err
 		}
@@ -122,7 +129,7 @@ func (uc *RescheduleTasks) Execute(ctx context.Context, userID ids.UserID) (int,
 		return 0, err
 	}
 	tomorrow := today.Add(24 * time.Hour)
-	tasks, err := uc.store.ListByDueDate(ctx, userID, today)
+	tasks, err := uc.store.ListOpenDueOnOrBefore(ctx, userID, today)
 	if err != nil {
 		return 0, err
 	}

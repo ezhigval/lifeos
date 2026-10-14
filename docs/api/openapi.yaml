@@ -1586,6 +1586,8 @@ paths:
                       type: string
                       format: uuid
                     description: Task ids that can be deferred to tomorrow
+        '503':
+          description: Triage is not configured
   /api/v1/planning/triage/defer:
     post:
       summary: Defer selected low-priority tasks to tomorrow

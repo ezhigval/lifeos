@@ -51,32 +51,28 @@ func (uc *PayDebt) Execute(ctx context.Context, in PayDebtInput) (DebtDTO, error
 		return DebtDTO{}, domain.ErrInvalidAmount
 	}
 
-	var debt domain.Debt
-	var err error
-	switch {
-	case !in.DebtID.IsZero():
-		debt, err = uc.debts.GetByID(ctx, in.UserID, in.DebtID)
-	case in.Creditor != "":
-		debt, err = uc.debts.FindOpenByCreditor(ctx, in.UserID, in.Creditor)
-	default:
+	if in.DebtID.IsZero() && in.Creditor == "" {
 		return DebtDTO{}, fmt.Errorf("debt id or creditor is required")
 	}
-	if errors.Is(err, domain.ErrDebtNotFound) {
-		return DebtDTO{}, err
-	}
-	if err != nil {
-		return DebtDTO{}, fmt.Errorf("find debt: %w", err)
-	}
 
+	var debt domain.Debt
 	now := uc.now()
-	if err := debt.Pay(in.AmountCents); err != nil {
-		return DebtDTO{}, err
-	}
-	if in.Regular {
-		debt.AdvanceInstallment(now)
-	}
-
-	err = uc.transactor.WithinTransaction(ctx, func(txCtx context.Context) error {
+	err := uc.transactor.WithinTransaction(ctx, func(txCtx context.Context) error {
+		var err error
+		if !in.DebtID.IsZero() {
+			debt, err = uc.debts.GetByID(txCtx, in.UserID, in.DebtID)
+		} else {
+			debt, err = uc.debts.FindOpenByCreditor(txCtx, in.UserID, in.Creditor)
+		}
+		if err != nil {
+			return err
+		}
+		if err := debt.Pay(in.AmountCents); err != nil {
+			return err
+		}
+		if in.Regular {
+			debt.AdvanceInstallment(now)
+		}
 		if err := uc.debts.UpdateDebt(txCtx, debt); err != nil {
 			return err
 		}
@@ -96,6 +92,9 @@ func (uc *PayDebt) Execute(ctx context.Context, in PayDebtInput) (DebtDTO, error
 			OccurredAt: now,
 		})
 	})
+	if errors.Is(err, domain.ErrDebtNotFound) || errors.Is(err, domain.ErrOverpayment) || errors.Is(err, domain.ErrInvalidAmount) {
+		return DebtDTO{}, err
+	}
 	if err != nil {
 		return DebtDTO{}, fmt.Errorf("pay debt: %w", err)
 	}

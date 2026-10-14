@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -82,6 +83,54 @@ func TestCompletePlanOccurrenceAdvancesMonthly(t *testing.T) {
 	}
 	if res.Item.NextDate != "2026-08-21" {
 		t.Fatalf("next=%s", res.Item.NextDate)
+	}
+}
+
+type failCategories struct{}
+
+func (failCategories) GetByName(context.Context, ids.UserID, string, domain.Kind) (domain.Category, error) {
+	return domain.Category{}, errors.New("category store down")
+}
+func (failCategories) SaveCategory(context.Context, domain.Category) error { return nil }
+
+type rollbackPlanTx struct{ store *memPlanStore }
+
+func (t *rollbackPlanTx) WithinTransaction(ctx context.Context, fn func(context.Context) error) error {
+	snap := map[ids.PlannedCashflowID]domain.PlannedCashflow{}
+	for id, item := range t.store.items {
+		snap[id] = item
+	}
+	if err := fn(ctx); err != nil {
+		t.store.items = snap
+		return err
+	}
+	return nil
+}
+
+func TestCompletePlanRollsBackWhenLedgerPostFails(t *testing.T) {
+	t.Parallel()
+	user := ids.NewUserID()
+	store := &memPlanStore{}
+	fixed := time.Date(2026, 7, 21, 12, 0, 0, 0, time.UTC)
+	item, err := domain.NewPlannedCashflow(user, domain.PlanKindIncome, "Зарплата", 100000, domain.PlanIntervalMonthly, time.Date(2026, 7, 21, 0, 0, 0, 0, time.UTC), fixed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = store.SavePlanned(context.Background(), item)
+	income := NewRecordIncome(failCategories{}, nil, noopPlanEvents{}, noopPlanTx{}, nil)
+	uc := NewCompletePlanOccurrence(store, noopPlanEvents{}, &rollbackPlanTx{store: store}, income, nil)
+	uc.now = func() time.Time { return fixed }
+
+	_, err = uc.Execute(context.Background(), user, item.ID, events.SourceHTTP)
+	if err == nil {
+		t.Fatal("expected ledger failure")
+	}
+	got, ok := store.items[item.ID]
+	if !ok {
+		t.Fatal("plan row disappeared")
+	}
+	if !got.NextDate.Equal(item.NextDate) {
+		t.Fatalf("next date changed to %s", got.NextDate.Format("2006-01-02"))
 	}
 }
 

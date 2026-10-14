@@ -56,6 +56,7 @@ func (s *Scheduler) Run(ctx context.Context) error {
 }
 
 func (s *Scheduler) tickOnce(ctx context.Context) error {
+	s.reclaimStuck(ctx)
 	queries := db.New(s.pool)
 	jobs, err := queries.ClaimDueJobs(ctx, db.ClaimDueJobsParams{
 		RunAt: pgconv.TimestamptzValue(s.now()),
@@ -68,7 +69,11 @@ func (s *Scheduler) tickOnce(ctx context.Context) error {
 		userID := pgconv.FromUserID(job.UserID)
 		handler := s.handlers[job.JobType]
 		if handler == nil {
-			_ = queries.MarkJobDone(ctx, job.ID)
+			s.log.Error("unknown job type", "job_type", job.JobType)
+			_ = queries.RescheduleJob(ctx, db.RescheduleJobParams{
+				ID:    job.ID,
+				RunAt: pgconv.TimestamptzValue(s.now().Add(time.Hour)),
+			})
 			continue
 		}
 		if err := handler(ctx, userID, job.Payload); err != nil {
@@ -88,4 +93,16 @@ func (s *Scheduler) tickOnce(ctx context.Context) error {
 		_ = queries.MarkJobDone(ctx, job.ID)
 	}
 	return nil
+}
+
+// reclaimStuck returns jobs left in processing after a crash so they can run again.
+func (s *Scheduler) reclaimStuck(ctx context.Context) {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE scheduled_jobs
+		SET status = 'pending', updated_at = now()
+		WHERE status = 'processing'
+		  AND updated_at < now() - interval '15 minutes'`)
+	if err != nil {
+		s.log.Error("reclaim stuck jobs", "error", err)
+	}
 }

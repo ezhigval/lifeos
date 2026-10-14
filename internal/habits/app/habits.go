@@ -132,12 +132,14 @@ func NewUpdateHabit(habits HabitStore, events EventLog, transactor Transactor) *
 }
 
 type UpdateHabitInput struct {
-	UserID    ids.UserID
-	HabitID   ids.HabitID
-	Name      string
-	StartDate *time.Time
-	EndDate   *time.Time
-	Source    events.Source
+	UserID       ids.UserID
+	HabitID      ids.HabitID
+	Name         string
+	StartDate    *time.Time
+	EndDate      *time.Time
+	SetStartDate bool
+	SetEndDate   bool
+	Source       events.Source
 }
 
 func (uc *UpdateHabit) Execute(ctx context.Context, in UpdateHabitInput) (HabitDTO, error) {
@@ -151,8 +153,12 @@ func (uc *UpdateHabit) Execute(ctx context.Context, in UpdateHabitInput) (HabitD
 	if in.Name != "" {
 		habit.Name = in.Name
 	}
-	habit.StartDate = in.StartDate
-	habit.EndDate = in.EndDate
+	if in.SetStartDate {
+		habit.StartDate = in.StartDate
+	}
+	if in.SetEndDate {
+		habit.EndDate = in.EndDate
+	}
 	if habit.StartDate != nil && habit.EndDate != nil && habit.EndDate.Before(*habit.StartDate) {
 		return HabitDTO{}, domain.ErrInvalidDeadline
 	}
@@ -298,6 +304,9 @@ func (uc *TrackHabit) track(ctx context.Context, habit domain.Habit, source even
 	today, err := uc.today(ctx, habit.UserID, now)
 	if err != nil {
 		return TrackHabitResult{}, err
+	}
+	if !habit.Active(today) {
+		return TrackHabitResult{}, domain.ErrInactive
 	}
 	log := domain.NewHabitLog(habit.ID, today, now)
 

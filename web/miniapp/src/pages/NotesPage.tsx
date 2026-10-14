@@ -42,7 +42,7 @@ export function NotesPage() {
 
   const { data: tasksData } = useQuery({
     queryKey: ['tasks', 'picker'],
-    queryFn: () => api.tasksDueBetween(new Date().toISOString(), '2999-12-31T00:00:00Z'),
+    queryFn: () => api.tasksDueBetween(toDateKey(new Date()), '2999-12-31'),
     enabled: createOpen && !targetTaskId,
   })
   const pickerTasks: Task[] = (tasksData?.tasks ?? []).slice(0, 50)
@@ -254,4 +254,10 @@ export function NotesPage() {
       </Sheet>
     </>
   )
+}
+
+function toDateKey(d: Date): string {
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${month}-${day}`
 }

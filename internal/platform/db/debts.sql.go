@@ -20,6 +20,7 @@ ORDER BY
     CASE WHEN lower(creditor) = lower($2) THEN 0 ELSE 1 END,
     created_at ASC
 LIMIT 1
+FOR UPDATE
 `
 
 type FindOpenDebtByCreditorParams struct {
@@ -51,6 +52,7 @@ SELECT id, user_id, creditor, amount_cents, paid_cents, due_date, status, create
        installment_cents, installment_interval, next_payment_date
 FROM debts
 WHERE id = $1 AND user_id = $2
+FOR UPDATE
 `
 
 type GetDebtByIDParams struct {

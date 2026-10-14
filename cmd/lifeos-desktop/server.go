@@ -97,6 +97,11 @@ func (s *desktopServer) proxyAPI(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "ответ слишком большой", http.StatusBadGateway)
 		return
 	}
+	if r.Method != http.MethodGet && resp.StatusCode < 400 {
+		if err := s.cache.Clear(); err != nil {
+			log.Printf("cache clear: %v", err)
+		}
+	}
 	if r.Method == http.MethodGet && resp.StatusCode == http.StatusOK && len(body) <= maxCache {
 		ctype := resp.Header.Get("Content-Type")
 		if ctype == "" {
