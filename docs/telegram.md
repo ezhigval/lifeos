@@ -27,7 +27,7 @@ make docker-up
 
 Ошибка Cloudflare 1033 значит, что имя туннеля есть, а `http://127.0.0.1:8080/health` не отвечает.
 
-На части сетей (в том числе на типичной ВМ в Yandex Cloud) quick-tunnel не создаётся: закрыт `api.trycloudflare.com:443`. Там нужен постоянный туннель из [deploy/vm.md](deploy/vm.md).
+На части сетей (в том числе на типичной ВМ в Yandex Cloud) quick-tunnel не создаётся: закрыт `api.trycloudflare.com:443`. Постоянный адрес на домашнем Windows, тем же доменом: [deploy/windows.md](deploy/windows.md).
 
 ## Webhook
 

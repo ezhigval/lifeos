@@ -1,6 +1,6 @@
 # Край: Cloudflare
 
-Публичный вход один — named tunnel Cloudflare на `http://127.0.0.1:8080`. Отдельного HTTP-сервера на ВМ нет, HTTPS на машине не терминируется.
+Публичный вход один — named tunnel Cloudflare на `http://127.0.0.1:8080`. Коннектор сейчас на домашнем Windows ([windows.md](windows.md)). Отдельного HTTP-сервера нет, HTTPS на машине не терминируется. Белый IP не нужен.
 
 ```
 Mini App браузер  -- GET /app/... --------------> Cloudflare

@@ -32,6 +32,9 @@ services:
     ports:
       # The named tunnel on the host dials this. Never publish 8080 on 0.0.0.0.
       - "127.0.0.1:8080:8080"
+    extra_hosts:
+      # Ollama, LM Studio, and the Telegram proxy listen on the Windows host.
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
