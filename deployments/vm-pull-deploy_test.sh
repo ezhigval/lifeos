@@ -194,4 +194,41 @@ if grep -F -q '../.env' "$BASE/docker-compose.pulled.yml"; then
   exit 1
 fi
 
+printf '%s\n' \
+  'TELEGRAM_BOT_TOKEN=supersecret' \
+  'LIFEOS_HTTP_PROXY=http://127.0.0.1:8081' \
+  'LIFEOS_MINIAPP_URL=https://local-ai-assist.ru/app/' \
+  > "$BASE/.env"
+pin_image
+grep -q 'host.docker.internal:host-gateway' "$BASE/docker-compose.buildimage.yml"
+grep -q 'LIFEOS_HTTP_PROXY: "http://host.docker.internal:8081"' "$BASE/docker-compose.buildimage.yml"
+if grep -q 'supersecret' "$BASE/docker-compose.buildimage.yml"; then
+  echo "buildimage compose leaked a token" >&2
+  exit 1
+fi
+origin=$(public_origin)
+if [[ "$origin" != "https://local-ai-assist.ru" ]]; then
+  echo "public origin [$origin]" >&2
+  exit 1
+fi
+
+printf '%s\n' 'LIFEOS_HTTP_PROXY=http://proxy.example:8081' > "$BASE/.env"
+pin_image
+if grep -q 'LIFEOS_HTTP_PROXY:' "$BASE/docker-compose.buildimage.yml"; then
+  echo "non-loopback proxy must stay in the env file" >&2
+  exit 1
+fi
+grep -q 'host.docker.internal:host-gateway' "$BASE/docker-compose.buildimage.yml"
+
+printf '%s\n' '<script src="/app/assets/index-DaXJohFr.js"></script>' | miniapp_script_src > "$tmp/src.txt"
+if [[ "$(cat "$tmp/src.txt")" != "/app/assets/index-DaXJohFr.js" ]]; then
+  echo "script src parse failed" >&2
+  exit 1
+fi
+printf '%s\n' '<html>no script</html>' | miniapp_script_src > "$tmp/src.txt"
+if [[ -n "$(cat "$tmp/src.txt")" ]]; then
+  echo "missing script src must be empty" >&2
+  exit 1
+fi
+
 echo "vm-pull-deploy tests ok"
