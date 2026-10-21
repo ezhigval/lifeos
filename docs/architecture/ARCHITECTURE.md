@@ -1,8 +1,8 @@
 # LifeOS — Architecture (единый лист)
 
-**Version:** 0.4  
-**Status:** Current (synced to code, 2026-07-14)  
-**Detail:** [DOMAIN_MODEL.md](DOMAIN_MODEL.md)
+**Version:** 0.5  
+**Status:** Current (synced to code, 2026-10-22)  
+**Detail:** [DOMAIN_MODEL.md](DOMAIN_MODEL.md), [ROADMAP.md](ROADMAP.md)
 
 ---
 
@@ -11,10 +11,11 @@
 | | |
 |---|---|
 | **Стиль** | Modular Monolith |
-| **Deploy** | Один binary (`lifeos`), один процесс |
+| **Deploy** | Один binary (`lifeos`), один процесс; отдельно — тонкий десктоп-клиент (`lifeos-desktop`) |
 | **Пользователи v1** | 1 (single-tenant, `user_id` на всех таблицах) |
-| **UI v1** | Telegram (long polling) + REST `/api/v1` + Telegram Mini App |
-| **Хранилище** | PostgreSQL 16 (source of truth) |
+| **UI v1** | Telegram (long polling) + REST `/api/v1` + Telegram Mini App + десктоп-окно (Mac/Win) |
+| **Хранилище** | PostgreSQL 16 (source of truth); SQLite только как HTTP-кэш десктопа |
+| **LLM** | Опционален: OpenAI-совместимый (Groq по умолчанию) или Ollama; rule-based работает без него |
 | **Цель** | Transport-agnostic бизнес-логика, готовая к REST/Web позже |
 
 ---
@@ -103,6 +104,12 @@ Microservices и «голый» monolith без границ — отклоне�
                   │     career      │
                   └─────────────────┘
                            │
+              ┌────────────┴────────────┐
+              ▼                         ▼
+       ┌─────────────┐          ┌─────────────┐
+       │   memory    │          │  learning   │  ← память агента, opt-in обучение
+       └─────────────┘          └─────────────┘
+                           │
                            ▼
                   ┌─────────────────┐
                   │  ai (ports)     │  ← IntentResolver, Assistant
@@ -118,21 +125,27 @@ Cross-reads: internal/query/ (priorities, reviews, analytics)
 
 | Context | Package | Aggregates / Entities |
 |---------|---------|----------------------|
-| identity | `internal/identity/` | User |
-| settings | `internal/settings/` | UserSettings |
-| tasks | `internal/tasks/` | Task (M:N projects via `task_projects`) |
+| identity | `internal/identity/` | User, логин-код вне Telegram (`login_code`) |
+| settings | `internal/settings/` | UserSettings (+ флаги памяти/обучения, виджеты home) |
+| tasks | `internal/tasks/` | Task (M:N projects via `task_projects`, M:N spheres, правила) |
 | projects | `internal/projects/` | Project (M:N spheres) |
 | spheres | `internal/spheres/` | LifeSphere |
 | planning | `internal/planning/` | DayAvailability |
-| finance | `internal/finance/` | Transaction, Debt, Category |
+| finance | `internal/finance/` | Transaction, Debt, Category, PlannedCashflow |
 | habits | `internal/habits/` | Habit, HabitLog |
 | calendar | `internal/calendar/` | CalendarEvent |
-| knowledge | `internal/knowledge/` | Note |
+| knowledge | `internal/knowledge/` | Note (связь с целью/note_target_link) |
 | health | `internal/health/` | Weight, Steps, Sleep |
 | career | `internal/career/` | Contact, Skill |
-| notifications | `internal/notifications/` | ScheduledJob |
-| ai | `internal/ai/` | Ports only |
-| query | `internal/query/` | Read services |
+| notifications | `internal/notifications/` | ScheduledJob (нет `domain/` — логика в app/infra) |
+| memory | `internal/memory/` | Memory (личная память агента, `user_memories`) |
+| learning | `internal/learning/` | Event (анонимные события обучения, opt-in) |
+| ai | `internal/ai/` | Ports + адаптеры (см. ниже) |
+| query | `internal/query/` | Read services: priorities, reviews, analytics |
+
+Внутри `internal/ai/`: `rulebased`, `openaiapi`, `ollama`, `composite`,
+`templateassistant`, `agent` (tools-цикл диалога), `dialogue` (сервис чата),
+`stt` (голос), `vision` (фото), `reviewsafe` (санитайзер HTML).
 
 > **Goals** удалены: иерархия целей перенесена в `projects` (миграция 00022–00024).
 
@@ -147,9 +160,12 @@ lifeos/
 │   └── cmd/                        # Cobra: serve, migrate, version, …
 │       ├── serve.go                # composition root entry
 │       ├── runtime.go              # manual DI wiring
-│       └── api.go                  # HTTP API deps assembly
+│       ├── api.go                  # HTTP API deps assembly
+│       ├── agent_wire.go           # сборка агента: tools, память, обучение
+│       └── stt_wire.go, vision_wire.go  # опциональные голос/фото
+├── cmd/lifeos-desktop/             # тонкий десктоп-клиент (UI + SQLite-кэш + прокси к API)
 ├── internal/
-│   ├── platform/                   # config, postgres, auth, scheduler, events, ids, db(sqlc)
+│   ├── platform/                   # config, postgres, auth, scheduler, events, ids, db(sqlc), otel, logging
 │   ├── identity/   {domain, app, infra}
 │   ├── settings/   {domain, app, infra}
 │   ├── tasks/      {domain, app, infra}
@@ -162,21 +178,27 @@ lifeos/
 │   ├── knowledge/  {domain, app, infra}
 │   ├── health/     {domain, app, infra}
 │   ├── career/     {domain, app, infra}
-│   ├── notifications/ {domain, app, infra}
-│   ├── ai/         {rulebased, ollama, composite, templateassistant}
+│   ├── memory/     {domain, app, infra}   # личная память агента
+│   ├── learning/   {domain, app, infra}   # анонимные события обучения (opt-in)
+│   ├── notifications/ {app, infra}        # ScheduledJob; deliver → TelegramNotifier
+│   ├── ai/         {rulebased, openaiapi, ollama, composite, templateassistant,
+│   │                agent, dialogue, stt, vision, reviewsafe}
 │   ├── query/                      # priorities, reviews, analytics
 │   └── transport/
-│       ├── http/                   # Chi server + /api/v1 (JWT)
-│       └── telegram/               # polling/webhook, screens, keyboards, FSM
-├── web/miniapp/                    # Telegram Mini App (React 19 + Vite)
-├── migrations/                     # Goose SQL (00001–00026+)
+│       ├── http/                   # Chi server + /api/v1 (JWT) + static Mini App
+│       └── telegram/               # polling/webhook, screens, keyboards, FSM, media
+├── web/miniapp/                    # Telegram Mini App (React 19 + Vite) + desktop UI variant
+├── desktop/macos/                  # Swift .app оболочка (Mac-окно)
+├── packaging/desktop-win/          # LifeOS.bat / install.bat для Windows
+├── migrations/                     # Goose SQL (00001–00037)
 ├── queries/                        # SQLC sources
-├── deployments/                    # Dockerfile, docker-compose, prometheus/grafana
+├── deployments/                    # Dockerfile, compose, prometheus/grafana, systemd, cloudflared, vps
+├── scripts/                        # build-mac-app, build-win-desktop, package, backup/restore, проверка секретов
 ├── e2e/
-├── docs/                           # architecture, ADR, deploy, api
+├── docs/                           # architecture, ADR, deploy, api, ai, roadmap
 ├── Makefile
 ├── sqlc.yaml
-└── .github/workflows/ci.yml
+└── .github/workflows/              # ci.yml, desktop-release.yml
 ```
 
 ---
@@ -267,8 +289,11 @@ Append-only, не full event sourcing ([ADR-006](../adr/006-domain-event-log.md)
 | Port | Interface location | Adapter v1 | Future |
 |------|-------------------|------------|--------|
 | TaskRepository | tasks/domain or infra | SQLC/Postgres | same |
-| IntentResolver | ai/ports | RuleBased first; optional LLM on unknown (`LIFEOS_LLM_ENABLED`) — OpenAI-compatible (`openaiapi`) or Ollama | — |
-| Assistant | ai/ports | Template; optional LLM (OpenAI-compatible / Ollama) with HTML-safe `<b>` + template fallback | — |
+| IntentResolver | ai/ports | RuleBased first; optional LLM on unknown (`LIFEOS_LLM_ENABLED`) — OpenAI-compatible (`openaiapi`) or Ollama, via `composite` | — |
+| Assistant | ai/ports | Template; optional LLM (OpenAI-compatible / Ollama) with HTML-safe `<b>` + template fallback (`reviewsafe`) | — |
+| ConversationalAgent | ai/ports | `agent` (tools-цикл: задачи, финансы, привычки, календарь и др.) + `dialogue.Service`; память (`memory`), обучение (`learning`) | — |
+| SpeechToText | ai/ports | OpenAI-совместимый whisper (Groq default), `LIFEOS_STT_ENABLED` | локальные модели |
+| Vision | ai/ports | OpenAI-совместимый vision (Groq Llama default), `LIFEOS_VISION_ENABLED` | — |
 | Notifier | notifications/app | Telegram | Email, Push |
 | Clock | platform/clock | System | Fake (tests) |
 | ProjectReader / SphereReader | consumer `app` ports | projects/spheres infra | same |
@@ -290,7 +315,7 @@ Append-only, не full event sourcing ([ADR-006](../adr/006-domain-event-log.md)
 
 ### Core Tables
 
-`users`, `user_settings`, `tasks`, `task_projects`, `projects`, `project_spheres`, `life_spheres`, `day_availability`, `scheduled_jobs`, `domain_events`, `processed_updates`, `finance_*`, `debts`, `habits`, `habit_logs`, `calendar_events`, `notes`, `note_tags`, `health_*`, `career_*`
+`users`, `user_settings`, `tasks`, `task_projects`, `task_spheres`, `projects`, `project_spheres`, `life_spheres`, `sphere_domain_links`, `day_availability`, `scheduled_jobs`, `domain_events`, `processed_updates`, `telegram_sessions`, `login_codes`, `finance_categories`, `finance_transactions`, `planned_cashflows`, `debts`, `habits`, `habit_logs`, `calendar_events`, `notes`, `note_tags`, `health_weight_logs`, `health_step_logs`, `health_sleep_logs`, `career_contacts`, `career_skills`, `user_memories`, `anon_learning_events` (миграции 00001–00037; `goals` удалены в 00024).
 
 ---
 
@@ -301,10 +326,13 @@ Append-only, не full event sourcing ([ADR-006](../adr/006-domain-event-log.md)
 | GET | `/health`, `/ready`, `/metrics` | none |
 | POST | `/api/v1/auth/token` | API key (`X-API-Key`) → JWT по `telegram_id` |
 | POST | `/api/v1/auth/telegram-webapp` | Telegram Mini App `initData` → JWT |
+| POST | `/api/v1/auth/telegram-login/*` | код из чата бота → JWT (вход вне Telegram) |
+| POST | `/api/v1/assistant/chat` | JWT Bearer (тот же диалоговый агент, что в боте) |
 | * | `/api/v1/*` | JWT Bearer |
 
 **Mini App auth:** клиент шлёт `POST /api/v1/auth/telegram-webapp` с телом `{ "init_data": "<Telegram.WebApp.initData>" }`.
-Сервер проверяет HMAC-SHA256 (`secret_key = HMAC_SHA256(bot_token, key=WebAppData)`), отклоняет просроченный `auth_date` (TTL = `LIFEOS_JWT_TTL_HOURS`, по умолчанию 24h), делает `EnsureUserByTelegram` и выдаёт JWT.
+Сервер проверяет HMAC-SHA256 (`secret_key = HMAC_SHA256(bot_token, key=WebAppData)`), отклоняет просроченный `auth_date` (TTL = `LIFEOS_WEBAPP_AUTH_TTL_HOURS` / `LIFEOS_JWT_TTL_HOURS`), делает `EnsureUserByTelegram` и выдаёт JWT.
+Вне Telegram (десктоп, браузер) — одноразовый код из чата бота (`telegram_login_codes`).
 
 OpenAPI: [docs/api/openapi.yaml](../api/openapi.yaml).  
 Webhook `/webhook/telegram` — optional (см. `LIFEOS_TELEGRAM_MODE=webhook`).
@@ -365,7 +393,19 @@ LIFEOS_API_KEY=
 LIFEOS_MINIAPP_URL=             # public HTTPS …/app/ for web_app button
 LIFEOS_STATIC_DIR=web/miniapp/dist
 LIFEOS_LLM_ENABLED=false        # optional LLM: openai (default Groq) or ollama; see docs/ops/LLM.md
+LIFEOS_LLM_AGENT_ENABLED=false  # диалоговый агент с tools (нужен включённый LLM)
+LIFEOS_STT_ENABLED=false        # распознавание голосовых сообщений
+LIFEOS_VISION_ENABLED=false     # разбор фотографий
 LIFEOS_OTEL_ENABLED=false
+```
+
+Полный список переменных — в [.env.example](../../.env.example); описание LLM-настроек — [docs/ops/LLM.md](../ops/LLM.md).
+
+### Десктоп-переменные
+
+```bash
+LIFEOS_API_ORIGIN=https://…   # сервер, к которому проксирует lifeos-desktop
+LIFEOS_DESKTOP_ADDR=127.0.0.1:0  # локальный адрес окна (0 = случайный порт)
 ```
 
 ---
@@ -384,8 +424,21 @@ LIFEOS_OTEL_ENABLED=false
                                    └─────────────┘
 ```
 
-Polling — без port forward, TLS, static IP ([ADR-004](../adr/004-telegram-polling-mvp.md)).  
-Webhook + static IP — Phase 1.5.
+Polling — без port forward, TLS, static IP ([ADR-004](../adr/004-telegram-polling-mvp.md)).
+Webhook + публичный HTTPS — опционально (`LIFEOS_TELEGRAM_MODE=webhook`, см. [docs/deploy/EDGE.md](../deploy/EDGE.md)).
+
+### Десктоп (Mac / Windows)
+
+```
+┌───────────────────────┐    HTTPS     ┌───────────────────────┐
+│ lifeos-desktop        │────────────▶ │ удалённый lifeos-app  │
+│  UI (embedded)        │              │ (ВМ / ноутбук)        │
+│  SQLite cache.db      │◀──────────── │ PostgreSQL            │
+│  браузер-оболочка     │ proxy+cache  └───────────────────────┘
+└───────────────────────┘
+```
+
+`cmd/lifeos-desktop` — тонкий клиент: раздаёт встроенный UI, кэширует ответы API в локальный SQLite (`modernc.org/sqlite`), проксирует `/api/*` и чат агента на `LIFEOS_API_ORIGIN`. Бизнес-логики на клиенте нет; вход — одноразовый код из чата бота. Карта клиентов: [docs/roadmap/CLIENTS.md](../roadmap/CLIENTS.md).
 
 ---
 
@@ -426,6 +479,9 @@ Coverage gate: ≥80% on `domain` + `app` packages only.
 | Log token redaction | ✅ |
 | JWT | ✅ REST + Mini App |
 | Webhook secret | ✅ optional |
+| Learning opt-in, HMAC anon subject, no PII in events | ✅ |
+
+Политика раскрытия уязвимостей и чек-лист деплоя: [../../SECURITY.md](../../SECURITY.md).
 
 ---
 
@@ -460,6 +516,12 @@ Coverage gate: ≥80% on `domain` + `app` packages only.
                            │
                            ▼
                      Telegram API
+
+Внешние клиенты одного процесса:
+  Telegram app ─ polling/webhook ─▶ transport/telegram
+  Mini App (React) ─ HTTPS /api/v1 + /app/ ─▶ transport/http
+  lifeos-desktop (Mac/Win) ─ HTTPS + SQLite-кэш ─▶ transport/http (тонкий клиент)
+  Ollama / Groq (опционально) ◀─ LLM/STT/Vision ─▶ internal/ai
 ```
 
 ---
@@ -483,3 +545,7 @@ Coverage gate: ≥80% on `domain` + `app` packages only.
 | [../api/openapi.yaml](../api/openapi.yaml) | REST contract |
 | [../getting-started.md](../getting-started.md) | Local and Docker run |
 | [../deploy/vm.md](../deploy/vm.md) | VM, autodeploy, Telegram tunnel |
+| [ROADMAP.md](ROADMAP.md) | Дорожная карта и статус срезов |
+| [../../SECURITY.md](../../SECURITY.md) | Security policy |
+| [../../CHANGELOG.md](../../CHANGELOG.md) | Релизы (Keep a Changelog + SemVer) |
+| [../roadmap/CLIENTS.md](../roadmap/CLIENTS.md) | Клиенты: бот, Mini App, десктоп |

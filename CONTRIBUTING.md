@@ -49,3 +49,10 @@ bash scripts/check-no-secrets.sh
 - Go: `gofmt`. Комментарий только там, где из кода не ясно зачем.
 - Пользовательские строки бота и Mini App — по-русски.
 - Не добавляй второй способ сделать то же самое, если скрипт или документ уже есть. Сначала ссылка, потом новый файл.
+
+## Ссылки
+
+- [SECURITY.md](SECURITY.md) — как сообщать об уязвимостях и чек-лист защиты деплоя
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — правила сообщества
+- [CHANGELOG.md](CHANGELOG.md) — формат версионирования (Keep a Changelog + SemVer)
+- [docs/architecture/ROADMAP.md](docs/architecture/ROADMAP.md) — куда движемся, что брать в работу

@@ -1,0 +1,27 @@
+name: Feature request
+description: Propose a new capability or improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Проблема / мотивация
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Предлагаемое решение
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Область
+      options: [core, telegram, rest-api, mini-app, desktop, ai, memory, learning, deploy, docs]
+  - type: checkboxes
+    id: checks
+    attributes:
+      options:
+        - label: Соответствует принципам ROADMAP (один пользователь, transport-agnostic)
+          required: false
