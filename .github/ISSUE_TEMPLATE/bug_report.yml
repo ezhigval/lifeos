@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a reproducible problem
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Проверьте, что аналогичного issue нет. Секреты (токены, JWT) не вставляйте в текст."
+  - type: textarea
+    id: description
+    attributes:
+      label: Описание
+      placeholder: Что произошло vs что ожидалось
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Шаги воспроизведения
+      placeholder: |
+        1. Запустить `make docker-up`
+        2. Отправить боту "/task ..."
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия
+      description: "git tag / commit или `lifeos --version`"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: ОС / окружение
+      options: [macOS, Linux, Windows, Docker, VPS]
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи
+      description: С_maskированные_ секреты
+      render: shell

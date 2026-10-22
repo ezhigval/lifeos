@@ -59,7 +59,9 @@ make package-win      # windows/amd64
 | Край Cloudflare | [docs/deploy/EDGE.md](docs/deploy/EDGE.md) |
 | VPS и Caddy | [docs/deploy/hosting.md](docs/deploy/hosting.md) |
 | Архитектура | [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) |
+| Дорожная карта и статусы | [docs/architecture/ROADMAP.md](docs/architecture/ROADMAP.md) |
 | Модель и схема | [docs/architecture/DOMAIN_MODEL.md](docs/architecture/DOMAIN_MODEL.md), [docs/diagrams/](docs/diagrams/) |
+| Безопасность | [SECURITY.md](SECURITY.md) |
 | Решения | [docs/adr/](docs/adr/) |
 | Фразы бота и агент | [docs/ai/SCENARIOS.md](docs/ai/SCENARIOS.md), [docs/ai/AGENT.md](docs/ai/AGENT.md) |
 | LLM | [docs/ops/LLM.md](docs/ops/LLM.md) |

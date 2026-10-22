@@ -9,6 +9,8 @@
 | VPS с Caddy | [deploy/hosting.md](deploy/hosting.md) |
 | Как устроен код | [architecture/ARCHITECTURE.md](architecture/ARCHITECTURE.md) |
 | Сущности | [architecture/DOMAIN_MODEL.md](architecture/DOMAIN_MODEL.md) |
+| Память агента и обучение | [architecture/DOMAIN_MODEL.md](architecture/DOMAIN_MODEL.md#memory), [ai/AGENT.md](ai/AGENT.md) |
+| Статусы и планы развития | [architecture/ROADMAP.md](architecture/ROADMAP.md) |
 | Схема БД и последовательности | [diagrams/](diagrams/) |
 | Почему так, а не иначе | [adr/](adr/) |
 | Что бот делает с фразой | [ai/SCENARIOS.md](ai/SCENARIOS.md) |
@@ -16,5 +18,6 @@
 | Клиенты: бот, Mini App, десктоп | [roadmap/CLIENTS.md](roadmap/CLIENTS.md) |
 | LLM | [ops/LLM.md](ops/LLM.md) |
 | Контракт HTTP | [api/openapi.yaml](api/openapi.yaml) |
+| Безопасность | [../SECURITY.md](../SECURITY.md) |
 
 Секреты в эти файлы не пишутся. Шаблоны переменных — в корневом `.env.example`.

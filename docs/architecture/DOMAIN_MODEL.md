@@ -1,6 +1,7 @@
 # Domain Model
 
-**Version:** 0.4  
+**Version:** 0.5  
+**Status:** Current (synced to code, 2026-10-22)  
 **See also:** [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ---
@@ -176,6 +177,49 @@ Reminder = `ScheduledJob` с `job_type=reminder`.
 
 ---
 
+## Memory
+
+**Пакет:** `internal/memory` · **Таблица:** `user_memories` (миграция 00030)
+
+**Aggregate:** `Memory`
+
+| Field | Type | Notes |
+|-------|------|-------|
+| ID | MemoryID | |
+| UserID | UserID | |
+| Kind | enum | `preference` \| `fact` \| `alias` \| `pattern` |
+| Key | string | unique вместе с (UserID, Kind) |
+| Value | string | |
+| Confidence | float64 | default 0.7 |
+| Source | string | default `agent` |
+| CreatedAt / UpdatedAt | time.Time | |
+
+Инварианты: непустые `Key`/`Value`, валидный `Kind`; пара `(user_id, kind, key)` уникальна — повторная запись обновляет существующую память. Флаг `UserSettings.memory_enabled` (default `true`) включает подмешивание памяти в контекст агента.
+
+---
+
+## Learning (анонимное обучение, opt-in)
+
+**Пакет:** `internal/learning` · **Таблица:** `anon_learning_events` (миграция 00030)
+
+**Entity:** `Event`
+
+| Field | Type | Notes |
+|-------|------|-------|
+| ID | LearningEventID | |
+| AnonSubject | string | HMAC-SHA256 от UserID + salt; raw user id никогда не сохраняется |
+| Type | string | тип сигнала (например, tool call) |
+| ToolOrIntent | string? | |
+| Success | *bool | nil — неизвестно |
+| AskRounds | int | число уточняющих вопросов |
+| Model | string | имя LLM-модели |
+| Meta | JSONB | только грубые флаги, без PII |
+| CreatedAt | time.Time | |
+
+Включение: `UserSettings.learning_opt_in` (default `false`). События пишутся append-only; сырые сообщения, имена и суммы в `Meta` запрещены доменным правилом.
+
+---
+
 ## AI (ports, не domain)
 
 ```go
@@ -186,9 +230,22 @@ type IntentResolver interface {
 type Assistant interface {
     Summarize(ctx context.Context, req SummaryRequest) (string, error)
 }
+
+type ConversationalAgent interface {   // диалог с tools (LLM function calling)
+    RunTurn(ctx context.Context, req AgentRequest) (AgentReply, error)
+}
+
+type STT interface {                   // расшифровка голосовых сообщений
+    Transcribe(ctx context.Context, audio AudioAttachment) (string, error)
+}
+
+type Vision interface {                // описание фотографий/скриншотов
+    Describe(ctx context.Context, img ImageAttachment, hint string) (string, error)
+}
 ```
 
-Реализации: `rulebased` (default), `ollama` (optional), `composite`.
+Реализации: `rulebased` (default), `ollama` (optional), `openai` (Groq по умолчанию), `composite`.
+STT/Vision включаются флагами конфигурации; без LLM система остаётся полностью работоспособной.
 
 ---
 
@@ -204,9 +261,13 @@ Planning, Finance, Habits, Calendar, Knowledge, Health, Career
 Notifications (scheduled_jobs)
     ↓
 query/ (read models: priorities, reviews, analytics)
+
+AI (ports) ──→ Memory (контекст агента: предпочтения/факты)
+          └──→ Learning (append-only анонимные сигналы, opt-in)
 ```
 
 **Integration:** shared `UserID`, слабая связь через IDs, cross-context reads в `internal/query/`.
+`Memory` и `Learning` — leaf-контексты: никто не зависит от них, кроме `ai`/transport.
 
 ---
 
