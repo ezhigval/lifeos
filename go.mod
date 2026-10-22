@@ -1,6 +1,6 @@
 module github.com/valentinezhov/lifeos
 
-go 1.25.5
+go 1.26.0
 
 require (
 	github.com/exaring/otelpgx v0.11.1
@@ -18,7 +18,7 @@ require (
 	go.opentelemetry.io/otel v1.43.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.19.0
 	go.opentelemetry.io/otel/sdk v1.43.0
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.24.0
 	modernc.org/sqlite v1.59.0
 )
 
